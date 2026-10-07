@@ -58,7 +58,7 @@ final class ConfigurationRuntimeTest {
                 value Config { Host sample }
 
                 Void main() {
-                  JavaMap<String, Any?> properties = configurationProperties(value: Config(
+                  JavaMap<String, Any> properties = configurationProperties(value: Config(
                     sample: Host(
                       server: Server(host: "127.0.0.1", port: 8080),
                       router: Router(staticResources: [

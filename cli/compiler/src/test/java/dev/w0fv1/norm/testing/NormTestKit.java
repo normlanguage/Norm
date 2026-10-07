@@ -105,9 +105,9 @@ public final class NormTestKit {
       cases = files.filter(Files::isDirectory).sorted().toList();
     }
     List<DynamicTest> tests = new ArrayList<>();
-    try (ProjectLoader projects = ENVIRONMENT.projectLoader();
-        CompilerSession compiler = ENVIRONMENT.compilerSession()) {
-      for (Path projectCase : cases) {
+    for (Path projectCase : cases) {
+      try (ProjectLoader projects = ENVIRONMENT.projectLoader();
+          CompilerSession compiler = ENVIRONMENT.compilerSession()) {
         Path module = projectCase.resolve("app").resolve("module.norm");
         assertTrue(Files.isRegularFile(module), projectCase + " must contain app/module.norm");
         assertTrue(

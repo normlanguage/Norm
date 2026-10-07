@@ -312,4 +312,37 @@ final class TaskExecutionTest {
             }
             """));
   }
+
+  @Test
+  void projectsTaskCompletionIntoCanonicalJavaFuture() {
+    assertEquals(
+        "java-future-ok" + System.lineSeparator(),
+        NormTestKit.run(
+            """
+        import std.concurrent.completion
+        import std.concurrent.completionFuture
+        import std.core.Exception
+        Void main() {
+          var source = completion<String>()
+          var task = source.task()
+          var future = completionFuture(task)
+          source.succeed("done")
+          require(condition: future.join() == null && future.isDone(), message: "completion has no Java result")
+          var cancelledSource = completion<String>()
+          var cancelledTask = cancelledSource.task()
+          var cancelled = completionFuture(cancelledTask)
+          require(condition: cancelled.cancel(true) && cancelledTask.completed(), message: "Java cancellation reaches task")
+          var closedSource = completion<String>()
+          var closedTask = closedSource.task()
+          var closed = completionFuture(closedTask)
+          closedTask.close()
+          require(condition: closed.isCancelled(), message: "task close cancels Java future")
+          var failedSource = completion<String>()
+          var failed = completionFuture(failedSource.task())
+          failedSource.fail(Exception(message: "original"))
+          require(condition: failed.isCompletedExceptionally(), message: "task failure reaches Java future")
+          printLine("java-future-ok")
+        }
+        """));
+  }
 }

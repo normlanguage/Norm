@@ -15,10 +15,10 @@ public annotation ConfigurationValue implements FieldTarget, RuntimeRetention {
 }
 
 @Document(description: "Flattens a serializable typed value into insertion-ordered host configuration properties.")
-public JavaMap<String, Any?> configurationProperties<T>(
+public JavaMap<String, Any> configurationProperties<T>(
   @Document(description: "The serializable configuration value to flatten.") T value
 ) {
-  return __configurationProperties<T, JavaMap<String, Any?>>(
+  return __configurationProperties<T, JavaMap<String, Any>>(
     value: value,
     type: T.class
   )

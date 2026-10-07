@@ -43,7 +43,22 @@ final class JavaBaseDomainBindingTest {
     "java.lang.Throwable,0,Throwable",
     "java.lang.Exception,0,Exception",
     "java.lang.RuntimeException,0,RuntimeException",
-    "java.lang.AutoCloseable,0,AutoCloseable"
+    "java.lang.AutoCloseable,0,AutoCloseable",
+    "java.lang.Record,0,Record",
+    "java.lang.Number,0,Number",
+    "java.time.LocalDate,0,LocalDate",
+    "java.time.LocalTime,0,LocalTime",
+    "java.time.YearMonth,0,YearMonth",
+    "java.time.chrono.ChronoLocalDate,0,ChronoLocalDate",
+    "java.time.temporal.Temporal,0,Temporal",
+    "java.time.temporal.TemporalAccessor,0,TemporalAccessor",
+    "java.time.temporal.TemporalAdjuster,0,TemporalAdjuster",
+    "java.math.BigDecimal,0,BigDecimal",
+    "java.math.MathContext,0,MathContext",
+    "java.math.RoundingMode,0,RoundingMode",
+    "java.lang.Cloneable,0,Cloneable",
+    "java.util.EventListener,0,EventListener",
+    "java.util.EventObject,0,EventObject"
   })
   void domainReferencesUseTheirJavaBaseOwner(String binaryName, int arity, String name) {
     var parameterTypes = new ArrayList<JavaBindingTypeArgument>();

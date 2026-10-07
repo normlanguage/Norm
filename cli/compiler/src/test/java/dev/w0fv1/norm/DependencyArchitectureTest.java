@@ -8,6 +8,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,11 @@ final class DependencyArchitectureTest {
         new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
             .importPath(classes);
+  }
+
+  @AfterAll
+  static void releaseProductionClasses() {
+    aggregates = null;
   }
 
   @Test

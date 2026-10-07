@@ -331,4 +331,100 @@ final class JvmJarBindingTaskTest {
     assertThrows(CompletionException.class, notification::join);
     assertThrows(JarBindingInvocationException.class, cancelled::await);
   }
+
+  @Test
+  void completionFuturePreservesFailureAndBidirectionalCancellation() {
+    var source = new CompletableFuture<String>();
+    var task = FutureBindingTask.fromCompletion(source, JarBindingResult.Scalar::new);
+    var future = task.completionFuture();
+    source.complete("done");
+    assertNull(future.join());
+    assertFalse(future.cancel(true));
+    var original = new IllegalStateException("original");
+    var failedSource = new CompletableFuture<String>();
+    var failed =
+        FutureBindingTask.fromCompletion(failedSource, JarBindingResult.Scalar::new)
+            .completionFuture();
+    failedSource.completeExceptionally(original);
+    assertSame(original, assertThrows(CompletionException.class, failed::join).getCause());
+    var hostCancelledSource = new CompletableFuture<String>();
+    var hostCancelled =
+        FutureBindingTask.fromCompletion(hostCancelledSource, JarBindingResult.Scalar::new)
+            .completionFuture();
+    assertTrue(hostCancelled.cancel(true));
+    assertTrue(hostCancelledSource.isCancelled());
+    var guestCancelledSource = new CompletableFuture<String>();
+    var guestCancelledTask =
+        FutureBindingTask.fromCompletion(guestCancelledSource, JarBindingResult.Scalar::new);
+    var guestCancelled = guestCancelledTask.completionFuture();
+    guestCancelledTask.cancel();
+    assertTrue(guestCancelled.isCancelled());
+    var closedSource = new CompletableFuture<String>();
+    var closedTask = FutureBindingTask.fromCompletion(closedSource, JarBindingResult.Scalar::new);
+    var closed = closedTask.completionFuture();
+    closedTask.close();
+    assertTrue(closed.isCancelled());
+  }
+
+  @Test
+  void javaCompletionCancellationInterruptsRunningWorkAndWaitsForCleanup() throws Exception {
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    var cleaned = new java.util.concurrent.CountDownLatch(1);
+    var task =
+        FutureBindingTask.start(
+            () -> {
+              entered.countDown();
+              try {
+                new java.util.concurrent.CountDownLatch(1).await();
+              } finally {
+                cleaned.countDown();
+              }
+              return "unreachable";
+            },
+            JarBindingResult.Scalar::new);
+    try {
+      var future = task.completionFuture();
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      assertTrue(future.cancel(true));
+      assertTrue(cleaned.await(5, TimeUnit.SECONDS));
+      task.ownedTermination().orElseThrow().toCompletableFuture().get(5, TimeUnit.SECONDS);
+      assertTrue(future.isCancelled());
+    } finally {
+      task.close();
+    }
+  }
+
+  @Test
+  void javaCompletionCancellationWithoutInterruptionLetsRunningCleanupFinish() throws Exception {
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var cleaned = new java.util.concurrent.CountDownLatch(1);
+    var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+    var task =
+        FutureBindingTask.start(
+            () -> {
+              entered.countDown();
+              try {
+                release.await();
+              } catch (InterruptedException failure) {
+                interrupted.set(true);
+              } finally {
+                cleaned.countDown();
+              }
+              return "finished";
+            },
+            JarBindingResult.Scalar::new);
+    try {
+      var future = task.completionFuture();
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      assertTrue(future.cancel(false));
+      release.countDown();
+      assertTrue(cleaned.await(5, TimeUnit.SECONDS));
+      assertFalse(interrupted.get());
+      assertTrue(future.isCancelled());
+    } finally {
+      release.countDown();
+      task.close();
+    }
+  }
 }

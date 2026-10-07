@@ -31,14 +31,14 @@ value Service {
   String? description
 }
 
-@Test(types: [JavaMap<String, Any?>.class, ConfigurationKey.class, ConfigurationValue.class, SerialName.class, Serializable.class], functions: [configurationProperties.function])
+@Test(types: [JavaMap<String, Any>.class, ConfigurationKey.class, ConfigurationValue.class, SerialName.class, Serializable.class], functions: [configurationProperties.function])
 Void propertiesTest() {
   Map<String, Endpoint> targets = Map<>()
   targets.put(
     key: "internal",
     value: Endpoint(name: "unused", contextPath: "/internal")
   )
-  JavaMap<String, Any?> properties = configurationProperties(value: Service(
+  JavaMap<String, Any> properties = configurationProperties(value: Service(
     endpoints: [Endpoint(name: "public", contextPath: "/api")],
     targets: targets,
     secret: Secret(value: "norm"),

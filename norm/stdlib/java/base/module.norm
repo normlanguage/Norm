@@ -43,7 +43,19 @@ Module module() {
       "util.function.Supplier",
       "io.Serializable",
       "lang.constant.ConstantDesc",
-      "lang.annotation.Annotation"
+      "lang.annotation.Annotation",
+      "lang.Record",
+      "time.LocalDate",
+      "time.LocalTime",
+      "time.YearMonth",
+      "time.Month",
+      "time.DayOfWeek",
+      "math.BigDecimal",
+      "math.RoundingMode",
+      "math.MathContext",
+      "lang.Cloneable",
+      "util.EventListener",
+      "util.EventObject"
     ],
     binding: jarBinding(
       target: jdkModule(name: "java.base"),
@@ -69,7 +81,7 @@ Module module() {
         jarType(name: "java.time.Duration", members: []),
         jarType(name: "java.io.InputStream", members: ["close"], overloads: [jarOverload(name: "read", parameterTypes: [])]),
         jarType(name: "java.io.OutputStream", members: ["flush", "close"], overloads: [jarOverload(name: "write", parameterTypes: ["int"])]),
-        jarType(name: "java.util.concurrent.Future", members: []),
+        jarType(name: "java.util.concurrent.Future", members: ["cancel", "isCancelled", "isDone"]),
         jarType(name: "java.util.concurrent.Flow.Publisher", members: []),
         jarType(name: "java.util.concurrent.Flow.Subscriber", members: []),
         jarType(name: "java.util.concurrent.Flow.Subscription", members: []),
@@ -83,12 +95,38 @@ Module module() {
         jarType(name: "java.nio.charset.StandardCharsets", members: ["UTF_8"]),
         jarType(name: "java.util.Locale", members: []),
         jarType(name: "java.util.concurrent.CompletionStage", members: []),
-        jarType(name: "java.util.concurrent.CompletableFuture", members: []),
+        jarType(name: "java.util.concurrent.CompletableFuture", members: ["join", "isCompletedExceptionally"]),
         jarType(name: "java.lang.constant.Constable", members: []),
         jarType(name: "java.util.function.Supplier", members: ["get"]),
         jarType(name: "java.io.Serializable", members: []),
         jarType(name: "java.lang.constant.ConstantDesc", members: []),
-        jarType(name: "java.lang.annotation.Annotation", members: [])
+        jarType(name: "java.lang.annotation.Annotation", members: []),
+        jarType(name: "java.lang.Record", members: ["toString"]),
+        jarType(name: "java.time.LocalDate", members: ["getYear", "getMonthValue", "getDayOfMonth", "getDayOfWeek", "plusDays", "minusDays", "plusMonths", "minusMonths", "lengthOfMonth", "isLeapYear", "toEpochDay", "ofEpochDay", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.LocalTime", members: ["getHour", "getMinute", "getSecond", "getNano", "plusHours", "plusMinutes", "plusSeconds", "toSecondOfDay", "ofSecondOfDay", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int"]),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int"]),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.YearMonth", members: ["getYear", "getMonthValue", "lengthOfMonth", "atDay", "plusMonths", "minusMonths", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.Month", members: ["of", "getValue"]),
+        jarType(name: "java.time.DayOfWeek", members: ["of", "getValue"]),
+        jarType(name: "java.math.BigDecimal", members: ["add", "subtract", "multiply", "divide", "setScale", "scale", "signum", "compareTo", "toPlainString", "toString", "negate", "abs"], overloads: [jarOverload(name: "new", parameterTypes: ["java.lang.String"])]),
+        jarType(name: "java.math.RoundingMode", members: []),
+        jarType(name: "java.math.MathContext", members: ["getPrecision", "getRoundingMode"], overloads: [jarOverload(name: "new", parameterTypes: ["int", "java.math.RoundingMode"])]),
+        jarType(name: "java.lang.Cloneable", members: []),
+        jarType(name: "java.util.EventListener", members: []),
+        jarType(name: "java.util.EventObject", members: ["getSource"], overloads: [jarOverload(name: "new", parameterTypes: ["java.lang.Object"])])
       ]
     )
   )

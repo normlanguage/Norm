@@ -87,9 +87,9 @@ final class TaskRegistration implements JarBindingTask {
   }
 
   @Override
-  public boolean cancel() {
+  public boolean cancel(boolean mayInterruptIfRunning) {
     observed = true;
-    boolean cancelled = task.cancel();
+    boolean cancelled = task.cancel(mayInterruptIfRunning);
     if (task.completed()) close();
     return cancelled;
   }

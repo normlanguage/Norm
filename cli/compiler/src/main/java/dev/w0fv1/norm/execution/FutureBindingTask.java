@@ -207,8 +207,8 @@ public final class FutureBindingTask implements JarBindingTask {
   }
 
   @Override
-  public boolean cancel() {
-    return source.cancel(true);
+  public boolean cancel(boolean mayInterruptIfRunning) {
+    return source.cancel(mayInterruptIfRunning);
   }
 
   @Override

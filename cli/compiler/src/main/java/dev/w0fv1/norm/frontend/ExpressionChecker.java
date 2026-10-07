@@ -1113,7 +1113,8 @@ final class ExpressionChecker implements ExpressionTyping {
               "enum variant '" + member.name() + "' requires construction arguments",
               member.span());
         }
-        return typeResolver.appliedType(enumDecl.name(), enumName.typeArguments(), enumName.span());
+        return typeResolver.appliedType(
+            enumName.value(), enumName.typeArguments(), enumName.span());
       }
     }
     SemanticType nullableReceiverType = typeOf(member.receiver(), null);
