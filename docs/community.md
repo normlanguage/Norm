@@ -33,3 +33,9 @@ The [version index](/versions/) records the actual boundaries of the language, c
 - Read the [formal reference](/spec/language-spec) for contradictions between sections.
 - Compare the [roadmap](/design/roadmap) and [technical plan](/design/technical-plan) to choose an area of work.
 - Include a minimal code example, expected behavior, and rationale when filing an issue.
+
+## GitHub presentation
+
+- [Organization profile](https://github.com/normlanguage/.github/blob/main/profile/README.md)
+- [Repository introduction](https://github.com/normlanguage/Norm#readme)
+- [Brand source](https://github.com/normlanguage/Norm/blob/main/docs/public/brand/norm.svg) · [Asset generation](https://github.com/normlanguage/Norm/blob/main/docs/scripts/generate-brand-assets.mjs)
