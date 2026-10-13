@@ -1,59 +1,61 @@
+<p align="center">
+  <img src="docs/public/brand/norm-banner.svg" alt="Norm — Familiar syntax. Explicit semantics." width="100%">
+</p>
+
+<p align="center">
+  <a href="https://normlanguage.github.io/Norm/learn/">Learn Norm</a> ·
+  <a href="https://normlanguage.github.io/Norm/spec/language-spec">Language reference</a> ·
+  <a href="https://github.com/normlanguage/examples">Examples</a> ·
+  <a href="https://github.com/normlanguage/Norm/releases">Releases</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 # Norm
 
-<p align="center"><img src="docs/public/brand/norm.svg" alt="Norm Logo" width="144"></p>
+Norm is a statically typed, application-oriented programming language with familiar syntax and explicit semantics.
 
-[简体中文](README.zh-CN.md)
+Use `class` for identity, `value` for data, `enum` for alternatives, `interface` for capabilities, and `ref` for controlled aliasing. Explore the [language tour](https://normlanguage.github.io/Norm/learn/) through executable examples.
 
-Norm is a specification and compiler-bootstrap repository for a statically typed, application-oriented programming language.
-
-Norm uses distinct language constructs for distinct semantics: classes express identity, values express data, enums express alternatives, interfaces express capability, and refs express controlled aliasing.
-
-## Status
-
-License: [MPL-2.0](LICENSE). Scope and source availability: [LICENSING.md](LICENSING.md).
-
-**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [version index](https://normlanguage.github.io/Norm/versions/) identifies the current implementation contract.
-
-## Build
-
-```shell
-./gradlew :compiler:installRuntimeDist
-./build/compiler/norm-runtime/bin/norm --version
-./build/compiler/norm-runtime/bin/norm run cli/compiler/scripts/fixtures/hello.norm
+```norm
+main() {
+  printLine("Hello, Norm")
+}
 ```
 
-The Gradle wrapper builds with Java 25. On Windows, run `.\gradlew.bat :compiler:installRuntimeDist` and use `build\compiler\norm-runtime\bin\norm.bat` as the CLI. Release assets are written to `build/distributions`; see the [source-build design](docs/design/distribution-source-build.md).
+[Run this example](norm/tests/docs/showcase/simple.norm) · [Explore application examples](https://github.com/normlanguage/examples)
 
-Tagged releases provide a self-contained `norm` distribution and a VS Code extension that contains the matching distribution. See the [release process](https://normlanguage.github.io/Norm/design/release-process) for supported platforms and acceptance requirements.
+## Get started
 
-## Documentation
+- **Learn the language:** follow the [learning path](https://normlanguage.github.io/Norm/learn/).
+- **Get the tools:** find the CLI and matching VS Code extension in [releases](https://github.com/normlanguage/Norm/releases). See the [distribution guide](docs/design/distribution-source-build.md) for source builds.
+- **Build an application:** explore [examples](https://github.com/normlanguage/examples) and the [package registry](https://github.com/normlanguage/registry).
 
-The VitePress site separates the continuous Language Tour, precise Language Reference, current standard-library API, tooling and compiler design, and release status. Its primary examples are compiled, executed, and checked against companion output files.
+**Active development.** Check the [current status](https://normlanguage.github.io/Norm/status) and [version index](https://normlanguage.github.io/Norm/versions/) for delivered capabilities and implementation boundaries.
 
-After GitHub Pages deployment, the documentation is available at:
+## Explore
 
-**https://normlanguage.github.io/Norm/**
+| Start here | Find |
+| --- | --- |
+| [Language reference](https://normlanguage.github.io/Norm/spec/language-spec) | Language rules and semantics |
+| [Standard library](https://normlanguage.github.io/Norm/stdlib/overview) | Core types and library APIs |
+| [Agent tools](https://normlanguage.github.io/Norm/tooling/agent) | Inspect, refactor, and verify Norm code |
+| [Awesome Norm](https://github.com/normlanguage/awesome-norm) | Projects and ecosystem resources |
+| [Norm Skill](https://github.com/normlanguage/Norm-Skill) | Reference-driven guidance for coding agents |
 
-## Repository layout
+## Work on Norm
 
-```text
-cli/                         command-line product
-  compiler/                  Java compiler, runtime, CLI, and language server
-  extensions/                editor extensions
-norm/stdlib/                  standard library written in Norm
-norm/tests/                   executable Norm test programs
-docs/                         documentation site
-norm/tests/docs/              executable documentation examples
-```
+This repository contains the language specification, compiler and CLI, standard library, VS Code extension, documentation, and tests. Application examples and ecosystem acceptance live in [examples](https://github.com/normlanguage/examples); adapter packages are maintained independently in the [Norm organization](https://github.com/normlanguage).
 
-## Implementation strategy
+| Source | Entry point |
+| --- | --- |
+| Compiler, runtime, and CLI | [cli/compiler](cli/compiler/) |
+| Editor extension | [cli/extensions/vscode](cli/extensions/vscode/) |
+| Standard library | [norm/stdlib](norm/stdlib/) |
+| Executable language tests | [norm/tests](norm/tests/) |
+| Documentation and checked examples | [docs](docs/) · [norm/tests/docs](norm/tests/docs/) |
 
-Norm's official compiler is implemented in Java as one physical module whose packages preserve the compilation and execution boundaries. Truffle is the sole official execution backend. Releases bundle a platform runtime so the CLI can load independently published Java libraries without requiring a system Java installation. Zig is not part of the compiler or standard-library platform adapters.
+Read the [compiler architecture](https://normlanguage.github.io/Norm/spec/compiler-design), [implementation strategy](https://normlanguage.github.io/Norm/design/implementation-strategy), and [contribution guide](https://normlanguage.github.io/Norm/community). Report problems with a minimal example in [Issues](https://github.com/normlanguage/Norm/issues).
 
-The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://normlanguage.github.io/Norm/spec/compiler-design) and [implementation strategy](https://normlanguage.github.io/Norm/design/implementation-strategy).
+## License
 
-## Repository scope
-
-This repository maintains the Norm language, standard library, compiler and CLI, VS Code extension, documentation, and tests.
-
-Application examples and end-to-end acceptance tests live in [examples](https://github.com/normlanguage/examples). Adapter packages are maintained, tested, and released independently under the [normlanguage](https://github.com/normlanguage) organization. The compiler provides generic package resolution, Java interoperability, and Native Image integration.
+[MPL-2.0](LICENSE). See [licensing scope and source availability](LICENSING.md).
