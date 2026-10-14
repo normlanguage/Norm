@@ -23,15 +23,23 @@ final class FieldWriteNode extends Node {
       RuntimeValues.FieldKey field,
       Object value,
       ExecutionState execution) {
-    var view = receiver.info(execution);
-    receiver.ensureField(field, execution);
+    execute(receiver, field, value, execution, receiver.info(execution));
+  }
+
+  void execute(
+      RuntimeValues.ObjectValue receiver,
+      RuntimeValues.FieldKey field,
+      Object value,
+      ExecutionState execution,
+      RuntimeValues.AggregateInfo view) {
+    receiver.ensureLayout(view, execution);
     RuntimeValues.FieldPlan plan =
         view.fields().stream()
             .filter(candidate -> candidate.key().equals(field))
             .findFirst()
             .orElseThrow();
     AnnotationRuntime runtime = view.annotations();
-    invoke(0, receiver, plan, value, execution, runtime);
+    invoke(0, receiver, plan, value, execution, runtime, view);
   }
 
   private void invoke(
@@ -40,17 +48,18 @@ final class FieldWriteNode extends Node {
       RuntimeValues.FieldPlan plan,
       Object value,
       ExecutionState execution,
-      AnnotationRuntime annotations) {
+      AnnotationRuntime annotations,
+      RuntimeValues.AggregateInfo view) {
     if (layer == interceptorCount(plan)) {
       Object stored = RuntimeValues.copy(value);
-      Object previous = receiver.rawField(plan.key());
-      receiver.writeRawField(plan.key(), stored);
+      Object previous = receiver.rawField(plan.key(), view);
+      receiver.writeRawField(plan.key(), stored, view);
       if (receiver.hostValue != null) {
         ClassLoader loader = execution.applicationClassLoader();
         RuntimeValues.afterStateCommit(
             () -> writeHostField(loader, receiver.hostValue, plan.name(), stored));
       }
-      receiver.fieldChanged(receiver.fieldIndex(plan.key()), previous);
+      receiver.fieldChanged(plan.key(), previous, view);
       return;
     }
     CoreInterceptor interceptor = interceptor(plan, layer);
@@ -58,7 +67,7 @@ final class FieldWriteNode extends Node {
         new RuntimeValues.FieldContextValue(
             FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type, FIELD_TYPE));
     RuntimeValues.ObjectValue annotation =
-        annotations.fieldAnnotation(plan.owner(), plan.index(), interceptor, execution);
+        annotations.fieldAnnotation(plan.owner(), plan.index(), layer, interceptor, execution);
     Object transformed =
         lifecycle.execute(
             annotations.fieldBefore(annotation),
@@ -68,7 +77,8 @@ final class FieldWriteNode extends Node {
             new CoreType[0]);
     boolean succeeded = false;
     try {
-      invoke(layer + 1, receiver, plan, RuntimeValues.copy(transformed), execution, annotations);
+      invoke(
+          layer + 1, receiver, plan, RuntimeValues.copy(transformed), execution, annotations, view);
       succeeded = true;
     } finally {
       lifecycle.execute(

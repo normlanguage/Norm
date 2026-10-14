@@ -12,13 +12,18 @@ public final class CoreMetadata {
     if (values.stream().anyMatch(Objects::isNull)) {
       throw new NullPointerException("annotation application");
     }
+    if (values.stream().map(CoreAnnotationApplication::id).distinct().count() != values.size())
+      throw new IllegalArgumentException("annotation authoring application ids must be unique");
     this.annotations =
         values.stream()
             .sorted(
-                (left, right) ->
-                    Arrays.compareUnsigned(
-                        CoreCodec.encodeAnnotationApplication(left),
-                        CoreCodec.encodeAnnotationApplication(right)))
+                (left, right) -> {
+                  int order =
+                      Arrays.compareUnsigned(
+                          CoreCodec.encodeAnnotationApplication(left),
+                          CoreCodec.encodeAnnotationApplication(right));
+                  return order == 0 ? left.id().compareTo(right.id()) : order;
+                })
             .toList();
   }
 

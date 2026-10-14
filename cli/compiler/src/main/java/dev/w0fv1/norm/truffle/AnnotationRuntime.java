@@ -5,7 +5,9 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationApplication;
+import dev.w0fv1.norm.core.CoreAnnotationPath;
 import dev.w0fv1.norm.core.CoreAnnotationReference;
+import dev.w0fv1.norm.core.CoreAnnotationReferenceSite;
 import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
@@ -58,6 +60,10 @@ final class AnnotationRuntime {
       constructorParameters = new LinkedHashMap<>();
 
   private final dev.w0fv1.norm.core.CoreRuntimeIdentity identity;
+  private final dev.w0fv1.norm.core.CoreAuthoringMap authoring;
+  private final Map<ApplicationKey, dev.w0fv1.norm.core.CoreAnnotationReferenceSite>
+      configurationSites = new LinkedHashMap<>();
+  private Map<DefinitionOccurrenceId, CallTarget> declarationTargets = Map.of();
   private LiveBindings.Version version;
   private GuestValueFactory values;
   private final Map<ApplicationKey, RuntimeValues.ObjectValue> annotationViews =
@@ -69,6 +75,7 @@ final class AnnotationRuntime {
 
   AnnotationRuntime(CoreArtifact artifact, dev.w0fv1.norm.core.CoreRuntimeIdentity identity) {
     this.identity = identity;
+    this.authoring = artifact.authoring();
     for (var occurrence : artifact.authoring().occurrences()) {
       if (occurrence.role() == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR) {
         constructorParameters.put(
@@ -106,8 +113,14 @@ final class AnnotationRuntime {
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
       ApplicationKey key = key(application);
-      if (key != null)
+      if (key != null) {
         indexed.put(key, application.values().stream().map(identity::annotationValue).toList());
+        configurationSites.put(
+            key,
+            new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(
+                new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Metadata(application.id()),
+                dev.w0fv1.norm.core.CoreAnnotationPath.ROOT));
+      }
     }
     applications = Map.copyOf(indexed);
     functionInterceptor = CoreFunctionInterceptorProtocol.resolve(artifact.program()).orElse(null);
@@ -129,7 +142,8 @@ final class AnnotationRuntime {
                 (RuntimeValues.ObjectValue) arguments[1],
                 (RuntimeValues.FieldKey) arguments[2],
                 arguments[3],
-                (ExecutionState) arguments[0]);
+                (ExecutionState) arguments[0],
+                (RuntimeValues.AggregateInfo) arguments[4]);
             return null;
           }
         }.getCallTarget();
@@ -137,12 +151,21 @@ final class AnnotationRuntime {
 
   void initialize(
       Map<DefinitionOccurrenceId, RuntimeValues.AggregateInfo> occurrences,
-      Map<DefinitionId, CallTarget> callableTargets) {
+      Map<DefinitionOccurrenceId, CallTarget> declarationTargets) {
     Map<DefinitionId, RuntimeValues.AggregateInfo> indexed = new LinkedHashMap<>();
     occurrences.forEach(
         (occurrence, info) -> indexed.putIfAbsent(identity.id(occurrence.representative()), info));
     aggregateInfo = Map.copyOf(indexed);
-    this.callableTargets = Map.copyOf(callableTargets);
+    this.declarationTargets = Map.copyOf(declarationTargets);
+    var targets = new LinkedHashMap<DefinitionId, CallTarget>();
+    var ambiguous = new java.util.HashSet<DefinitionId>();
+    declarationTargets.forEach(
+        (occurrence, target) -> {
+          var id = occurrence.representative();
+          if (targets.putIfAbsent(id, target) != null) ambiguous.add(id);
+        });
+    ambiguous.forEach(targets::remove);
+    this.callableTargets = Map.copyOf(targets);
   }
 
   void attachVersion(LiveBindings.Version version) {
@@ -519,7 +542,7 @@ final class AnnotationRuntime {
     if (operation.receiver() != null) arguments.add(operation.receiver());
     java.util.Collections.addAll(arguments, operation.receiverTypeArguments());
     java.util.Collections.addAll(arguments, operation.reifiedArguments());
-    return callableTargets.get(target.representative()).call(arguments.toArray());
+    return declarationTargets.get(target).call(arguments.toArray());
   }
 
   CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
@@ -553,11 +576,10 @@ final class AnnotationRuntime {
   }
 
   Object readField(RuntimeValues.FieldValue field, Object receiver, ExecutionState execution) {
-    return RuntimeValues.copy(
-        fieldReceiver(field, receiver)
-            .readField(
-                new RuntimeValues.FieldKey(field.owner().representative(), field.name()),
-                execution));
+    var object = fieldReceiver(field, receiver);
+    var view = field.annotations().aggregateInfo(object.objectInfo.definition());
+    object.ensureLayout(view, execution);
+    return RuntimeValues.copy(object.readField(field.key(), view, execution));
   }
 
   boolean hasFieldAnnotation(RuntimeValues.FieldValue field, CoreType annotationType) {
@@ -616,17 +638,11 @@ final class AnnotationRuntime {
 
   record FieldHandle(RuntimeValues.FieldValue field, RuntimeValues.ObjectValue receiver) {
     Object read(ExecutionState execution) {
-      return execution
-          .runtime()
-          .forType(field.ownerType(), field.annotations())
-          .readField(field, receiver, execution);
+      return field.annotations().readField(field, receiver, execution);
     }
 
     void write(Object value, ExecutionState execution) {
-      execution
-          .runtime()
-          .forType(field.ownerType(), field.annotations())
-          .writeField(field, receiver, value, execution);
+      field.annotations().writeField(field, receiver, value, execution);
     }
 
     @Override
@@ -668,11 +684,11 @@ final class AnnotationRuntime {
         : !typeRelations.isAssignable(field.fieldType(), RuntimeValues.runtimeType(value))) {
       throw new IllegalArgumentException("field value does not match its declared type");
     }
-    fieldWriter.call(
-        execution,
-        object,
-        new RuntimeValues.FieldKey(field.owner().representative(), field.name()),
-        value);
+    var view = field.annotations().aggregateInfo(object.objectInfo.definition());
+    try (var lease =
+        execution.liveBindings() == null ? null : execution.liveBindings().stateWrite()) {
+      fieldWriter.call(execution, object, field.key(), value, view);
+    }
   }
 
   private RuntimeValues.ObjectValue fieldReceiver(RuntimeValues.FieldValue field, Object receiver) {
@@ -712,6 +728,10 @@ final class AnnotationRuntime {
 
   RuntimeProgram program() {
     return program;
+  }
+
+  boolean isAssignable(CoreType expected, CoreType actual) {
+    return typeRelations.isAssignable(expected, actual);
   }
 
   RuntimeValues.AggregateInfo aggregateInfo(DefinitionId definition) {
@@ -796,7 +816,10 @@ final class AnnotationRuntime {
   }
 
   RuntimeValues.ObjectValue functionAnnotation(
-      DefinitionOccurrenceId callable, CoreInterceptor interceptor, ExecutionState execution) {
+      DefinitionOccurrenceId callable,
+      int interceptorIndex,
+      CoreInterceptor interceptor,
+      ExecutionState execution) {
     DefinitionId annotationId = resolve(callable.representative(), interceptor.annotation());
     return behaviorAnnotation(
         new ApplicationKey(
@@ -806,12 +829,16 @@ final class AnnotationRuntime {
                 : AnnotationTarget.FUNCTION,
             identity.key(callable)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(callable),
+            CoreAnnotationPath.ROOT.child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   RuntimeValues.ObjectValue parameterAnnotation(
       DefinitionOccurrenceId callable,
       int parameterIndex,
+      int interceptorIndex,
       CoreInterceptor interceptor,
       ExecutionState execution) {
     DefinitionId annotationId = resolve(callable.representative(), interceptor.annotation());
@@ -821,28 +848,45 @@ final class AnnotationRuntime {
             AnnotationTarget.PARAMETER,
             new IndexedKey(identity.key(callable), parameterIndex)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(callable),
+            CoreAnnotationPath.ROOT
+                .child(CoreAnnotationPath.Kind.PARAMETER, parameterIndex)
+                .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   RuntimeValues.ObjectValue fieldAnnotation(
       DefinitionOccurrenceId aggregate,
       int fieldIndex,
+      int interceptorIndex,
       CoreInterceptor interceptor,
       ExecutionState execution) {
     DefinitionId annotationId = resolve(aggregate.representative(), interceptor.annotation());
     return behaviorAnnotation(
         new ApplicationKey(annotationId, AnnotationTarget.FIELD, fieldKey(aggregate, fieldIndex)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(
+                new DefinitionOccurrenceId(
+                    identity.source(aggregate.representative()), aggregate.ordinal())),
+            CoreAnnotationPath.ROOT
+                .child(CoreAnnotationPath.Kind.FIELD, fieldIndex)
+                .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   private RuntimeValues.ObjectValue behaviorAnnotation(
-      ApplicationKey key, CoreInterceptor interceptor, ExecutionState execution) {
+      ApplicationKey key,
+      CoreInterceptor interceptor,
+      CoreAnnotationReferenceSite sourceSite,
+      ExecutionState execution) {
     var configured = interceptor.values().stream().map(identity::annotationValue).toList();
     List<CoreAnnotationValue> metadataValues = applications.get(key);
     if (metadataValues != null && !metadataValues.equals(configured)) {
       throw new IllegalStateException("annotation metadata and interceptor disagree");
     }
+    configurationSites.putIfAbsent(key, sourceSite);
     return execution.annotationExecution().value(this, key, configured, execution);
   }
 
@@ -935,6 +979,7 @@ final class AnnotationRuntime {
               identity.id(application.annotation()),
               target.kind(),
               target.kind() == AnnotationTarget.FUNCTION
+                      || target.kind() == AnnotationTarget.CONSTRUCTOR
                   ? identity.key(target.occurrence())
                   : identity.id(target.occurrence().representative()));
       case CoreAnnotationTarget.Parameter target ->
@@ -1121,16 +1166,21 @@ final class AnnotationRuntime {
     return separator < 0 ? id.value() : id.value().substring(separator + 1);
   }
 
-  private Object runtimeValue(CoreAnnotationValue value) {
+  private Object runtimeValue(CoreAnnotationValue value, CoreAnnotationReferenceSite site) {
     return switch (value.value()) {
       case CoreAnnotationValue.Null ignored -> RuntimeValues.NullValue.INSTANCE;
       case CoreAnnotationValue.Literal literal ->
           isCodePoint(value.type())
               ? new RuntimeValues.CodePointValue((Integer) literal.value())
               : literal.value();
-      case CoreAnnotationValue.ListValue list ->
-          new RuntimeValues.ListValue(
-              value.type(), list.values().stream().map(this::runtimeValue).toList());
+      case CoreAnnotationValue.ListValue list -> {
+        var values = new ArrayList<Object>();
+        for (int index = 0; index < list.values().size(); index++)
+          values.add(
+              runtimeValue(
+                  list.values().get(index), site.child(CoreAnnotationPath.Kind.LIST_ITEM, index)));
+        yield new RuntimeValues.ListValue(value.type(), values);
+      }
       case CoreAnnotationReference reference ->
           switch (reference) {
             case CoreAnnotationReference.ClassReference classReference ->
@@ -1140,15 +1190,16 @@ final class AnnotationRuntime {
             case CoreAnnotationReference.EnumReference enumeration ->
                 enumValue(value.type(), enumeration.variant());
             case CoreAnnotationReference.CallableReference callableReference -> {
+              var occurrence = authoring.annotationTarget(site);
               DefinitionId callableId =
                   resolveExternal((DefinitionReference.External) callableReference.callable());
-              CallTarget target = callableTargets.get(callableId);
+              CallTarget target = declarationTargets.get(occurrence);
               if (target == null) {
                 throw new IllegalStateException("annotation callable reference is not initialized");
               }
               yield new RuntimeValues.Closure(
                   target,
-                  occurrence(callableId),
+                  occurrence,
                   callableReference.virtual() ? callableId : null,
                   program.callable(callableId).orElseThrow().hasReceiver(),
                   null,
@@ -1191,7 +1242,8 @@ final class AnnotationRuntime {
   }
 
   private RuntimeValues.ObjectValue createAnnotation(
-      DefinitionId annotationId, List<CoreAnnotationValue> configured, ExecutionState execution) {
+      ApplicationKey key, List<CoreAnnotationValue> configured, ExecutionState execution) {
+    DefinitionId annotationId = key.annotation();
     CoreDefinition.Aggregate declaration = annotation(annotationId);
     RuntimeValues.AggregateInfo info = aggregateInfo.get(annotationId);
     DefinitionId constructorId = resolve(annotationId, declaration.constructors().getFirst());
@@ -1205,7 +1257,13 @@ final class AnnotationRuntime {
             CoreValueCategory.IDENTITY,
             CoreNullability.NON_NULL);
     var value = new RuntimeValues.ObjectValue(info, type);
-    Object[] arguments = configured.stream().map(this::runtimeValue).toArray();
+    var site =
+        java.util.Objects.requireNonNull(
+            configurationSites.get(key), "annotation configuration authoring site");
+    Object[] arguments = new Object[configured.size()];
+    for (int index = 0; index < configured.size(); index++)
+      arguments[index] =
+          runtimeValue(configured.get(index), site.child(CoreAnnotationPath.Kind.VALUE, index));
     try (var scope =
         execution.liveBindings() == null || version == null
             ? null
@@ -1222,52 +1280,102 @@ final class AnnotationRuntime {
     return value;
   }
 
-  private Map<RuntimeValues.FieldKey, CoreAnnotationValue> configuration(
-      DefinitionId annotationId, List<CoreAnnotationValue> configured) {
+  private Map<RuntimeValues.FieldKey, ConfiguredValue> configuration(
+      ApplicationKey key, List<CoreAnnotationValue> configured) {
+    DefinitionId annotationId = key.annotation();
     var declaration = annotation(annotationId);
     var constructor =
         program
             .callable(resolve(annotationId, declaration.constructors().getFirst()))
             .orElseThrow();
-    var result = new LinkedHashMap<RuntimeValues.FieldKey, CoreAnnotationValue>();
+    var result = new LinkedHashMap<RuntimeValues.FieldKey, ConfiguredValue>();
+    var root =
+        java.util.Objects.requireNonNull(
+            configurationSites.get(key), "annotation configuration authoring site");
     for (int index = 0; index < configured.size(); index++)
       result.put(
           new RuntimeValues.FieldKey(annotationId, constructor.parameters().get(index).name()),
-          configured.get(index));
+          configuredValue(configured.get(index), root.child(CoreAnnotationPath.Kind.VALUE, index)));
     return Map.copyOf(result);
   }
 
+  private ConfiguredValue configuredValue(
+      CoreAnnotationValue value, CoreAnnotationReferenceSite site) {
+    var references = new LinkedHashMap<CoreAnnotationPath, String>();
+    authoring
+        .annotationReferences()
+        .forEach(
+            (candidate, target) -> {
+              if (candidate.owner().equals(site.owner())
+                  && candidate.path().steps().size() >= site.path().steps().size()
+                  && candidate
+                      .path()
+                      .steps()
+                      .subList(0, site.path().steps().size())
+                      .equals(site.path().steps()))
+                references.put(
+                    new CoreAnnotationPath(
+                        candidate
+                            .path()
+                            .steps()
+                            .subList(site.path().steps().size(), candidate.path().steps().size())),
+                    identity.key(target));
+            });
+    return new ConfiguredValue(value, site, Map.copyOf(references));
+  }
+
+  private record ConfiguredValue(
+      CoreAnnotationValue value,
+      CoreAnnotationReferenceSite site,
+      Map<CoreAnnotationPath, String> references) {
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof ConfiguredValue configured
+          && value.equals(configured.value)
+          && references.equals(configured.references);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(value, references);
+    }
+  }
+
   private static final class AnnotationState {
-    private final Map<RuntimeValues.FieldKey, Object> cells;
-    private final Map<RuntimeValues.FieldKey, CoreAnnotationValue> initialConfiguration;
+    private final RuntimeObjectState state;
+    private final Map<RuntimeValues.AggregateInfo, Map<RuntimeValues.FieldKey, ConfiguredValue>>
+        configurations = new java.util.WeakHashMap<>();
 
     private AnnotationState(
         RuntimeValues.ObjectValue initial,
-        Map<RuntimeValues.FieldKey, CoreAnnotationValue> configured) {
-      cells = initial.stateCells();
-      initialConfiguration = configured;
+        Map<RuntimeValues.FieldKey, ConfiguredValue> configured) {
+      state = initial.state();
+      configurations.put((RuntimeValues.AggregateInfo) initial.objectInfo, configured);
     }
 
     private RuntimeValues.ObjectValue view(
         AnnotationRuntime runtime, ApplicationKey key, List<CoreAnnotationValue> configured) {
       var retained = runtime.annotationViews.get(key);
       if (retained != null) return retained;
+      var baseline = configurations.get(state.currentInfo());
+      if (baseline == null)
+        throw new IllegalStateException("Published annotation configuration is unavailable");
+      var configuration = runtime.configuration(key, configured);
       var overlay = new LinkedHashMap<RuntimeValues.FieldKey, Object>();
-      runtime
-          .configuration(key.annotation(), configured)
-          .forEach(
-              (field, value) -> {
-                if (!value.equals(initialConfiguration.get(field)))
-                  overlay.put(field, runtime.runtimeValue(value));
-              });
+      configuration.forEach(
+          (field, value) -> {
+            if (!value.equals(baseline.get(field)))
+              overlay.put(field, runtime.runtimeValue(value.value(), value.site()));
+          });
       var info = runtime.aggregateInfo(key.annotation());
+      configurations.put(info, configuration);
       CoreType type =
           new CoreType.Declared(
               new CoreTypeConstructor.User(new DefinitionReference.External(key.annotation())),
               List.of(),
               CoreValueCategory.IDENTITY,
               CoreNullability.NON_NULL);
-      var value = new RuntimeValues.ObjectValue(info, type, cells, overlay);
+      var value = new RuntimeValues.ObjectValue(info, type, state.current(), overlay);
       runtime.annotationViews.put(key, value);
       return value;
     }
@@ -1287,10 +1395,9 @@ final class AnnotationRuntime {
         ExecutionState execution) {
       var current = instances.get(key);
       if (current != null) return current.view(runtime, key, configured);
-      var value = runtime.createAnnotation(key.annotation(), configured, execution);
+      var value = runtime.createAnnotation(key, configured, execution);
       runtime.annotationViews.put(key, value);
-      instances.put(
-          key, new AnnotationState(value, runtime.configuration(key.annotation(), configured)));
+      instances.put(key, new AnnotationState(value, runtime.configuration(key, configured)));
       return value;
     }
   }

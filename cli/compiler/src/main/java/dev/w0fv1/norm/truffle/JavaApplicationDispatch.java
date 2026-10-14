@@ -249,6 +249,17 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
                   : null;
           if (guest == null)
             throw new IllegalStateException("Java application receiver has no Norm object");
+          var view = guest.hostSchema;
+          var plan =
+              view.fields().stream()
+                  .filter(candidate -> candidate.name().equals(name))
+                  .findFirst()
+                  .orElse(null);
+          if (plan == null
+              || !guest
+                  .state()
+                  .sameLocation(view, guest.state().currentInfo(), guest.type, plan.key()))
+            return null;
           Field field = publicField(receiver.getClass(), name);
           if (field != null) {
             try {
@@ -314,7 +325,16 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       parameters[index + 1] = parameter;
     }
-    try {
+    boolean managed =
+        java.util.Arrays.stream(parameters)
+            .anyMatch(
+                parameter ->
+                    parameter instanceof JavaApplicationObject object
+                        && object.$normState() instanceof RuntimeValues.ObjectValue);
+    try (var lease =
+        managed && execution.liveBindings() != null
+            ? execution.liveBindings().stateWrite()
+            : null) {
       Object result = execution.callbacks().hostCall(() -> javaMethod.invoke(parameters));
       return returnType.equals(CoreType.VOID) ? null : javaValue(returnType, result);
     } catch (Throwable cause) {
@@ -514,14 +534,18 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private void synchronizeFromHost(Object receiver, RuntimeValues.ObjectValue guest) {
-    RuntimeValues.AggregateInfo info = (RuntimeValues.AggregateInfo) guest.objectInfo;
+    RuntimeValues.AggregateInfo info = guest.hostSchema;
+    guest.ensureLayout(info, execution);
     for (RuntimeValues.FieldPlan plan : info.fields()) {
       Field field = publicField(receiver.getClass(), plan.name());
       if (field == null) continue;
       try {
-        Object previous = guest.rawField(plan.key());
-        guest.writeRawField(plan.key(), javaValue(plan.type(), field.get(receiver)));
-        guest.fieldChanged(guest.fieldIndex(plan.key()), previous);
+        Object previous = guest.rawField(plan.key(), info);
+        Object incoming = javaValue(plan.type(), field.get(receiver));
+        if (!RuntimeValues.equal(previous, incoming)) {
+          guest.writeRawField(plan.key(), incoming, info);
+          guest.fieldChanged(plan.key(), previous, info);
+        }
       } catch (IllegalAccessException exception) {
         throw new IllegalStateException("Norm application field cannot be read", exception);
       }
@@ -529,12 +553,15 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private void synchronizeToHost(RuntimeValues.ObjectValue guest, Object receiver) {
-    RuntimeValues.AggregateInfo info = (RuntimeValues.AggregateInfo) guest.objectInfo;
+    RuntimeValues.AggregateInfo info = guest.hostSchema;
+    guest.ensureLayout(info, execution);
     for (RuntimeValues.FieldPlan plan : info.fields()) {
       Field field = publicField(receiver.getClass(), plan.name());
       if (field == null) continue;
+      if (!guest.state().sameLocation(info, guest.state().currentInfo(), guest.type, plan.key()))
+        continue;
       try {
-        field.set(receiver, javaResult(guest.rawField(plan.key())));
+        field.set(receiver, javaResult(guest.rawField(plan.key(), info)));
       } catch (IllegalAccessException exception) {
         throw new IllegalStateException("Norm application field cannot be written", exception);
       }

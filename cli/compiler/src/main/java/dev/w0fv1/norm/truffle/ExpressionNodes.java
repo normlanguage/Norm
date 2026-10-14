@@ -320,8 +320,9 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
+      var object = (RuntimeValues.ObjectValue) receiver.execute(frame);
       return new RuntimeValues.FieldReference(
-          (RuntimeValues.ObjectValue) receiver.execute(frame), field);
+          object, field, object.info(ExecutionContextAccess.state(frame)));
     }
   }
 

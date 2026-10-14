@@ -106,6 +106,37 @@ public final class CoreArtifact {
       CoreDefaultValueVerifier.verify(program, authoring, binding);
     }
     CoreAnnotationVerifier.verifyArtifact(program, authoring, metadata);
+    var annotationSites = new java.util.HashMap<CoreAnnotationReferenceSite, DefinitionId>();
+    for (var occurrence : authoring.occurrences()) {
+      var owner = new CoreAnnotationReferenceSite.Definition(occurrence.id());
+      CoreAnnotationSites.references(
+              program.definition(occurrence.id().representative()).orElseThrow())
+          .forEach(
+              (path, link) ->
+                  annotationSites.put(
+                      new CoreAnnotationReferenceSite(owner, path),
+                      program.resolve(
+                          occurrence.id().representative(), (DefinitionReference) link)));
+    }
+    for (var application : metadata.annotations()) {
+      var owner = new CoreAnnotationReferenceSite.Metadata(application.id());
+      CoreAnnotationSites.references(application)
+          .forEach(
+              (path, link) ->
+                  annotationSites.put(
+                      new CoreAnnotationReferenceSite(owner, path),
+                      program.resolve(application.annotation(), (DefinitionReference) link)));
+    }
+    if (!annotationSites.keySet().equals(authoring.annotationReferences().keySet()))
+      throw new IllegalArgumentException(
+          "annotation authoring reference sites do not match the artifact");
+    annotationSites.forEach(
+        (site, definition) -> {
+          var target = authoring.occurrence(authoring.annotationTarget(site)).orElseThrow();
+          if (!target.representedDefinitions().contains(definition))
+            throw new IllegalArgumentException(
+                "annotation authoring reference does not represent its content target");
+        });
     CoreArtifactMutabilityVerifier.verify(program, authoring);
   }
 

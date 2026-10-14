@@ -90,7 +90,7 @@ final class StructuredValueAccess {
   record AggregateValue(
       RuntimeValues.ObjectValue value, SerializationRuntime.AggregateShape shape) {
     Object field(int ordinal) {
-      return value.rawField(shape.info().fields().get(ordinal).key());
+      return value.rawField(shape.info().fields().get(ordinal).key(), shape.info());
     }
   }
 

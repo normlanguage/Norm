@@ -27,14 +27,17 @@ final class CoreIntrinsicDispatcher {
       case OBSERVE_FIELDS, OBSERVE_FIELD ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ObjectValue target;
-            java.util.OptionalInt selected = java.util.OptionalInt.empty();
+            RuntimeValues.AggregateInfo observedView;
+            java.util.Optional<RuntimeValues.FieldKey> selected = java.util.Optional.empty();
             java.util.function.IntConsumer readObserver;
             java.util.function.Consumer<FieldObservations.Change> changedObserver;
             if (intrinsic == IntrinsicId.OBSERVE_FIELD) {
               var handle =
                   (AnnotationRuntime.FieldHandle) ((RuntimeValues.OpaqueValue) arguments[0]).value;
               target = handle.receiver();
-              selected = java.util.OptionalInt.of(target.fieldIndex(handle.field().key()));
+              observedView =
+                  handle.field().annotations().aggregateInfo(target.objectInfo.definition());
+              selected = java.util.Optional.of(handle.field().key());
               var changed = (RuntimeValues.Closure) arguments[1];
               readObserver = field -> {};
               changedObserver =
@@ -47,6 +50,7 @@ final class CoreIntrinsicDispatcher {
                   };
             } else if (arguments[0] instanceof RuntimeValues.ObjectValue object) {
               target = object;
+              observedView = target.info(execution);
               var read = (RuntimeValues.Closure) arguments[1];
               var changed = (RuntimeValues.Closure) arguments[2];
               readObserver = field -> RuntimeInvocation.invoke(execution, read, field);
@@ -60,9 +64,11 @@ final class CoreIntrinsicDispatcher {
                       execution,
                       location);
             }
+            target.ensureLayout(observedView, execution);
             if (target.observations == null) target.observations = new FieldObservations(target);
             var subscription =
-                target.observations.subscribe(selected, readObserver, changedObserver);
+                target.observations.subscribe(
+                    selected, observedView, readObserver, changedObserver);
             var resource = execution.resources().register("field observation", subscription);
             var close =
                 new com.oracle.truffle.api.nodes.RootNode(null) {

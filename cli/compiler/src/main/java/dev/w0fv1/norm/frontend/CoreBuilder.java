@@ -21,9 +21,11 @@ import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.core.IncrementalAnalysisReport;
+import dev.w0fv1.norm.core.PendingDefinitionReference;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -124,11 +126,47 @@ final class CoreBuilder {
               allocation.occurrenceIds()::get)
           .ifPresent(bindings::add);
     }
+    var annotationReferences =
+        new LinkedHashMap<
+            dev.w0fv1.norm.core.CoreAnnotationReferenceSite, DefinitionOccurrenceId>();
+    for (var declaration : converted.declarationIndices().entrySet()) {
+      var unit = converted.units().get(declaration.getKey());
+      var source =
+          unit.source()
+              .relocate(index -> unit.declarationIndex(index, converted.declarationIndices()))
+              .definition();
+      var owner =
+          new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Definition(
+              allocation.occurrenceIds().get(declaration.getValue()));
+      dev.w0fv1.norm.core.CoreAnnotationSites.references(source)
+          .forEach(
+              (path, link) -> {
+                var pending = (PendingDefinitionReference) link;
+                annotationReferences.put(
+                    new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
+                    allocation.occurrenceIds().get(pending.declarationIndex()));
+              });
+    }
+    for (var annotation : converted.annotations()) {
+      var owner = new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Metadata(annotation.id());
+      annotationReferences.put(
+          new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(
+              owner, dev.w0fv1.norm.core.CoreAnnotationPath.ROOT),
+          allocation.occurrenceIds().get(annotation.annotationDeclaration()));
+      dev.w0fv1.norm.core.CoreAnnotationSites.references(annotation.values())
+          .forEach(
+              (path, link) -> {
+                var pending = (PendingDefinitionReference) link;
+                annotationReferences.put(
+                    new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
+                    allocation.occurrenceIds().get(pending.declarationIndex()));
+              });
+    }
     CoreArtifact artifact =
         new CoreArtifact(
             coreProgram,
             CoreNamespace.create(bindings),
-            allocation.authoring(),
+            allocation.authoring().withAnnotationReferences(annotationReferences),
             new CoreMetadata(
                 converted.annotations().stream()
                     .map(

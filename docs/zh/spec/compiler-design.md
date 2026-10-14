@@ -73,8 +73,9 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 | `DefinitionId` | semantic Core | 不可变定义及其固定依赖 |
 | `PublicAbiId` | namespace | 导出的名字、可见性和公开签名 |
 | `CoreCodeId` / `MetadataId` | executable | Core 代码与运行期 companion metadata |
+| [BindingId](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/BindingId.java) | execution binding | 精确声明引用绑定，不包含源码文本和位置 |
 | `DebugInfoId` | authoring | 源码、位置和 occurrence 路由 |
-| `ExecutableId` | backend | 代码、运行期 metadata 与后端 ABI |
+| `ExecutableId` | backend | 代码、运行期 metadata、绑定身份与后端 ABI |
 | `ArtifactId` | bundle | 代码、链接、公开 ABI、调试信息和 metadata 的发布组合 |
 
 `DefinitionId` 只来自版本化 canonical encoding。参数名属于可观察的调用与 `ParameterContext` 契约；可调用定义的名字、局部变量名、源码位置和空白位于 semantic Core 之外。局部绑定与类型参数使用定义内的稠密索引。
@@ -129,7 +130,7 @@ Bound 到 Core 的转换由 `BoundCoreBodyConverter` 对 sealed hierarchy 进行
 
 `CompilationResult` 直接持有 `CompilationOutput`，`ExecutionBackend` 与 Lowerer 只消费 `CoreArtifact`。Lowerer 使用已解析 Core，生成函数 `CallTarget`、frame slot、控制流节点、固定目标调用和按静态方法或 interface requirement `DefinitionId` 索引的分发表。class 与 interface 调用共用动态分派入口；遍历式 `for` 通过 `Iterable<T>` 和 `Iterator<T>` requirements 工作，内建集合返回内部 `NativeIterator<T>` 运行时值。
 
-`ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。standalone `TruffleExecutionBackend` 以 `ExecutableId` 在有界缓存中保存上下文无关的可执行程序，空白、位置和源码 URI 变化只改变 `DebugInfoId`；运行错误通过当前 artifact 的 authoring sidecar 映射位置。需要 Truffle source instrumentation 的 Polyglot 路径把 `DebugInfoId` 纳入实例化边界。内建 ABI 指纹属于后端 ABI key。
+`ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。standalone [TruffleExecutionBackend](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/TruffleExecutionBackend.java) 以 `ExecutableId` 在有界缓存中保存上下文无关的可执行程序；绑定交换验收见 [AnnotationReferenceLinkageExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/AnnotationReferenceLinkageExecutionTest.java)。空白、位置和源码 URI 变化只改变 `DebugInfoId`；运行错误通过当前 artifact 的 authoring sidecar 映射位置。需要 Truffle source instrumentation 的 Polyglot 路径把 `DebugInfoId` 纳入实例化边界。内建 ABI 指纹属于后端 ABI key。
 
 guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`，跨公开边界后转换为结构化 `NormExecutionException`。自包含 CLI 打包同一 Core、Truffle 执行链与平台 runtime。
 

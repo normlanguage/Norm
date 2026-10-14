@@ -186,7 +186,11 @@ final class AnnotationChecker {
                     Optional.ofNullable(model.declarationSymbols().get(parameter))
                         .orElseGet(() -> model.bindings().get(nameSpan)),
                     name,
-                    type));
+                    type,
+                    (parameter instanceof Syntax.FieldDecl field
+                            ? field.defaultValue()
+                            : ((Syntax.Parameter) parameter).defaultValue())
+                        .flatMap(value -> annotationConstant(value, type))));
           }
           SymbolId symbol = model.declarationSymbols().get(declaration);
           model.putAnnotationSchema(
@@ -700,7 +704,9 @@ final class AnnotationChecker {
       for (AnnotationParameterInfo parameter : schema.parameters()) {
         Syntax.CallArgument argument = supplied.remove(parameter.name());
         if (argument == null) {
-          if (parameter.type().isNullable()) {
+          if (parameter.defaultValue().isPresent()) {
+            values.add(parameter.defaultValue().orElseThrow());
+          } else if (parameter.type().isNullable()) {
             values.add(new AnnotationValue(parameter.type(), AnnotationValue.Null.INSTANCE));
           } else {
             diagnostics.error(

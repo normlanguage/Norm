@@ -73,8 +73,9 @@ The sole Norm-to-Java generation chain is [`JavaStubPlanner`](https://github.com
 | `DefinitionId` | semantic Core | Immutable definition and its fixed dependencies |
 | `PublicAbiId` | namespace | Exported names, visibility, and public signatures |
 | `CoreCodeId` / `MetadataId` | executable | Core code and runtime companion metadata |
+| [BindingId](../../cli/compiler/src/main/java/dev/w0fv1/norm/core/BindingId.java) | execution binding | Exact declaration-reference bindings without source text or locations |
 | `DebugInfoId` | authoring | Source, locations, and occurrence routing |
-| `ExecutableId` | backend | Code, runtime metadata, and backend ABI |
+| `ExecutableId` | backend | Code, runtime metadata, binding identity, and backend ABI |
 | `ArtifactId` | bundle | Published combination of code, links, public ABI, debug information, and metadata |
 
 `DefinitionId` derives only from versioned canonical encoding. Parameter names belong to observable call and `ParameterContext` contracts. Callable definition names, local names, source locations, and whitespace lie outside semantic Core. Local bindings and type parameters use dense indices within a definition.
@@ -129,7 +130,7 @@ A published module stores its own semantic contributions and Core units in [Comp
 
 `CompilationResult` holds `CompilationOutput` directly. `ExecutionBackend` and Lowerer consume only `CoreArtifact`. Lowerer uses resolved Core to generate function `CallTarget` values, frame slots, control-flow nodes, fixed-target calls, and dispatch tables keyed by static method or interface-requirement `DefinitionId`. Class and interface calls share the dynamic-dispatch entry. Iterator-style `for` works through `Iterable<T>` and `Iterator<T>` requirements; built-in collections return an internal `NativeIterator<T>` runtime value.
 
-`ExecutionContext` is passed along fixed call edges as a hidden root parameter; executable nodes do not capture per-run state. A standalone `TruffleExecutionBackend` caches context-free executable programs by `ExecutableId` in a bounded cache. Whitespace, position, and source-URI changes alter only `DebugInfoId`; runtime errors map locations through the current artifact's authoring sidecar. The Polyglot path requiring Truffle source instrumentation includes `DebugInfoId` at its instantiation boundary. The built-in ABI fingerprint is part of the backend ABI key.
+`ExecutionContext` is passed along fixed call edges as a hidden root parameter; executable nodes do not capture per-run state. A standalone [TruffleExecutionBackend](../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/TruffleExecutionBackend.java) caches context-free executable programs by `ExecutableId` in a bounded cache. Binding exchange is covered by [AnnotationReferenceLinkageExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/AnnotationReferenceLinkageExecutionTest.java). Whitespace, position, and source-URI changes alter only `DebugInfoId`; runtime errors map locations through the current artifact's authoring sidecar. The Polyglot path requiring Truffle source instrumentation includes `DebugInfoId` at its instantiation boundary. The built-in ABI fingerprint is part of the backend ABI key.
 
 Guest runtime errors carry stable error codes and `SourceSection` at Truffle nodes. Crossing the public boundary converts them into structured `NormExecutionException` values. The self-contained CLI packages the same Core and Truffle execution chain with the platform runtime.
 

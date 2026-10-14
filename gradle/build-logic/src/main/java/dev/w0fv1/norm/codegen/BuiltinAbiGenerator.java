@@ -73,10 +73,12 @@ public final class BuiltinAbiGenerator {
           .append(entry.get("name").getAsString())
           .append('(')
           .append(entry.get("requiresResultRuntimeType"))
+          .append(", ")
+          .append(entry.get("writesState"))
           .append(i + 1 == intrinsics.size() ? ");\n" : "),\n");
     }
     text.append(
-        "\n  private final boolean requiresResultRuntimeType;\n\n  IntrinsicId(boolean requiresResultRuntimeType) {\n    this.requiresResultRuntimeType = requiresResultRuntimeType;\n  }\n\n  public boolean requiresResultRuntimeType() {\n    return requiresResultRuntimeType;\n  }\n}\n");
+        "\n  private final boolean requiresResultRuntimeType;\n  private final boolean writesState;\n\n  IntrinsicId(boolean requiresResultRuntimeType, boolean writesState) {\n    this.requiresResultRuntimeType = requiresResultRuntimeType;\n    this.writesState = writesState;\n  }\n\n  public boolean requiresResultRuntimeType() {\n    return requiresResultRuntimeType;\n  }\n\n  public boolean writesState() {\n    return writesState;\n  }\n}\n");
     outputs.put("IntrinsicId", text.toString());
     text = new StringBuilder("package dev.w0fv1.norm.abi;\n\npublic enum RuntimeShape {\n");
     for (int i = 0; i < shapes.size(); i++)

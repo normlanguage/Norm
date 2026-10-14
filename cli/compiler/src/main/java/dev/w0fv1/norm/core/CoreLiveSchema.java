@@ -11,11 +11,13 @@ public final class CoreLiveSchema {
   private final Map<DefinitionOccurrenceId, CoreExecutionLayout> layouts;
   private final Map<String, CoreExecutionLayout> declarationLayouts;
   private final CoreRuntimeSchema runtime;
+  private final java.util.Set<DefinitionId> migrations;
   private final String entry;
 
   private CoreLiveSchema(CoreArtifact artifact) {
     runtime = CoreRuntimeSchema.create(artifact);
     var identity = runtime.identity();
+    migrations = CoreStateMigrationProtocol.appliedTypes(artifact, identity);
     var indexedKeys = new HashMap<DefinitionOccurrenceId, String>();
     var indexedContracts = new HashMap<String, Contract>();
     var indexedLayouts = new HashMap<DefinitionOccurrenceId, CoreExecutionLayout>();
@@ -44,7 +46,10 @@ public final class CoreLiveSchema {
               local ->
                   localTypes.put(layout.local(local.index()), identity.type(owner, local.type())));
       var captures = callable.captureLocals().stream().map(layout::local).toList();
-      if (indexedContracts.putIfAbsent(key, new Contract(Map.copyOf(localTypes), captures))
+      if (indexedContracts.putIfAbsent(
+              key,
+              new Contract(
+                  runtime.callableContract(occurrence.id()), Map.copyOf(localTypes), captures))
           != null) {
         throw new IllegalArgumentException("Ambiguous live declaration identity: " + key);
       }
@@ -82,11 +87,12 @@ public final class CoreLiveSchema {
     Objects.requireNonNull(candidate);
     if (!entry.equals(candidate.entry))
       throw new IllegalArgumentException("Live update changes the entry declaration");
-    runtime.requireCompatible(candidate.runtime);
+    runtime.requireCompatible(candidate.runtime, candidate.migrations);
     contracts.forEach(
         (key, contract) -> {
           Contract next = candidate.contracts.get(key);
           if (next == null) return;
+          if (!contract.callable().equals(next.callable())) return;
           if (!contract.captures().equals(next.captures())) {
             throw new IllegalArgumentException(
                 "Live update changes a callable or local state layout: " + key);
@@ -102,5 +108,8 @@ public final class CoreLiveSchema {
         });
   }
 
-  private record Contract(Map<String, CoreType> locals, List<String> captures) {}
+  private record Contract(
+      CoreRuntimeSchema.CallableContract callable,
+      Map<String, CoreType> locals,
+      List<String> captures) {}
 }

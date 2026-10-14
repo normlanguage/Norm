@@ -306,7 +306,27 @@ public final class CoreReachability {
                     .filter(
                         occurrence -> retained.contains(occurrence.id().representative().group()))
                     .toList(),
-                artifact.entryPoint()),
+                Optional.of(artifact.entryPoint()),
+                artifact.authoring().annotationReferences().entrySet().stream()
+                    .filter(
+                        entry ->
+                            switch (entry.getKey().owner()) {
+                              case CoreAnnotationReferenceSite.Definition definition ->
+                                  retained.contains(
+                                      definition.occurrence().representative().group());
+                              case CoreAnnotationReferenceSite.Metadata metadata ->
+                                  artifact.metadata().annotations().stream()
+                                      .filter(
+                                          application ->
+                                              application.id().equals(metadata.application()))
+                                      .anyMatch(
+                                          application ->
+                                              retainedTarget(
+                                                      application.target(), artifact, retained)
+                                                  .isPresent());
+                            })
+                    .collect(
+                        java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
             new CoreMetadata(
                 artifact.metadata().annotations().stream()
                     .filter(

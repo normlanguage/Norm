@@ -68,8 +68,12 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     List<ParameterLayer> layers = new ArrayList<>();
     for (int index = 0; index < declaration.parameters().size(); index++) {
       CoreCallableParameter parameter = declaration.parameters().get(index);
-      for (CoreInterceptor interceptor : parameter.interceptors()) {
-        layers.add(new ParameterLayer(index, interceptor));
+      for (int interceptorIndex = 0;
+          interceptorIndex < parameter.interceptors().size();
+          interceptorIndex++) {
+        layers.add(
+            new ParameterLayer(
+                index, interceptorIndex, parameter.interceptors().get(interceptorIndex)));
       }
     }
     parameterLayers = List.copyOf(layers);
@@ -148,7 +152,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     }
     CoreInterceptor interceptor = functionInterceptors.get(index);
     RuntimeValues.ObjectValue annotation =
-        annotations.functionAnnotation(callable, interceptor, execution);
+        annotations.functionAnnotation(callable, index, interceptor, execution);
     lifecycle.execute(
         annotations.functionBefore(annotation),
         execution,
@@ -204,7 +208,11 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
             annotations.parameter(function.function(), layer.parameterIndex(), PARAMETER_TYPE));
     RuntimeValues.ObjectValue annotation =
         annotations.parameterAnnotation(
-            callable, layer.parameterIndex(), layer.interceptor(), execution);
+            callable,
+            layer.parameterIndex(),
+            layer.interceptorIndex(),
+            layer.interceptor(),
+            execution);
     int argumentIndex = parameterOffset + layer.parameterIndex();
     Object transformed =
         lifecycle.execute(
@@ -258,5 +266,6 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     return sourceSection;
   }
 
-  private record ParameterLayer(int parameterIndex, CoreInterceptor interceptor) {}
+  private record ParameterLayer(
+      int parameterIndex, int interceptorIndex, CoreInterceptor interceptor) {}
 }
