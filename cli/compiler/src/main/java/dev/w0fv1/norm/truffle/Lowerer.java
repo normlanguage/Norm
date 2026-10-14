@@ -20,6 +20,7 @@ import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreInterfaceHierarchy;
 import dev.w0fv1.norm.core.CoreIteration;
+import dev.w0fv1.norm.core.CoreLiveSchema;
 import dev.w0fv1.norm.core.CoreLocal;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CoreNullability;
@@ -65,9 +66,22 @@ final class Lowerer {
   private CoreTypeRelations typeRelations;
   private AnnotationRuntime annotations;
   private CoreExecutionPlan execution;
+  private final CoreLiveSchema liveSchema;
+  private final LiveBindings.Builder liveNodes;
 
   Lowerer(com.oracle.truffle.api.TruffleLanguage<?> language) {
+    this(language, null);
+  }
+
+  Lowerer(com.oracle.truffle.api.TruffleLanguage<?> language, CoreLiveSchema liveSchema) {
     this.language = language;
+    this.liveSchema = liveSchema;
+    liveNodes = liveSchema == null ? null : new LiveBindings.Builder();
+  }
+
+  LiveBindings.Version liveVersion() {
+    if (liveNodes == null) throw new IllegalStateException("lowering has no live bindings");
+    return liveNodes.build();
   }
 
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
@@ -80,7 +94,7 @@ final class Lowerer {
     program = artifact.program();
     typeRelations = new CoreTypeRelations(program.definitions());
     annotations = new AnnotationRuntime(artifact);
-    indexDefinitions(execution);
+    indexDefinitions(this.execution);
     createCallTargets();
     indexDispatch();
     initializeAnnotations();
@@ -573,6 +587,7 @@ final class Lowerer {
   }
 
   private StatementNode lowerStatement(CoreStatement statement, FunctionPlan plan) {
+    int ordinal = plan.statementOrdinal++;
     StatementNode lowered =
         switch (statement) {
           case CoreStatement.LocalDeclaration local ->
@@ -647,7 +662,12 @@ final class Lowerer {
           case CoreStatement.BreakStatement ignored -> new StatementNodes.Break();
           case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
-    return lowered.at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
+    lowered.at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
+    return liveNodes == null
+        ? lowered
+        : liveNodes
+            .statement(new LiveBindings.Key(liveSchema.key(plan.id), ordinal), lowered)
+            .at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
   }
 
   private DefinitionId catchDefinition(DefinitionId owner, CoreType type) {
@@ -659,6 +679,7 @@ final class Lowerer {
   }
 
   private ExpressionNode lowerExpression(CoreExpression expression, FunctionPlan plan) {
+    int ordinal = plan.expressionOrdinal++;
     ExpressionNode lowered =
         switch (expression) {
           case CoreExpression.Literal literal ->
@@ -735,7 +756,12 @@ final class Lowerer {
                   intrinsic.nullSafe(),
                   annotations);
         };
-    return lowered.at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
+    lowered.at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
+    return liveNodes == null
+        ? lowered
+        : liveNodes
+            .expression(new LiveBindings.Key(liveSchema.key(plan.id), ordinal), lowered)
+            .at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
   }
 
   private ExpressionNode lowerSwitch(CoreExpression.Switch switched, FunctionPlan plan) {
@@ -946,7 +972,8 @@ final class Lowerer {
                             new CoreTypeCapture(
                                 index, plan.declaration.reifiedTypeLocals().get(index)))
                     .toList()),
-            plan));
+            plan),
+        annotations);
   }
 
   private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {
@@ -1106,6 +1133,8 @@ final class Lowerer {
     private FunctionRootNode root;
     private RootCallTarget implementation;
     private RootCallTarget target;
+    private int statementOrdinal;
+    private int expressionOrdinal;
 
     private FunctionPlan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {
       this.id = id;

@@ -554,7 +554,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               new Object[0],
               new Object[0],
               new Object[0],
-              signature);
+              signature,
+              null);
       functions
           .computeIfAbsent(value, ignored -> new java.util.HashMap<>())
           .put(signature, closure);

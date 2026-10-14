@@ -14,6 +14,23 @@ class RunProgressTest {
   @TempDir Path directory;
 
   @Test
+  void acceptsWatchAndStopsCompilationWhenApplicationFinishes() throws Exception {
+    var entry = directory.resolve("watched.norm");
+    Files.writeString(entry, "Void main() { printLine(\"ready\") }");
+    var output = new StringWriter();
+    var diagnostics = new StringWriter();
+    assertEquals(
+        0,
+        new RunCommand()
+            .execute(
+                List.of("--watch", entry.toString()),
+                new PrintWriter(output),
+                new PrintWriter(diagnostics)));
+    assertEquals("ready" + System.lineSeparator(), output.toString());
+    assertEquals("", diagnostics.toString());
+  }
+
+  @Test
   void acceptsDebugAfterDirectSourcePath() throws Exception {
     var entry = directory.resolve("direct.norm");
     Files.writeString(entry, "Void main() { printLine(\"ready\") }");

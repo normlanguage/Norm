@@ -65,7 +65,8 @@ final class TaskCallbackExecutor implements Executor {
         new Object[0],
         new Object[0],
         new Object[0],
-        new CoreType.Function(CoreType.VOID, List.of(), CoreNullability.NON_NULL));
+        new CoreType.Function(CoreType.VOID, List.of(), CoreNullability.NON_NULL),
+        null);
   }
 
   void own(RuntimeValues.OpaqueResource task) {

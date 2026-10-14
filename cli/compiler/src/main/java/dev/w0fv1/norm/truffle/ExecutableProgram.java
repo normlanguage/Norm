@@ -15,17 +15,26 @@ record ExecutableProgram(
     RuntimeProgram program,
     Map<DefinitionId, CallTarget> targets) {
   ExecutionState execution(ExecutionContext context) {
+    return execution(context, null);
+  }
+
+  ExecutionState execution(ExecutionContext context, LiveBindings bindings) {
     return new ExecutionState(
         context,
         annotations.execution(),
         values,
         new ResourceScope(),
         new GuestCallbackScheduler(),
-        new ExecutionContexts());
+        new ExecutionContexts(),
+        bindings);
   }
 
   Object execute(ExecutionContext context) {
-    ExecutionState state = execution(context);
+    return execute(context, null);
+  }
+
+  Object execute(ExecutionContext context, LiveBindings bindings) {
+    ExecutionState state = execution(context, bindings);
     JavaApplicationBridge.Registration bridge = null;
     Throwable failure = null;
     try {

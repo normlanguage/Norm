@@ -105,7 +105,8 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
             receiver,
             captures,
             ownerTypeArguments,
-            callableTypeArguments);
+            callableTypeArguments,
+            annotations);
     RuntimeValues.FunctionContextValue function =
         new RuntimeValues.FunctionContextValue(FUNCTION_CONTEXT_TYPE, declarationReference);
     CoreType returnType = returnType(arguments, reifiedOffset);

@@ -12,6 +12,7 @@ import dev.w0fv1.norm.core.ExecutableId;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.GuestStackFrame;
+import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.PreparedExecution;
 import java.net.URI;
@@ -36,6 +37,11 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     }
     this.maximumArtifacts = maximumArtifacts;
     artifacts = new LinkedHashMap<>(16, 0.75f, true);
+  }
+
+  @Override
+  public LiveExecution prepareLive(CoreArtifact artifact) {
+    return new LiveTruffleExecution(artifact);
   }
 
   @Override
@@ -133,7 +139,7 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
   }
 
   private static GuestLocation location(Node node, RuntimeSourceMap locations) {
-    if (node instanceof RuntimeLocation runtimeLocation) {
+    if (locations != null && node instanceof RuntimeLocation runtimeLocation) {
       var position = locations.location(runtimeLocation.occurrence(), runtimeLocation.nodeIndex());
       return new GuestLocation(position.uri(), position.line(), position.column(), true);
     }

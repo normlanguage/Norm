@@ -38,7 +38,8 @@ final class RuntimeValues {
       Object[] captures,
       Object[] receiverTypeArguments,
       Object[] reifiedArguments,
-      CoreType functionType) {
+      CoreType functionType,
+      AnnotationRuntime annotations) {
     Closure {
       Objects.requireNonNull(target, "target");
       sourceDeclaration = Objects.requireNonNull(sourceDeclaration, "sourceDeclaration");
@@ -46,6 +47,13 @@ final class RuntimeValues {
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
       Objects.requireNonNull(functionType, "functionType");
+      if (sourceDeclaration.isPresent()) Objects.requireNonNull(annotations, "annotations");
+    }
+
+    public AnnotationRuntime annotations() {
+      if (annotations == null)
+        throw new IllegalArgumentException("host function has no Norm metadata");
+      return annotations;
     }
 
     Closure(
@@ -57,7 +65,8 @@ final class RuntimeValues {
         Object[] captures,
         Object[] receiverTypeArguments,
         Object[] reifiedArguments,
-        CoreType functionType) {
+        CoreType functionType,
+        AnnotationRuntime annotations) {
       this(
           virtualSlot == null
               ? target
@@ -73,7 +82,8 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          functionType);
+          functionType,
+          annotations);
     }
 
     DefinitionOccurrenceId declaration() {
@@ -90,7 +100,8 @@ final class RuntimeValues {
         Object[] captures,
         Object[] receiverTypeArguments,
         Object[] reifiedArguments,
-        CoreType functionType) {
+        CoreType functionType,
+        AnnotationRuntime annotations) {
       this(
           target,
           Optional.of(declaration),
@@ -100,7 +111,8 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          functionType);
+          functionType,
+          annotations);
     }
 
     Closure(
@@ -111,7 +123,8 @@ final class RuntimeValues {
         Object receiver,
         Object[] captures,
         Object[] receiverTypeArguments,
-        Object[] reifiedArguments) {
+        Object[] reifiedArguments,
+        AnnotationRuntime annotations) {
       this(
           target,
           declaration,
@@ -121,7 +134,8 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          CoreType.DYNAMIC);
+          CoreType.DYNAMIC,
+          annotations);
     }
   }
 
@@ -394,7 +408,8 @@ final class RuntimeValues {
       Object[] captures,
       Object[] receiverTypeArguments,
       Object[] reifiedArguments,
-      CoreType functionType) {
+      CoreType functionType,
+      AnnotationRuntime annotations) {
     return new Closure(
         target,
         declaration,
@@ -404,7 +419,8 @@ final class RuntimeValues {
         captures,
         receiverTypeArguments,
         reifiedArguments,
-        functionType);
+        functionType,
+        annotations);
   }
 
   @TruffleBoundary

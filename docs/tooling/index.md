@@ -25,6 +25,12 @@ With [Norm 0.25](/versions/0.25), run `norm hello` in an empty directory to crea
 
 `norm main.norm` hides startup preparation logs by default. Use `norm main.norm --debug` or `norm run --debug main.norm` to write startup phases, elapsed time, and actual Maven downloads to stderr. Error diagnostics always appear; this option does not affect application output. See [RunCommand](../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java) for progress and [JarResolverTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java) for the network boundary of local dependencies.
 
+## Update running code on save
+
+Run `norm run --watch main.norm` on the JVM to watch project inputs. Saving a compatible implementation change selects the new code at subsequent execution boundaries while retaining active frames, local values, and iterators. The entry point is not replayed. Watching stops when the program exits.
+
+Compilation errors and incompatible changes produce diagnostics while the previous version keeps running; saving a correction retries the update. Callable contracts, local bindings and types, statement and expression structure, and runtime object layouts must remain compatible. Types and runtime metadata still use exact content identities, so changes such as editing class method implementations or annotated functions can also be rejected when those identities change. Java dependency, generated class, and resource changes require a restart. The complete compatibility checks live in [CoreLiveSchema](../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreLiveSchema.java) and [LiveApplicationSession](../../cli/compiler/src/main/java/dev/w0fv1/norm/application/LiveApplicationSession.java); see [LiveExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveExecutionTest.java) for state preservation within one execution. This capability applies to source execution, not Native Image application artifacts.
+
 ## VS Code
 
 For AI Agent navigation through specifications, queries, and validation, see [Agent Development](/tooling/agent).

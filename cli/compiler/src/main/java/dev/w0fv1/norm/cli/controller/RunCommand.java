@@ -21,7 +21,7 @@ import java.util.List;
 final class RunCommand implements Command {
   @Override
   public String usage() {
-    return "norm run [--debug] <file.norm|module-directory> [-- arguments...]";
+    return "norm run [--debug] [--watch] <file.norm|module-directory> [-- arguments...]";
   }
 
   @Override
@@ -42,6 +42,7 @@ final class RunCommand implements Command {
         separator < 0 ? List.of() : List.copyOf(arguments.subList(separator + 1, arguments.size()));
     if (separator >= 0) arguments = new ArrayList<>(arguments.subList(0, separator));
     boolean debug = arguments.remove("--debug");
+    boolean watch = arguments.remove("--watch");
     if (arguments.size() != 1) {
       err.println(
           "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
@@ -74,6 +75,27 @@ final class RunCommand implements Command {
             ? new CommandProgress("run", err)
             : message -> {};
     try {
+      if (watch) {
+        try (var environment = ProjectEnvironment.persistent(new NormRuntime());
+            var launcher = ApplicationRunner.persistent(environment, progress)) {
+          result =
+              launcher.runLive(
+                  entry,
+                  context,
+                  progress,
+                  message -> {
+                    err.println(message);
+                    err.flush();
+                  });
+        }
+        if (!result.isSuccess()) {
+          result
+              .diagnostics()
+              .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+          return ExitCode.COMPILATION_ERROR;
+        }
+        return context.exitCode();
+      }
       if (applicationBundle != null && !applicationBundle.isBlank()) {
         Path bundle = Path.of(applicationBundle);
         String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");

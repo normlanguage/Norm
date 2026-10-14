@@ -15,7 +15,8 @@ import java.util.LinkedHashMap;
 final class JsonFunctionRuntime {
   private JsonFunctionRuntime() {}
 
-  static String schema(RuntimeValues.Closure operation, AnnotationRuntime reflection) {
+  static String schema(RuntimeValues.Closure operation) {
+    AnnotationRuntime reflection = operation.annotations();
     if (operation.unbound())
       throw new IllegalArgumentException("JSON invocation requires a bound receiver");
     var callable = reflection.callable(operation);
@@ -41,12 +42,9 @@ final class JsonFunctionRuntime {
   }
 
   static String invoke(
-      RuntimeValues.Closure operation,
-      String input,
-      AnnotationRuntime reflection,
-      ExecutionState execution,
-      Node location) {
-    schema(operation, reflection);
+      RuntimeValues.Closure operation, String input, ExecutionState execution, Node location) {
+    AnnotationRuntime reflection = operation.annotations();
+    schema(operation);
     if (input.length() > JacksonDataRuntime.MAX_INPUT_BYTES)
       throw new IllegalArgumentException("JSON arguments exceed the size limit");
     var factory =

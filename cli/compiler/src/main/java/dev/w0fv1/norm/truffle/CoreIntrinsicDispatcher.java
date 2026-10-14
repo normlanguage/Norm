@@ -80,7 +80,8 @@ final class CoreIntrinsicDispatcher {
                 new Object[0],
                 new Object[0],
                 new Object[0],
-                type);
+                type,
+                null);
           };
       case CONTEXT_WITH ->
           (receiver, arguments, type, context, location, annotations, execution) ->

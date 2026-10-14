@@ -70,6 +70,39 @@ public final class ApplicationRunner implements AutoCloseable {
     return run(entry, context, message -> {});
   }
 
+  public CompilationResult runLive(
+      Path entry, ExecutionContext context, Consumer<String> progress, Consumer<String> diagnostics)
+      throws IOException {
+    var loaded = projects.load(entry);
+    var sources = loaded.sources();
+    try (var compilation =
+        compiler.compile(
+            new ApplicationInput(
+                sources.applicationCompilationRequest(entry), Optional.of(sources)),
+            List.of(),
+            progress)) {
+      if (!compilation.result().isSuccess()) return compilation.result();
+      var application = compilation.application().orElseThrow();
+      var execution = backend.prepareLive(compilation.result().output().orElseThrow().artifact());
+      try (var runtime = application.openRuntime();
+          var session =
+              new LiveApplicationSession(
+                  projects,
+                  compiler,
+                  entry,
+                  loaded.inputs(),
+                  application,
+                  execution,
+                  progress,
+                  diagnostics)) {
+        session.start();
+        progress.accept("Starting application");
+        execution.execute(application.context(context).withJarBindingRuntime(runtime));
+      }
+      return compilation.result();
+    }
+  }
+
   public CompilationResult run(Path entry, ExecutionContext context, Consumer<String> progress)
       throws IOException {
     return run(entry, context, progress, null);

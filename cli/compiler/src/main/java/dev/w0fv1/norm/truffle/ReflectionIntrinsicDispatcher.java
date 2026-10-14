@@ -163,28 +163,32 @@ final class ReflectionIntrinsicDispatcher {
       case FUNCTION_NAME ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.functionName(function);
+            return function.annotations().functionName(function);
           };
       case FUNCTION_OWNER ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.functionOwner(function, type);
+            return function.annotations().functionOwner(function, type);
           };
       case FUNCTION_PARAMETERS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.parameters(function, type);
+            return function.annotations().parameters(function, type);
           };
       case FUNCTION_ANNOTATION ->
-          (receiver, arguments, type, context, location, annotations, execution) ->
-              annotations.callableAnnotation((RuntimeValues.Closure) receiver, -1, type, execution);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+            return function.annotations().callableAnnotation(function, -1, type, execution);
+          };
       case PARAMETER_ANNOTATION ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
-            var parameters = annotations.callable(parameter.function()).parameters();
+            var parameters = parameter.annotations().callable(parameter.function()).parameters();
             for (int index = 0; index < parameters.size(); index++) {
               if (parameters.get(index).name().equals(parameter.name()))
-                return annotations.callableAnnotation(parameter.function(), index, type, execution);
+                return parameter
+                    .annotations()
+                    .callableAnnotation(parameter.function(), index, type, execution);
             }
             return RuntimeValues.NullValue.INSTANCE;
           };

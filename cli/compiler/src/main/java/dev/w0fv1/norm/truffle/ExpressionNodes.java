@@ -619,6 +619,7 @@ final class ExpressionNodes {
   }
 
   static final class Closure extends ExpressionNode {
+    private final AnnotationRuntime annotations;
     private final CallTarget target;
     private final DefinitionOccurrenceId declaration;
     private final DefinitionId virtualSlot;
@@ -638,7 +639,8 @@ final class ExpressionNodes {
         ExpressionNode[] captures,
         ExpressionNode[] reifiedArguments,
         ExpressionNode[] receiverTypeArguments,
-        ExpressionNode functionType) {
+        ExpressionNode functionType,
+        AnnotationRuntime annotations) {
       this.target = target;
       this.declaration = declaration;
       this.virtualSlot = virtualSlot;
@@ -648,6 +650,7 @@ final class ExpressionNodes {
       this.reifiedArguments = reifiedArguments;
       this.receiverTypeArguments = receiverTypeArguments;
       this.functionType = functionType;
+      this.annotations = annotations;
     }
 
     @Override
@@ -674,7 +677,8 @@ final class ExpressionNodes {
           values,
           ownerArguments,
           reified,
-          (CoreType) functionType.execute(frame));
+          (CoreType) functionType.execute(frame),
+          annotations);
     }
   }
 

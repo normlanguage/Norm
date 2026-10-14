@@ -357,7 +357,8 @@ final class AnnotationRuntime {
                           null,
                           new Object[0],
                           reflected.arguments().toArray(),
-                          new Object[0]);
+                          new Object[0],
+                          this);
                 })
             .toList();
     return new RuntimeValues.ListValue(listType, functions);
@@ -1050,7 +1051,8 @@ final class AnnotationRuntime {
                   null,
                   new Object[0],
                   callableReference.receiverTypeArguments().toArray(),
-                  callableReference.reifiedArguments().toArray());
+                  callableReference.reifiedArguments().toArray(),
+                  this);
             }
           };
     };

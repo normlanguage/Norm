@@ -12,7 +12,8 @@ record ExecutionState(
     GuestValueFactory values,
     ResourceScope resources,
     GuestCallbackScheduler callbacks,
-    ExecutionContexts contexts) {
+    ExecutionContexts contexts,
+    LiveBindings liveBindings) {
   ExecutionState {
     Objects.requireNonNull(context, "context");
     Objects.requireNonNull(annotationExecution, "annotationExecution");

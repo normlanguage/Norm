@@ -426,7 +426,7 @@ final class AnnotationChecker {
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
-            .map(parameter -> model.declarationSymbols().get(parameter))
+            .map(parameter -> model.bindings().get(parameter.nameSpan()))
             .collect(java.util.stream.Collectors.toSet());
     List<AnnotationApplication> parameterInterceptors =
         model.annotationApplications().stream()
@@ -481,6 +481,9 @@ final class AnnotationChecker {
     SymbolId symbol = model.declarationSymbols().get(declaration);
     if (symbol == null && declaration instanceof Syntax.VariableDecl variable) {
       symbol = model.bindings().get(variable.nameSpan());
+    }
+    if (symbol == null && declaration instanceof Syntax.Parameter parameter) {
+      symbol = model.bindings().get(parameter.nameSpan());
     }
     return symbol == null
         ? Optional.empty()
