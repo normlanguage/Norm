@@ -82,7 +82,7 @@ final class DefaultArgumentContractTest {
         var target =
             ((CoreDefaultArgument.Resolved) parameter.defaultValue().orElseThrow()).occurrence();
         assertEquals(
-            CoreDefinitionRole.DEFAULT_ARGUMENT,
+            CoreDefinitionRole.DEFAULT_VALUE,
             artifact.authoring().occurrence(target).orElseThrow().role());
         assertInstanceOf(
             CoreDefinition.Callable.class,

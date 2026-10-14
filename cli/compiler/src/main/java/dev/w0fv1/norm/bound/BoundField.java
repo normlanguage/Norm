@@ -3,6 +3,7 @@ package dev.w0fv1.norm.bound;
 import dev.w0fv1.norm.semantic.SemanticType;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public record BoundField(
     BoundFieldId id,
@@ -10,7 +11,8 @@ public record BoundField(
     BoundVisibility visibility,
     SemanticType type,
     int ordinal,
-    List<BoundInterceptor> interceptors) {
+    List<BoundInterceptor> interceptors,
+    Optional<BoundCallableId> initializer) {
   public BoundField {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(name, "name");
@@ -18,5 +20,6 @@ public record BoundField(
     Objects.requireNonNull(type, "type");
     if (ordinal < 0) throw new IllegalArgumentException("field ordinal must be non-negative");
     interceptors = List.copyOf(interceptors);
+    initializer = Objects.requireNonNull(initializer, "initializer");
   }
 }

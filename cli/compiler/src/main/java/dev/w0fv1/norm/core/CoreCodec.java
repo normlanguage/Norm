@@ -92,6 +92,10 @@ final class CoreCodec {
                   writer.writeString(field.name()).writeInt(field.ordinal());
                   writeType(writer, field.type(), referenceResolver);
                   writeInterceptors(writer, field.interceptors(), referenceResolver);
+                  writer.writeBoolean(field.initializer().isPresent());
+                  field
+                      .initializer()
+                      .ifPresent(link -> writeReference(writer, referenceResolver.apply(link)));
                 });
         writer.writeInt(aggregateDefinition.dispatch().size());
         aggregateDefinition.dispatch().stream()
@@ -140,6 +144,11 @@ final class CoreCodec {
                             writer.writeString(field.name()).writeInt(field.ordinal());
                             writeType(writer, field.type(), referenceResolver);
                             writeInterceptors(writer, field.interceptors(), referenceResolver);
+                            writer.writeBoolean(field.initializer().isPresent());
+                            field
+                                .initializer()
+                                .ifPresent(
+                                    link -> writeReference(writer, referenceResolver.apply(link)));
                           });
                 });
       }

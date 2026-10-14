@@ -581,7 +581,13 @@ final class BoundCoreConverter {
                             types.convert(field.type()),
                             field.interceptors().stream()
                                 .map(interceptor -> coreInterceptor(interceptor, types))
-                                .toList()))
+                                .toList(),
+                            field
+                                .initializer()
+                                .map(
+                                    initializer ->
+                                        new PendingDefinitionReference(
+                                            declarationIndex(initializer.value())))))
                 .toList(),
             declaration.dispatch().stream()
                 .map(
@@ -757,7 +763,7 @@ final class BoundCoreConverter {
           case EXTENSION -> CoreDefinitionRole.EXTENSION;
           case METHOD -> CoreDefinitionRole.METHOD;
           case LAMBDA -> CoreDefinitionRole.LAMBDA;
-          case DEFAULT_ARGUMENT -> CoreDefinitionRole.DEFAULT_ARGUMENT;
+          case DEFAULT_VALUE -> CoreDefinitionRole.DEFAULT_VALUE;
         };
     return new Declaration(
         definition,
@@ -771,7 +777,7 @@ final class BoundCoreConverter {
             body.localNames()),
         body.referenceTargets(),
         declaration.kind() == BoundCallableKind.CONSTRUCTOR
-                || declaration.kind() == BoundCallableKind.DEFAULT_ARGUMENT
+                || declaration.kind() == BoundCallableKind.DEFAULT_VALUE
                 || declaration.kind() == BoundCallableKind.LAMBDA
             ? Optional.empty()
             : Optional.of(

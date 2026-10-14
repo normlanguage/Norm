@@ -103,7 +103,7 @@ public final class CoreArtifact {
         throw new IllegalArgumentException("namespace binding occurrence is absent");
       }
       validateBinding(program, namespace, authoring, binding);
-      CoreDefaultArgumentVerifier.verify(program, authoring, binding);
+      CoreDefaultValueVerifier.verify(program, authoring, binding);
     }
     CoreAnnotationVerifier.verifyArtifact(program, authoring, metadata);
     CoreArtifactMutabilityVerifier.verify(program, authoring);
@@ -122,7 +122,7 @@ public final class CoreArtifact {
           case CoreDefinition.Callable callable ->
               switch (role) {
                 case CONSTRUCTOR, METHOD -> callable.hasReceiver();
-                case FUNCTION, EXTENSION, LAMBDA, DEFAULT_ARGUMENT -> !callable.hasReceiver();
+                case FUNCTION, EXTENSION, LAMBDA, DEFAULT_VALUE -> !callable.hasReceiver();
                 default -> false;
               };
         };
@@ -157,7 +157,7 @@ public final class CoreArtifact {
               case ANNOTATION -> CoreBindingKind.ANNOTATION;
             };
           }
-          case CONSTRUCTOR, LAMBDA, DEFAULT_ARGUMENT, BUILTIN_CONFORMANCE ->
+          case CONSTRUCTOR, LAMBDA, DEFAULT_VALUE, BUILTIN_CONFORMANCE ->
               throw new IllegalArgumentException(
                   "definition occurrence role cannot be a namespace binding: " + role);
         };

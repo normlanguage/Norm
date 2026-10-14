@@ -136,6 +136,7 @@ final class CoreProgramVerifier {
         throw new IllegalArgumentException("aggregate field ordinals must be contiguous");
       }
       validationTypes.verifyStoredType(id, field.type(), declaration.typeParameters().size());
+      CoreDefaultValueVerifier.verifyFieldInitializer(program, validationTypes, id, field);
       Set<DefinitionId> interceptors = new HashSet<>();
       for (CoreInterceptor interceptor : field.interceptors()) {
         DefinitionId annotation = validationTypes.resolve(id, interceptor.annotation());
@@ -707,7 +708,8 @@ final class CoreProgramVerifier {
                 CoreField field = variant.fields().get(index);
                 if (field.ordinal() != index
                     || field.visibility() != CoreVisibility.PUBLIC
-                    || !field.interceptors().isEmpty()) {
+                    || !field.interceptors().isEmpty()
+                    || field.initializer().isPresent()) {
                   throw new IllegalArgumentException("enum field structure is invalid");
                 }
                 validationTypes.verifyStoredType(

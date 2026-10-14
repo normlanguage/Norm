@@ -43,6 +43,10 @@ abstract class CoreWalker {
                 field -> {
                   walkType(field.type());
                   walkInterceptors(field.interceptors());
+                  field
+                      .initializer()
+                      .ifPresent(
+                          link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
                 });
         declaration
             .dispatch()

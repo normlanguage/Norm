@@ -86,7 +86,7 @@ final class Binder {
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
   private final Map<String, BoundField> fields = new LinkedHashMap<>();
-  private final DefaultArgumentDeclarations defaultArguments;
+  private final DefaultValueDeclarations defaultValues;
   private Map<String, BoundLocalId> reifiedLocals = Map.of();
   private List<BoundTypeParameter> activeTypeParameters = List.of();
   private BoundLocalId thisLocal;
@@ -101,12 +101,12 @@ final class Binder {
   Binder(List<Syntax.Program> programs, SemanticModel semantics) {
     this.programs = List.copyOf(programs);
     this.semantics = semantics;
-    defaultArguments = new DefaultArgumentDeclarations(programs, semantics);
+    defaultValues = new DefaultValueDeclarations(programs, semantics);
   }
 
   BoundProgram bind(Syntax.FunctionDecl entryPoint) {
     bindTypes();
-    bindDefaultArguments();
+    bindDefaultValues();
     bindCallables();
     List<BoundSource> sources =
         programs.stream()
@@ -180,7 +180,8 @@ final class Binder {
                       : BoundVisibility.PRIVATE,
                   fieldSymbol.type(),
                   fieldOffset + ordinal,
-                  interceptors(AnnotationTarget.FIELD, fieldSymbol.id()));
+                  interceptors(AnnotationTarget.FIELD, fieldSymbol.id()),
+                  defaultValues.initializer(fieldSymbol.id()));
           fields.put(bound.id().value(), bound);
           boundFields.add(bound);
         }
@@ -211,49 +212,46 @@ final class Binder {
     }
   }
 
-  private void bindDefaultArguments() {
-    for (var declaration : defaultArguments.declarations()) {
-      for (int ordinal = 0; ordinal < declaration.defaults().size(); ordinal++) {
-        if (declaration.defaults().get(ordinal).isEmpty()) continue;
-        var expression = declaration.defaults().get(ordinal).orElseThrow();
-        var id = declaration.factory(ordinal);
-        currentCallableId = id;
-        thisType = declaration.receiver().orElse(null);
-        thisLocal = thisType == null ? null : new BoundLocalId(id.value() + "/receiver");
-        var activeReified = new LinkedHashMap<String, BoundLocalId>();
-        var reified = new ArrayList<BoundReifiedArgument>();
-        addReified(declaration.typeParameters(), id, activeReified, reified);
-        reifiedLocals = Map.copyOf(activeReified);
-        activeTypeParameters = bindTypeParameters(declaration.typeParameters());
-        var body =
-            new BoundBlock(
-                List.of(
-                    new BoundStatement.ReturnStatement(
-                        Optional.of(bindExpression(expression)), expression.span())),
-                expression.span());
-        var parameters =
-            thisLocal == null
-                ? List.<BoundParameter>of()
-                : List.of(new BoundParameter(thisLocal, "$receiver", thisType, 0));
-        callables.put(
-            id.value(),
-            new BoundCallable(
-                id,
-                BoundCallableKind.DEFAULT_ARGUMENT,
-                declaration.symbol().name() + "/argument/" + ordinal,
-                BoundVisibility.PRIVATE,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                List.of(),
-                parameters,
-                activeTypeParameters,
-                reified,
-                List.of(),
-                declaration.symbol().parameters().get(ordinal).type(),
-                body,
-                expression.span()));
-      }
+  private void bindDefaultValues() {
+    for (var declaration : defaultValues.factories()) {
+      var expression = declaration.expression();
+      var id = declaration.id();
+      currentCallableId = id;
+      thisType = declaration.receiver().orElse(null);
+      thisLocal = thisType == null ? null : new BoundLocalId(id.value() + "/receiver");
+      var activeReified = new LinkedHashMap<String, BoundLocalId>();
+      var reified = new ArrayList<BoundReifiedArgument>();
+      addReified(declaration.typeParameters(), id, activeReified, reified);
+      reifiedLocals = Map.copyOf(activeReified);
+      activeTypeParameters = bindTypeParameters(declaration.typeParameters());
+      var body =
+          new BoundBlock(
+              List.of(
+                  new BoundStatement.ReturnStatement(
+                      Optional.of(bindExpression(expression)), expression.span())),
+              expression.span());
+      var parameters =
+          thisLocal == null
+              ? List.<BoundParameter>of()
+              : List.of(new BoundParameter(thisLocal, "$receiver", thisType, 0));
+      callables.put(
+          id.value(),
+          new BoundCallable(
+              id,
+              BoundCallableKind.DEFAULT_VALUE,
+              declaration.name(),
+              BoundVisibility.PRIVATE,
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              List.of(),
+              parameters,
+              activeTypeParameters,
+              reified,
+              List.of(),
+              declaration.returnType(),
+              body,
+              expression.span()));
     }
     currentCallableId = null;
     thisType = null;
@@ -528,7 +526,7 @@ final class Binder {
                   thisRead(field.span()),
                   boundField.id(),
                   boundField.ordinal(),
-                  bindExpression(field.defaultValue().orElseThrow()),
+                  fieldInitializer(boundField, field.span()),
                   field.span()));
           continue;
         }
@@ -539,7 +537,7 @@ final class Binder {
                 symbol(owner.nameSpan()).parameters().get(parameters.size()),
                 parameters.size(),
                 List.of(),
-                defaultArguments.defaultValue(symbol(owner.nameSpan()).id(), parameters.size())));
+                defaultValues.defaultValue(symbol(owner.nameSpan()).id(), parameters.size())));
         statements.add(
             new BoundStatement.FieldAssignment(
                 thisRead(field.span()),
@@ -565,7 +563,7 @@ final class Binder {
                           thisRead(field.span()),
                           boundField.id(),
                           boundField.ordinal(),
-                          bindExpression(value),
+                          fieldInitializer(boundField, field.span()),
                           field.span()));
                 });
       }
@@ -617,7 +615,7 @@ final class Binder {
         semantics.symbol(symbol.owner().orElseThrow()).orElseThrow().parameters().get(ordinal),
         ordinal,
         interceptors(AnnotationTarget.PARAMETER, symbol.id()),
-        defaultArguments.defaultValue(symbol.owner().orElseThrow(), ordinal));
+        defaultValues.defaultValue(symbol.owner().orElseThrow(), ordinal));
   }
 
   private List<BoundInterceptor> interceptors(AnnotationTarget target, SymbolId symbol) {
@@ -1131,7 +1129,7 @@ final class Binder {
             ? null
             : bindExpression(member.receiver());
     BoundExpression initializer = receiver;
-    var defaults = defaultArguments.declaration(target.id());
+    var defaults = defaultValues.declaration(target.id());
     boolean receiverDefault =
         receiver != null
             && defaults.isPresent()
@@ -1391,7 +1389,7 @@ final class Binder {
           new BoundArgument(
               bindExpression(call.arguments().get(index).value()), indices.get(index)));
     }
-    var defaults = defaultArguments.declaration(resolution.target());
+    var defaults = defaultValues.declaration(resolution.target());
     if (defaults.isEmpty()) return result;
     var declaration = defaults.orElseThrow();
     var types = new ArrayList<SemanticType>();
@@ -1489,7 +1487,7 @@ final class Binder {
                       parameter,
                       index,
                       List.of(),
-                      defaultArguments.defaultValue(method.id(), index));
+                      defaultValues.defaultValue(method.id(), index));
                 })
             .toList(),
         method.type(),
@@ -1846,6 +1844,16 @@ final class Binder {
     return field;
   }
 
+  private BoundExpression fieldInitializer(BoundField field, SourceSpan span) {
+    return new BoundCall(
+        field.initializer().orElseThrow(),
+        Optional.empty(),
+        List.of(new BoundArgument(thisRead(span), 0)),
+        thisType.arguments().stream().map(this::runtimeType).toList(),
+        field.type(),
+        span);
+  }
+
   private List<SemanticType> methodReceiverType(SemanticType receiver, Symbol target) {
     if (target.owner().isEmpty()) return List.of();
     Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElse(null);
@@ -1943,8 +1951,7 @@ final class Binder {
                           new BoundEnumField(
                               symbol(variant.nameSpan()).parameters().get(index),
                               index,
-                              defaultArguments.defaultValue(
-                                  symbol(variant.nameSpan()).id(), index)))
+                              defaultValues.defaultValue(symbol(variant.nameSpan()).id(), index)))
                   .toList()));
     }
     return List.copyOf(result);
