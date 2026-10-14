@@ -5,14 +5,22 @@ import std.annotation.Document
 import std.annotation.TypeTarget
 import std.annotation.RuntimeRetention
 
-@Document(description: "Declares the converter used when this type adopts an incompatible stored-field schema.")
+@Document(description: "Declares the converter used when this type adopts an incompatible retained-state schema.")
 public annotation StateMigration implements TypeTarget, RuntimeRetention {
   @Document(description: "Converts one retained instance synchronously through its migration state. Failed conversion preserves its previous Norm state; external I/O is not rolled back. Same-thread host reentry is allowed, while cross-thread guest callbacks are rejected during conversion.")
   Function<Void(MigrationState)> convert
 }
 
-@Document(description: "Provides the previous instance schema and staged target fields during a converter invocation. Operations are invalid after that invocation returns.")
+@Document(description: "Provides the previous schema and staged candidate representation during a converter invocation. Operations are invalid after that invocation returns.")
 public class MigrationState {
+  @Document(description: "Returns a snapshot of the previous reified type and its schema.")
+  public Class<?> type() { __stateMigrationType(state: this) }
+  @Document(description: "Returns the previous enum variant name, or null for a stored-field instance.")
+  public String? variant() { __stateMigrationVariant(state: this) }
+  @Document(description: "Reads a previous enum payload after validating that its declared type is assignable to T.")
+  public T read<T>(Integer index) { __stateMigrationPayload<T>(state: this, index: index) }
+  @Document(description: "Stages a complete candidate representation of the same logical nominal type. Identity instances retain their existing shell.")
+  public Void replace<T>(T value) { __stateMigrationReplace<T>(state: this, value: value) }
   @Document(description: "Reports whether the previous schema declares this field. Ambiguous inherited names fail.")
   public Boolean contains(String field) { __stateMigrationContains(state: this, field: field) }
   @Document(description: "Reads a previous field snapshot after validating that its declared type is assignable to T.")

@@ -53,7 +53,7 @@ final class LowererTest {
             RuntimeValues.ObjectValue.class,
             executable.execute(ExecutionContext.of(new PrintWriter(new StringWriter()))));
 
-    CoreType.Declared type = assertInstanceOf(CoreType.Declared.class, result.type);
+    CoreType.Declared type = assertInstanceOf(CoreType.Declared.class, result.type());
     assertInstanceOf(CoreTypeConstructor.User.class, type.constructor());
     assertEquals(java.util.List.of(CoreType.INTEGER), type.arguments());
   }

@@ -1,5 +1,5 @@
 {
-  "version": 49,
+  "version": 50,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1173,6 +1173,31 @@
     },
     {
       "name": "FUNCTION_SNAPSHOT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_TYPE",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_VARIANT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_PAYLOAD",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_REPLACE",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "CLASS_SNAPSHOT",
       "requiresResultRuntimeType": false,
       "writesState": false
     }
@@ -3365,6 +3390,32 @@
       "category": "POLYMORPHIC",
       "arguments": [],
       "nullable": false
+    },
+    "std.core.__stateMigrationPayload/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationPayload/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__stateMigrationReplace/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationReplace/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Class/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Class/T"
+      ],
+      "nullable": false
     }
   },
   "builtinTypes": [
@@ -3595,6 +3646,17 @@
             "documentation": "Whether the reflected type has value semantics."
           },
           "intrinsic": "CLASS_IS_VALUE"
+        },
+        {
+          "symbol": {
+            "name": "snapshot",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Class/T>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Captures this class descriptor and its reflected members in the currently selected revision."
+          },
+          "intrinsic": "CLASS_SNAPSHOT"
         }
       ],
       "typeMembers": [],
@@ -4232,7 +4294,7 @@
             "type": "std.core.Function/Signature",
             "typeParameters": [],
             "parameters": [],
-            "documentation": "Binds this function to its owning runtime revision."
+            "documentation": "Captures the currently callable revision and its metadata."
           },
           "intrinsic": "FUNCTION_SNAPSHOT"
         }
@@ -8915,6 +8977,94 @@
         "documentation": "Runtime publication operation."
       },
       "intrinsic": "RUNTIME_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationType",
+        "kind": "FUNCTION",
+        "type": "std.core.Class<std.core.existential>",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_TYPE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationVariant",
+        "kind": "FUNCTION",
+        "type": "std.core.String?",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_VARIANT"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationPayload",
+        "kind": "FUNCTION",
+        "type": "std.core.__stateMigrationPayload/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationPayload/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_PAYLOAD"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationReplace",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationReplace/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "value",
+            "type": "std.core.__stateMigrationReplace/T",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_REPLACE"
     }
   ]
 }

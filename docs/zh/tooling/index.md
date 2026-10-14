@@ -35,6 +35,8 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 
 运行时身份与 Java 依赖组件入口为 [CoreRuntimeIdentity](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreRuntimeIdentity.java)、[JavaRealmPool](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaRealmPool.java) 和 [ApplicationRuntimeRevisionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/application/ApplicationRuntimeRevisionTest.java)。事务验证入口为 [LiveContainerMigrationExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveContainerMigrationExecutionTest.java) 和 [LiveConstructionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveConstructionExecutionTest.java)。事务范围仅为 Norm 状态，外部 I/O 不回滚。
 
+保留对象图的转换实现见 [RuntimeStateTransaction](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/RuntimeStateTransaction.java) 与 [RuntimeObjectState](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/RuntimeObjectState.java)。可执行契约覆盖[枚举对象图](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveEnumGraphMigrationTest.java)、[泛型替换](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveGenericGraphMigrationTest.java)、[接口变化](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveInterfaceGraphMigrationTest.java)、[反射快照](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveClassSnapshotTest.java)、[调用边界](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveCallableArgumentMigrationTest.java)和[活动迭代器](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveEnumIteratorMigrationTest.java)。
+
 ## VS Code
 
 AI Agent 的规范、查询和验证导航见 [Agent 开发入口](/zh/tooling/agent)。

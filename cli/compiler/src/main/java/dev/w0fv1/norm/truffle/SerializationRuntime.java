@@ -83,7 +83,7 @@ final class SerializationRuntime {
           if (enumeration.variants().stream().anyMatch(variant -> !variant.fields().isEmpty())) {
             throw unsupported(type, "$", "enum payload serialization is not supported");
           }
-          created = new EnumShape(type, definition, enumeration);
+          created = new EnumShape(type, definition, enumeration, reflection);
         } else {
           if (!(declaration instanceof CoreDefinition.Aggregate aggregate)
               || aggregate.kind() == CoreAggregateKind.ANNOTATION
@@ -325,7 +325,11 @@ final class SerializationRuntime {
 
   record MapShape(CoreType type, Shape key, Shape value) implements Shape {}
 
-  record EnumShape(CoreType type, DefinitionId definition, CoreDefinition.Enum declaration)
+  record EnumShape(
+      CoreType type,
+      DefinitionId definition,
+      CoreDefinition.Enum declaration,
+      AnnotationRuntime annotations)
       implements Shape {}
 
   record FieldShape(

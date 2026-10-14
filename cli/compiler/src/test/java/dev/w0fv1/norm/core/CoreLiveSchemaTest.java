@@ -167,12 +167,11 @@ final class CoreLiveSchemaTest {
   }
 
   @Test
-  void rejectsReorderedSameTypedClosureCaptures() {
+  void versionsReorderedSameTypedClosureCaptures() {
     String text =
         "Function<Integer()> deferred() { var first = 1 var second = 2; () { first + second } } Void main() { printLine(deferred()()) }";
     var schema = CoreLiveSchema.create(compile(text));
-    assertThrows(
-        IllegalArgumentException.class,
+    assertDoesNotThrow(
         () ->
             schema.requireCompatible(
                 CoreLiveSchema.create(compile(text.replace("first + second", "second + first")))));

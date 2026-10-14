@@ -65,7 +65,7 @@ final class FieldWriteNode extends Node {
     CoreInterceptor interceptor = interceptor(plan, layer);
     RuntimeValues.FieldContextValue context =
         new RuntimeValues.FieldContextValue(
-            FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type, FIELD_TYPE));
+            FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type(), FIELD_TYPE));
     RuntimeValues.ObjectValue annotation =
         annotations.fieldAnnotation(plan.owner(), plan.index(), layer, interceptor, execution);
     Object transformed =

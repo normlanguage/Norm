@@ -5,14 +5,14 @@ import dev.w0fv1.norm.core.CoreStateMigrationProtocol;
 final class MigrationPolicy {
   private MigrationPolicy() {}
 
-  static boolean migrate(RuntimeObjectState.MigrationContext context, ExecutionState execution) {
-    var annotations = context.targetInfo().annotations();
+  static boolean migrate(MigrationContext context, ExecutionState execution) {
+    var annotations = context.targetAnnotations();
     if (annotations == null) return false;
     var protocol = CoreStateMigrationProtocol.resolve(annotations.program().structures());
     if (protocol.isEmpty()) return false;
     var contract = protocol.orElseThrow();
     var annotation =
-        annotations.annotation(context.objectType(), contract.annotationType(), execution);
+        annotations.annotation(context.targetType(), contract.annotationType(), execution);
     if (annotation == RuntimeValues.NullValue.INSTANCE) return false;
     if (!(annotation instanceof RuntimeValues.ObjectValue object))
       throw new RuntimeValues.StateMigrationFailure("State migration annotation is not an object");
@@ -33,14 +33,27 @@ final class MigrationPolicy {
     return true;
   }
 
-  static final class Handle implements AutoCloseable {
-    private RuntimeObjectState.MigrationContext context;
+  static Object migrateValue(Object value, ExecutionState execution) {
+    if (!(value instanceof RuntimeValues.EnumValue enumeration)
+        || enumeration.annotations() == execution.runtime()) return value;
+    try (var context = new EnumMigrationContext(enumeration, execution.runtime())) {
+      if (context.compatible()) context.adoptCompatible();
+      else if (!migrate(context, execution))
+        throw new RuntimeValues.StateMigrationFailure(
+            "Retained enum requires an explicit state converter: " + enumeration);
+      context.validate();
+      return context.replacement();
+    }
+  }
 
-    Handle(RuntimeObjectState.MigrationContext context) {
+  static final class Handle implements AutoCloseable {
+    private MigrationContext context;
+
+    Handle(MigrationContext context) {
       this.context = java.util.Objects.requireNonNull(context);
     }
 
-    RuntimeObjectState.MigrationContext context() {
+    MigrationContext context() {
       if (context == null)
         throw new RuntimeValues.StateMigrationFailure("Migration state is no longer active");
       return context;

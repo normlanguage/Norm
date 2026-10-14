@@ -26,6 +26,10 @@ public final class IntrinsicDispatcher {
           RuntimeUpdateIntrinsicDispatcher.resolve(intrinsic);
       case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
       case STATE_MIGRATION_CONTAINS,
+          STATE_MIGRATION_TYPE,
+          STATE_MIGRATION_VARIANT,
+          STATE_MIGRATION_PAYLOAD,
+          STATE_MIGRATION_REPLACE,
           STATE_MIGRATION_READ,
           STATE_MIGRATION_WRITE,
           STATE_MIGRATION_REMOVE,
@@ -50,6 +54,7 @@ public final class IntrinsicDispatcher {
           FIELD_COPY,
           CLASS_LITERAL,
           CLASS_NAME,
+          CLASS_SNAPSHOT,
           CLASS_ANNOTATION,
           CLASS_FIELDS,
           CLASS_FUNCTIONS,

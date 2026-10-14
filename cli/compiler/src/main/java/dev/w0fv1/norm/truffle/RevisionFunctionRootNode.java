@@ -25,8 +25,12 @@ final class RevisionFunctionRootNode extends RootNode {
     var execution = (ExecutionState) frame.getArguments()[0];
     var bindings = execution.liveBindings();
     if (bindings == null || version == null) return call.call(target, frame.getArguments());
+    var resultVersion = RuntimeInvocation.resultVersion(getCallTarget(), bindings.capture());
+    Object result;
     try (var scope = bindings.pin(version)) {
-      return call.call(target, frame.getArguments());
+      result = call.call(target, frame.getArguments());
     }
+    if (resultVersion == version) return result;
+    return RuntimeInvocation.adaptResult(execution, result, resultVersion);
   }
 }

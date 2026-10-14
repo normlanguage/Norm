@@ -434,7 +434,7 @@ final class GuestValueFactory {
       throw new IllegalStateException("enum variant is unavailable: " + variant);
     }
     return new RuntimeValues.EnumValue(
-        plan.definition(), concrete, plan.nominal().name(), variant, payload);
+        plan.definition(), concrete, plan.nominal().name(), variant, payload, annotations);
   }
 
   JarBindingEnumValue javaEnumArgument(RuntimeValues.EnumValue value) {
@@ -496,16 +496,20 @@ final class GuestValueFactory {
       throw new IllegalStateException("runtime aggregate type argument count is inconsistent");
     }
     var initializer = plan.initializer(arguments.length);
-    initializer
-        .target()
-        .call(
-            execution,
-            value,
-            ConstructionArguments.supplied(
-                initializer.parameters().count(),
-                java.util.stream.IntStream.range(0, arguments.length).toArray(),
-                arguments,
-                reifiedArguments.toArray()));
+    var bindings = execution.liveBindings();
+    var owner = plan.info().annotations().version();
+    try (var scope = bindings == null || owner == null ? null : bindings.pin(owner)) {
+      initializer
+          .target()
+          .call(
+              execution,
+              value,
+              ConstructionArguments.supplied(
+                  initializer.parameters().count(),
+                  java.util.stream.IntStream.range(0, arguments.length).toArray(),
+                  arguments,
+                  reifiedArguments.toArray()));
+    }
     return value;
   }
 
@@ -559,7 +563,8 @@ final class GuestValueFactory {
     if (!plan.variants().contains(variant)) {
       throw new IllegalStateException("runtime enum variant is absent: " + name + "." + variant);
     }
-    return new RuntimeValues.EnumValue(plan.definition(), plan.type(), name, variant, List.of());
+    return new RuntimeValues.EnumValue(
+        plan.definition(), plan.type(), name, variant, List.of(), annotations);
   }
 
   private static <T> T require(

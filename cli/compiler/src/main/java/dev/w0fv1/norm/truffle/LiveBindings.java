@@ -328,10 +328,17 @@ final class LiveBindings implements AutoCloseable {
     frame.setAuxiliarySlot(
         frame.getFrameDescriptor().findOrAddAuxiliarySlot(ACTIVATION), activation);
     pending.put(activation, ConcurrentHashMap.newKeySet());
+    var execution = ExecutionContextAccess.state(frame);
+    Version owner = capture();
+    for (Object argument : frame.getArguments())
+      if (argument instanceof RuntimeValues.ObjectValue object
+          && !object.state().schemaMatches(object.info(execution), object.type())) {
+        owner = null;
+        break;
+      }
+    frame.setAuxiliarySlot(frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_VERSION), owner);
     frame.setAuxiliarySlot(
-        frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_VERSION), capture());
-    frame.setAuxiliarySlot(
-        frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_BIRTH_VERSION), capture());
+        frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_BIRTH_VERSION), owner);
   }
 
   void leave(VirtualFrame frame) {
@@ -532,6 +539,29 @@ final class LiveBindings implements AutoCloseable {
         java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
   }
 
+  private Set<String> liveLocals(
+      VirtualFrame frame, Version candidate, List<FrameBinding> required) {
+    var live = new java.util.LinkedHashSet<String>();
+    required.forEach(binding -> live.add(binding.identity()));
+    int activationSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(ACTIVATION);
+    Object activation = frame.getAuxiliarySlot(activationSlot);
+    for (Continuation continuation : continuations) {
+      int continuationSlot =
+          continuation.frame.getFrameDescriptor().findOrAddAuxiliarySlot(ACTIVATION);
+      if (continuation.frame.getAuxiliarySlot(continuationSlot) != activation) continue;
+      for (int index = Math.max(0, continuation.position);
+          index < continuation.statements.size();
+          index++) {
+        var statement =
+            candidate.statements.get(
+                new Key(continuation.declaration, continuation.statements.get(index)));
+        if (statement != null)
+          statement.required().forEach(binding -> live.add(binding.identity()));
+      }
+    }
+    return live;
+  }
+
   private boolean prepare(
       VirtualFrame frame, Version candidate, Key region, List<FrameBinding> required) {
     int versionSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_VERSION);
@@ -559,12 +589,31 @@ final class LiveBindings implements AutoCloseable {
             RuntimeValues.prepareState(List.of(), ExecutionContextAccess.state(frame))) {
       for (Initializer initializer : ordered.values()) initializer.node().executeVoid(frame);
       var roots = new ArrayList<Object>();
-      for (String identity : candidate.schema.localTypes(region.declaration()).keySet()) {
+      var locals = new LinkedHashMap<FrameBinding, dev.w0fv1.norm.core.CoreType>();
+      var live = liveLocals(frame, candidate, required);
+      for (var local : candidate.schema.localTypes(region.declaration()).entrySet()) {
+        if (!live.contains(local.getKey())) continue;
         var binding =
-            new FrameBinding(0, com.oracle.truffle.api.frame.FrameSlotKind.Object, identity);
-        if (binding.initialized(frame)) roots.add(binding.read(frame));
+            new FrameBinding(0, com.oracle.truffle.api.frame.FrameSlotKind.Object, local.getKey());
+        if (binding.initialized(frame)) {
+          roots.add(binding.read(frame));
+          locals.put(binding, local.getValue());
+        }
       }
       migration.include(roots);
+      var reified =
+          candidate.schema.reifiedLocals(region.declaration()).stream()
+              .map(
+                  identity ->
+                      new FrameBinding(
+                              0, com.oracle.truffle.api.frame.FrameSlotKind.Object, identity)
+                          .read(frame))
+              .map(dev.w0fv1.norm.core.CoreType.class::cast)
+              .toList();
+      for (var local : locals.entrySet()) {
+        var expected = local.getValue().substitute(reified::get);
+        local.getKey().write(frame, migration.transform(local.getKey().read(frame), expected));
+      }
       migration.commit();
       transaction.commit();
       if (transition != null) transition.commit();
@@ -628,6 +677,7 @@ final class LiveBindings implements AutoCloseable {
       Version original = origin.build();
       Callable before = original.callables.get(key);
       if (bindings == null) return call.call(before.target(), frame.getArguments());
+      Version resultVersion = RuntimeInvocation.resultVersion(getCallTarget(), bindings.capture());
       Version pinned = bindings.pinnedVersion.get();
       Version expression = bindings.expressionVersion.get();
       Version selected =
@@ -643,8 +693,40 @@ final class LiveBindings implements AutoCloseable {
       bindings.executionVersion.set(selected);
       bindings.expressionVersion.remove();
       if (retained) bindings.pinnedVersion.set(selected);
+      Object result;
       try {
-        return call.call(candidate.target(), frame.getArguments());
+        Object[] arguments = frame.getArguments();
+        if (arguments.length > 1
+            && java.util.Arrays.stream(arguments)
+                .noneMatch(ConstructionArguments.class::isInstance)) {
+          var types = new ArrayList<dev.w0fv1.norm.core.CoreType>();
+          candidate.contract().receiver().ifPresent(types::add);
+          types.addAll(candidate.contract().captures());
+          candidate.contract().arguments().forEach(parameter -> types.add(parameter.type()));
+          boolean migrationRequired = false;
+          for (int index = 1; index <= types.size(); index++)
+            migrationRequired |=
+                RuntimeStateTransaction.requiresMigration(arguments[index], execution);
+          if (migrationRequired) {
+            Object[] adopted = arguments.clone();
+            final Object[] source = arguments;
+            final int offset = types.size() + 1;
+            try (var migration = RuntimeStateTransaction.open(execution)) {
+              migration.include(java.util.Arrays.asList(arguments).subList(1, offset));
+              for (int index = 0; index < types.size(); index++) {
+                var expected =
+                    types
+                        .get(index)
+                        .substitute(
+                            parameter -> (dev.w0fv1.norm.core.CoreType) source[offset + parameter]);
+                adopted[index + 1] = migration.transform(arguments[index + 1], expected);
+              }
+              migration.commit();
+            }
+            arguments = adopted;
+          }
+        }
+        result = call.call(candidate.target(), arguments);
       } finally {
         if (retained) {
           if (pinned == null) bindings.pinnedVersion.remove();
@@ -655,6 +737,9 @@ final class LiveBindings implements AutoCloseable {
         if (previousExpression == null) bindings.expressionVersion.remove();
         else bindings.expressionVersion.set(previousExpression);
       }
+      return selected == resultVersion
+          ? result
+          : RuntimeInvocation.adaptResult(execution, result, resultVersion);
     }
   }
 

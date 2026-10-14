@@ -14,12 +14,35 @@ final class RuntimeObjectState {
   static final class Schema {
     private final java.lang.ref.WeakReference<RuntimeValues.AggregateInfo> revision;
     private final int hash;
+    private final CoreType objectType;
+    private final dev.w0fv1.norm.core.CoreRuntimeSchema.TypeContract owner;
+    private final Map<RuntimeValues.FieldKey, dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint>
+        contracts;
     private final Map<RuntimeValues.FieldKey, CoreType> fields;
 
-    private Schema(RuntimeValues.AggregateInfo info, Map<RuntimeValues.FieldKey, CoreType> fields) {
+    private Schema(
+        RuntimeValues.AggregateInfo info,
+        CoreType objectType,
+        Map<RuntimeValues.FieldKey, CoreType> fields) {
       revision = new java.lang.ref.WeakReference<>(info);
+      this.objectType = objectType;
+      owner =
+          info.annotations() == null
+              ? null
+              : info.annotations().typeFingerprint(objectType).contracts().get(info.definition());
       this.fields = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(fields));
-      hash = 31 * System.identityHashCode(info) + fields.hashCode();
+      var fingerprints =
+          new LinkedHashMap<
+              RuntimeValues.FieldKey, dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint>();
+      fields.forEach(
+          (key, type) ->
+              fingerprints.put(
+                  key,
+                  info.annotations() == null
+                      ? new dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint(type, Map.of())
+                      : info.annotations().typeFingerprint(type)));
+      contracts = Map.copyOf(fingerprints);
+      hash = Objects.hash(System.identityHashCode(info), objectType, contracts);
     }
 
     static Schema of(RuntimeValues.AggregateInfo info, CoreType type) {
@@ -27,12 +50,32 @@ final class RuntimeObjectState {
           type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
       var fields = new LinkedHashMap<RuntimeValues.FieldKey, CoreType>();
       info.fields()
-          .forEach(field -> fields.put(field.key(), field.type().substitute(arguments::get)));
-      return new Schema(info, fields);
+          .forEach(
+              field ->
+                  fields.put(
+                      field.key(),
+                      field
+                          .type()
+                          .substitute(
+                              index ->
+                                  index < arguments.size()
+                                      ? arguments.get(index)
+                                      : new CoreType.Parameter(
+                                          index, dev.w0fv1.norm.core.CoreNullability.NON_NULL))));
+      return new Schema(info, type, fields);
     }
 
     Map<RuntimeValues.FieldKey, CoreType> fields() {
       return fields;
+    }
+
+    boolean requiresTypePlan(Schema target) {
+      if (!objectType.equals(target.objectType)) return true;
+      if (owner == null || target.owner == null) return false;
+      return dev.w0fv1.norm.core.CoreRuntimeSchema.requiresTypeParameterMigration(
+              owner.parameters(), target.owner.parameters())
+          || !target.owner.parents().containsAll(owner.parents())
+          || !target.owner.conformances().containsAll(owner.conformances());
     }
 
     boolean alive() {
@@ -50,7 +93,8 @@ final class RuntimeObjectState {
           || other instanceof Schema schema
               && revision.get() != null
               && revision.get() == schema.revision.get()
-              && fields.equals(schema.fields);
+              && objectType.equals(schema.objectType)
+              && contracts.equals(schema.contracts);
     }
   }
 
@@ -69,18 +113,19 @@ final class RuntimeObjectState {
       return RuntimeValues.stateCellView(this);
     }
 
-    Object read() {
+    public Object read() {
       return snapshot().value();
     }
 
-    void write(Object value) {
+    public void write(Object value) {
       RuntimeValues.stateCellWrite(this, new CellValue(true, value));
     }
   }
 
   private record Published(ViewMap view, RuntimeValues.AggregateInfo info) {}
 
-  private final Map<Schema, ViewMap> views = new java.util.concurrent.ConcurrentHashMap<>();
+  private final Map<Schema, java.lang.ref.WeakReference<ViewMap>> views =
+      new java.util.concurrent.ConcurrentHashMap<>();
   private volatile Published published;
 
   RuntimeObjectState(
@@ -93,7 +138,7 @@ final class RuntimeObjectState {
             (key, declared) ->
                 cells.put(key, new Cell(declared, values.containsKey(key), values.get(key))));
     var current = new ViewMap(this, schema, cells);
-    views.put(schema, current);
+    views.put(schema, new java.lang.ref.WeakReference<>(current));
     published = new Published(current, info);
   }
 
@@ -103,14 +148,50 @@ final class RuntimeObjectState {
   }
 
   Map<RuntimeValues.FieldKey, Object> view(RuntimeValues.AggregateInfo info, CoreType type) {
-    Schema schema = Schema.of(info, type);
+    Schema schema = schema(info, type);
     var active = RuntimeValues.stateView(this);
     if (active.schema.equals(schema)) return active;
-    var selected = views.get(schema);
+    var reference = views.get(schema);
+    var selected = reference == null ? null : reference.get();
     if (selected == null)
       throw new RuntimeValues.StateMigrationFailure(
           "runtime state schema has not been prepared: " + schema);
     return selected;
+  }
+
+  private Schema schema(RuntimeValues.AggregateInfo info, CoreType fallback) {
+    var current = RuntimeValues.stateView(this);
+    if (current.schema.revision.get() == info) return current.schema;
+    return views.keySet().stream()
+        .filter(value -> value.revision.get() == info)
+        .findFirst()
+        .orElseGet(() -> Schema.of(info, fallback));
+  }
+
+  CoreType type(RuntimeValues.AggregateInfo info, CoreType fallback) {
+    return schema(info, fallback).objectType;
+  }
+
+  CoreType currentType() {
+    return RuntimeValues.stateView(this).schema.objectType;
+  }
+
+  record CopySource(
+      RuntimeValues.AggregateInfo info,
+      CoreType type,
+      Map<RuntimeValues.FieldKey, Object> values) {}
+
+  CopySource copySource(RuntimeValues.AggregateInfo preferred, CoreType type) {
+    var active = RuntimeValues.stateView(this);
+    var requested = schema(preferred, type);
+    var reference = views.get(requested);
+    var historical = reference == null ? null : reference.get();
+    var selected =
+        active.schema.equals(requested) ? active : historical == null ? active : historical;
+    return new CopySource(
+        Objects.requireNonNull(selected.schema.revision.get()),
+        selected.schema.objectType,
+        selected);
   }
 
   boolean sameFieldType(
@@ -119,8 +200,8 @@ final class RuntimeObjectState {
       CoreType type,
       RuntimeValues.FieldKey key) {
     return Objects.equals(
-            Schema.of(before, type).fields().get(key), Schema.of(after, type).fields().get(key))
-        && Schema.of(before, type).fields().containsKey(key);
+            schema(before, type).contracts.get(key), schema(after, type).contracts.get(key))
+        && schema(before, type).fields().containsKey(key);
   }
 
   int locationHash(RuntimeValues.AggregateInfo view, CoreType type, RuntimeValues.FieldKey key) {
@@ -138,7 +219,8 @@ final class RuntimeObjectState {
   }
 
   boolean shapeChanges(RuntimeValues.AggregateInfo target, CoreType type) {
-    return !RuntimeValues.stateView(this).schema.fields().equals(Schema.of(target, type).fields());
+    return !RuntimeValues.stateView(this).schema.contracts.equals(schema(target, type).contracts)
+        || RuntimeValues.stateView(this).schema.requiresTypePlan(schema(target, type));
   }
 
   boolean schemaMatches(RuntimeValues.AggregateInfo info, CoreType type) {
@@ -146,7 +228,8 @@ final class RuntimeObjectState {
   }
 
   boolean hasView(RuntimeValues.AggregateInfo info, CoreType type) {
-    return views.containsKey(Schema.of(info, type));
+    var view = views.get(Schema.of(info, type));
+    return view != null && view.get() != null;
   }
 
   ViewMap current() {
@@ -159,24 +242,46 @@ final class RuntimeObjectState {
 
   MigrationContext prepare(
       RuntimeValues.ObjectValue object, RuntimeValues.AggregateInfo targetInfo) {
+    return prepare(object, targetInfo, object.type());
+  }
+
+  MigrationContext prepare(
+      RuntimeValues.ObjectValue object,
+      RuntimeValues.AggregateInfo targetInfo,
+      CoreType desiredType) {
     var source = RuntimeValues.stateView(this);
-    Schema target = Schema.of(targetInfo, object.type);
+    Schema target = Schema.of(targetInfo, desiredType);
     var cells = new LinkedHashMap<RuntimeValues.FieldKey, Cell>();
     for (var entry : target.fields().entrySet()) {
       Cell compatible =
-          Objects.equals(source.schema.fields().get(entry.getKey()), entry.getValue())
+          Objects.equals(
+                  source.schema.contracts.get(entry.getKey()), target.contracts.get(entry.getKey()))
               ? source.cells.get(entry.getKey())
               : null;
       cells.put(
           entry.getKey(),
-          compatible == null ? new Cell(entry.getValue(), false, null) : compatible);
+          compatible == null
+              ? new Cell(
+                  entry.getValue(),
+                  source.schema.fields().containsKey(entry.getKey())
+                      && dev.w0fv1.norm.core.CoreRuntimeSchema.migratableFieldType(
+                          source.schema.fields().get(entry.getKey()), entry.getValue())
+                      && source.containsKey(entry.getKey()),
+                  source.schema.fields().containsKey(entry.getKey())
+                          && dev.w0fv1.norm.core.CoreRuntimeSchema.migratableFieldType(
+                              source.schema.fields().get(entry.getKey()), entry.getValue())
+                      ? RuntimeValues.copy(source.get(entry.getKey()))
+                      : null)
+              : compatible);
     }
     return new MigrationContext(object, targetInfo, source, new ViewMap(this, target, cells));
   }
 
   void publish(ViewMap view) {
-    views.keySet().removeIf(schema -> !schema.alive());
-    views.put(view.schema, view);
+    var before = published;
+    if (before.view() != view) before.info().stateViews().retain(before.view());
+    views.entrySet().removeIf(entry -> !entry.getKey().alive() || entry.getValue().get() == null);
+    views.put(view.schema, new java.lang.ref.WeakReference<>(view));
     published =
         new Published(
             view,
@@ -253,11 +358,13 @@ final class RuntimeObjectState {
     }
   }
 
-  static final class MigrationContext {
+  static final class MigrationContext implements dev.w0fv1.norm.truffle.MigrationContext {
     private final RuntimeValues.ObjectValue object;
     private final RuntimeValues.AggregateInfo targetInfo;
     private final ViewMap source;
-    private final ViewMap target;
+    private ViewMap target;
+    private final AnnotationRuntime sourceAnnotations;
+    private boolean replaced;
     private final Map<RuntimeValues.FieldKey, Object> snapshot;
     private final Set<RuntimeValues.FieldKey> removed = new LinkedHashSet<>();
     private final Set<RuntimeValues.FieldKey> written = new LinkedHashSet<>();
@@ -271,6 +378,7 @@ final class RuntimeObjectState {
       this.object = object;
       this.targetInfo = targetInfo;
       this.source = source;
+      sourceAnnotations = source.schema.revision.get().annotations();
       this.target = target;
       var values = new LinkedHashMap<RuntimeValues.FieldKey, Object>(source);
       object.configuration.forEach(
@@ -281,30 +389,48 @@ final class RuntimeObjectState {
     }
 
     private boolean stateCompatible(RuntimeValues.FieldKey key) {
-      var declared =
-          Schema.of((RuntimeValues.AggregateInfo) object.objectInfo, object.type).fields().get(key);
-      return declared != null && declared.equals(source.schema.fields().get(key));
+      return object
+          .state()
+          .sameFieldType(
+              (RuntimeValues.AggregateInfo) object.objectInfo,
+              source.schema.revision.get(),
+              object.type(),
+              key);
     }
 
     RuntimeValues.ObjectValue object() {
       return object;
     }
 
-    CoreType objectType() {
-      return object.type;
+    public CoreType objectType() {
+      return source.schema.objectType;
+    }
+
+    public CoreType targetType() {
+      return target.schema.objectType;
+    }
+
+    public AnnotationRuntime sourceAnnotations() {
+      return sourceAnnotations;
+    }
+
+    public AnnotationRuntime targetAnnotations() {
+      return targetInfo.annotations();
     }
 
     RuntimeValues.AggregateInfo targetInfo() {
       return targetInfo;
     }
 
+    Map<RuntimeValues.FieldKey, CoreType> targetFields() {
+      return target.schema.fields();
+    }
+
     ViewMap target() {
       return target;
     }
 
-    record StateField(RuntimeValues.FieldKey key, CoreType type) {}
-
-    Optional<StateField> sourceField(String name) {
+    public Optional<StateField> sourceField(String name) {
       requireActive();
       var fields =
           source.schema.fields().entrySet().stream()
@@ -318,7 +444,7 @@ final class RuntimeObjectState {
       return Optional.of(new StateField(field.getKey(), field.getValue()));
     }
 
-    Optional<StateField> targetField(String name) {
+    public Optional<StateField> targetField(String name) {
       requireActive();
       var fields =
           target.schema.fields().entrySet().stream()
@@ -332,10 +458,13 @@ final class RuntimeObjectState {
       return Optional.of(new StateField(field.getKey(), field.getValue()));
     }
 
-    Object read(RuntimeValues.FieldKey key, CoreType expected) {
+    public Object read(RuntimeValues.FieldKey key, CoreType expected) {
       requireActive();
       var declared = source.schema.fields().get(key);
-      if (declared == null || !assignable(expected, declared))
+      if (declared == null
+          || !(sourceAnnotations == null
+              ? expected.equals(declared) || expected.equals(CoreType.DYNAMIC)
+              : sourceAnnotations.isAssignable(expected, declared)))
         throw new RuntimeValues.StateMigrationFailure(
             "migration source field type does not match: " + key);
       if (!snapshot.containsKey(key))
@@ -344,7 +473,7 @@ final class RuntimeObjectState {
       return RuntimeValues.copy(snapshot.get(key));
     }
 
-    void write(RuntimeValues.FieldKey key, CoreType declared, Object value) {
+    public void write(RuntimeValues.FieldKey key, CoreType declared, Object value) {
       requireActive();
       if (!Objects.equals(target.schema.fields().get(key), declared))
         throw new RuntimeValues.StateMigrationFailure(
@@ -360,7 +489,21 @@ final class RuntimeObjectState {
       written.add(key);
     }
 
-    void remove(RuntimeValues.FieldKey key) {
+    void stageTransform(RuntimeValues.FieldKey key, Object value) {
+      requireActive();
+      var existing = target.cells.get(key);
+      if (existing == null)
+        throw new RuntimeValues.StateMigrationFailure(
+            "Transformed field is outside the target schema: " + key);
+      if (existing == source.cells.get(key))
+        target.cells.put(
+            key, new Cell(existing.type, existing.snapshot().present(), existing.read()));
+      target.put(key, value);
+      if (!Objects.equals(source.schema.contracts.get(key), target.schema.contracts.get(key)))
+        written.add(key);
+    }
+
+    public void remove(RuntimeValues.FieldKey key) {
       requireActive();
       if (!source.schema.fields().containsKey(key))
         throw new RuntimeValues.StateMigrationFailure("migration source field is absent: " + key);
@@ -371,18 +514,22 @@ final class RuntimeObjectState {
     }
 
     boolean shapeChanged() {
-      return !source.schema.fields().equals(target.schema.fields());
+      return !source.schema.contracts.equals(target.schema.contracts)
+          || source.schema.requiresTypePlan(target.schema);
     }
 
     boolean destructive() {
-      return source.schema.fields().entrySet().stream()
-          .anyMatch(
-              entry ->
-                  !Objects.equals(entry.getValue(), target.schema.fields().get(entry.getKey())));
+      return source.schema.requiresTypePlan(target.schema)
+          || source.schema.fields().entrySet().stream()
+              .anyMatch(
+                  entry ->
+                      target.schema.fields().get(entry.getKey()) == null
+                          || !dev.w0fv1.norm.core.CoreRuntimeSchema.migratableFieldType(
+                              entry.getValue(), target.schema.fields().get(entry.getKey())));
     }
 
     boolean hasExplicitChanges() {
-      return !written.isEmpty() || !removed.isEmpty();
+      return replaced || !written.isEmpty() || !removed.isEmpty();
     }
 
     boolean requiresConverter() {
@@ -405,6 +552,23 @@ final class RuntimeObjectState {
           throw new RuntimeValues.StateMigrationFailure(
               "migration has not consumed source field: " + key);
       }
+      if (target.schema.owner != null
+          && target.schema.objectType instanceof CoreType.Declared declared) {
+        var parameters = target.schema.owner.parameters();
+        if (declared.arguments().size() != parameters.size())
+          throw new RuntimeValues.StateMigrationFailure(
+              "Migration must provide the candidate generic arguments through replacement");
+        for (int index = 0; index < parameters.size(); index++) {
+          var bound = parameters.get(index).upperBound();
+          if (bound.isPresent()
+              && !targetAnnotations()
+                  .isAssignable(
+                      bound.orElseThrow().substitute(declared.arguments()::get),
+                      declared.arguments().get(index)))
+            throw new RuntimeValues.StateMigrationFailure(
+                "Migration candidate generic argument violates its bound");
+        }
+      }
       for (var key : target.schema.fields().keySet()) {
         if (!target.containsKey(key))
           throw new RuntimeValues.StateMigrationFailure(
@@ -412,7 +576,55 @@ final class RuntimeObjectState {
       }
     }
 
-    void close() {
+    public String variant() {
+      requireActive();
+      return null;
+    }
+
+    public Object readPayload(int index, CoreType expected) {
+      throw new RuntimeValues.StateMigrationFailure("Object migration has no enum payload");
+    }
+
+    public void replace(Object value) {
+      requireActive();
+      if (!(value instanceof RuntimeValues.ObjectValue candidate)
+          || !candidate.objectInfo.definition().equals(targetInfo.definition()))
+        throw new RuntimeValues.StateMigrationFailure(
+            "Object replacement must preserve its nominal declaration");
+      var candidateType = candidate.type();
+      var schema = Schema.of(targetInfo, candidateType);
+      var cells = new LinkedHashMap<RuntimeValues.FieldKey, Cell>();
+      for (var entry : schema.fields().entrySet()) {
+        var previous = target.cells.get(entry.getKey());
+        var cell =
+            previous != null
+                    && Objects.equals(
+                        target.schema.contracts.get(entry.getKey()),
+                        schema.contracts.get(entry.getKey()))
+                ? previous
+                : new Cell(entry.getValue(), false, null);
+        cells.put(entry.getKey(), cell);
+      }
+      target = new ViewMap(object.state(), schema, cells);
+      for (var entry : schema.fields().entrySet()) {
+        Object replacementValue = candidate.rawField(entry.getKey(), targetInfo);
+        Cell cell = cells.get(entry.getKey());
+        cell.write(RuntimeValues.copy(replacementValue));
+        written.add(entry.getKey());
+      }
+      removed.addAll(source.schema.fields().keySet());
+      replaced = true;
+    }
+
+    public Object replacement() {
+      return object;
+    }
+
+    public void validate() {
+      validateCoverage();
+    }
+
+    public void close() {
       active = false;
     }
 

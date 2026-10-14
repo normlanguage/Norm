@@ -203,6 +203,15 @@ public final class CoreExecutionLayout extends CoreWalker {
   }
 
   @Override
+  protected void visitPattern(CorePattern pattern) {
+    if (!(pattern instanceof CorePattern.Binding binding)) return;
+    for (Scope scope : scopes)
+      declarations
+          .computeIfAbsent(scope.key, ignored -> new LinkedHashSet<>())
+          .add(binding.localIndex());
+  }
+
+  @Override
   protected void leaveExpression(CoreExpression expression) {
     scopes.pop();
   }
