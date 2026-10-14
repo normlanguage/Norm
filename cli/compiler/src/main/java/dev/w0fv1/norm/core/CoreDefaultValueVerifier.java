@@ -56,7 +56,8 @@ final class CoreDefaultValueVerifier {
             || !authoring
                 .target(binding.occurrence(), field.initializer().orElseThrow().nodeIndex())
                 .equals(resolved.occurrence())
-            || !parameter.type().equals(field.type())) {
+            || !CoreTypes.absolute(parameter.type(), binding.definition(), program)
+                .equals(CoreTypes.absolute(field.type(), binding.definition(), program))) {
           throw new IllegalArgumentException(
               "constructor parameter default must reference its field initializer");
         }
