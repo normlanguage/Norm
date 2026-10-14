@@ -6,6 +6,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
+import dev.w0fv1.norm.jvm.JarResolver;
+import dev.w0fv1.norm.testing.MavenTestRepository;
+import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.Sha256Digest;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,21 +18,25 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @Timeout(240)
 final class SelfExtendingAgentApplicationTest {
   @TempDir Path directory;
 
-  @Test
-  void repairsSourceAddsDependencyAndInvokesNewToolInTheSameProcess() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void repairsSourceAddsDependencyAndInvokesNewToolInTheSameProcess(boolean jarDependency)
+      throws Exception {
     Path norm = Path.of(System.getProperty("norm.test.stdlib")).getParent().getParent();
     Path app = Files.createDirectories(directory.resolve("agent"));
     for (var mapping :
@@ -44,8 +53,48 @@ final class SelfExtendingAgentApplicationTest {
       }
     }
     String originalTools = Files.readString(app.resolve("tools.norm"));
+    String toolName = jarDependency ? "reverse_text" : "answer";
     String expandedTools =
-        originalTools.replace("writeFile.function]", "writeFile.function, answer.function]");
+        originalTools.replace(
+            "writeFile.function]",
+            "writeFile.function, " + (jarDependency ? "reverseText" : "answer") + ".function]");
+    String binding = "";
+    if (jarDependency) {
+      Path jar = Files.createDirectories(app.resolve("lib")).resolve("commons-lang3.jar");
+      try (var resolver =
+          new JarResolver(MavenTestRepository.prepare(directory.resolve("maven-cache")))) {
+        var graph =
+            resolver.resolve(
+                directory,
+                new JarBinding(
+                    new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty())));
+        Files.copy(graph.root().file(), jar);
+      }
+      binding =
+          ", binding: jarBinding(target: localJar(path: \"lib/commons-lang3.jar\", integrity: sha256(\""
+              + Sha256Digest.compute(jar).value()
+              + "\")), api: [jarType(name: \"org.apache.commons.lang3.StringUtils\", members: [\"reverse\"])])";
+    }
+    String dependencyModule =
+        "Module module() { module(name: \"agent\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)"
+            + (jarDependency
+                ? ""
+                : ", dependency(repository: \"github\", name: \"capability\", version: 1)")
+            + "]"
+            + binding
+            + ") }";
+    String dependencyTool =
+        jarDependency
+            ? """
+        package agent
+        import openai.Tool
+        import openai.ToolParameter
+        @Tool(name: "reverse_text", description: "Reverse text using Apache Commons Lang")
+        String reverseText(@ToolParameter(description: "Text to reverse") String text) {
+          return stringUtilsReverse(text) ?? ""
+        }
+        """
+            : "package agent\nimport openai.Tool\nimport capability.compute\n@Tool(name: \"answer\", description: \"Compute the answer through the added dependency\")\nInteger answer() { compute() }";
     var rounds = new AtomicInteger();
     var failure = new AtomicReference<Throwable>();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -71,7 +120,7 @@ final class SelfExtendingAgentApplicationTest {
             assertEquals(
                 round < 2
                     ? Set.of("read_file", "write_file")
-                    : Set.of("read_file", "write_file", "answer"),
+                    : Set.of("read_file", "write_file", toolName),
                 names,
                 request.toString());
             JsonArray calls = new JsonArray();
@@ -80,27 +129,21 @@ final class SelfExtendingAgentApplicationTest {
                   writeCall(0, app.resolve("extra.norm"), "package agent\nInteger broken( {"));
             } else if (round == 1) {
               assertTrue(request.toString().contains("Rejected"), request.toString());
-              calls.add(
-                  writeCall(
-                      0,
-                      directory.resolve("dependencies/capability/module.norm"),
-                      "Module module() { module(name: \"capability\", version: 1, exports: [\"value\"]) }"));
-              calls.add(
-                  writeCall(
-                      1,
-                      directory.resolve("dependencies/capability/value.norm"),
-                      "package capability\npublic Integer compute() { 42 }"));
-              calls.add(
-                  writeCall(
-                      2,
-                      app.resolve("module.norm"),
-                      "Module module() { module(name: \"agent\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1), dependency(repository: \"github\", name: \"capability\", version: 1)]) }"));
-              calls.add(
-                  writeCall(
-                      3,
-                      app.resolve("extra.norm"),
-                      "package agent\nimport openai.Tool\nimport capability.compute\n@Tool(name: \"answer\", description: \"Compute the answer through the added dependency\")\nInteger answer() { compute() }"));
-              calls.add(writeCall(4, app.resolve("tools.norm"), expandedTools));
+              if (!jarDependency) {
+                calls.add(
+                    writeCall(
+                        0,
+                        directory.resolve("dependencies/capability/module.norm"),
+                        "Module module() { module(name: \"capability\", version: 1, exports: [\"value\"]) }"));
+                calls.add(
+                    writeCall(
+                        1,
+                        directory.resolve("dependencies/capability/value.norm"),
+                        "package capability\npublic Integer compute() { 42 }"));
+              }
+              calls.add(writeCall(calls.size(), app.resolve("module.norm"), dependencyModule));
+              calls.add(writeCall(calls.size(), app.resolve("extra.norm"), dependencyTool));
+              calls.add(writeCall(calls.size(), app.resolve("tools.norm"), expandedTools));
             } else if (round == 2) {
               assertTrue(request.toString().contains("Published"), request.toString());
               JsonObject call = new JsonObject();
@@ -108,8 +151,9 @@ final class SelfExtendingAgentApplicationTest {
               call.addProperty("id", "answer-call");
               call.addProperty("type", "function");
               JsonObject function = new JsonObject();
-              function.addProperty("name", "answer");
-              function.addProperty("arguments", "{}");
+              function.addProperty("name", toolName);
+              function.addProperty(
+                  "arguments", jarDependency ? "{\"text\":\"Norm evolves 42\"}" : "{}");
               call.add("function", function);
               calls.add(call);
             } else {
@@ -121,7 +165,10 @@ final class SelfExtendingAgentApplicationTest {
                             var message = item.getAsJsonObject();
                             return message.has("tool_call_id")
                                 && message.get("tool_call_id").getAsString().equals("answer-call")
-                                && message.get("content").getAsString().equals("42");
+                                && message
+                                    .get("content")
+                                    .getAsString()
+                                    .equals(jarDependency ? "\"24 sevlove mroN\"" : "42");
                           }),
                   request.toString());
             }

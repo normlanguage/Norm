@@ -12,6 +12,27 @@ final class RuntimeObjectStateTest {
   private static final DefinitionOccurrenceId OCCURRENCE = new DefinitionOccurrenceId(OWNER, 0);
 
   @Test
+  void nullableAliasesDoNotChangeTheConcreteObjectTypeInEitherTraversalOrder() {
+    var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
+    var concrete =
+        new CoreType.Declared(
+            constructor, List.of(), CoreValueCategory.IDENTITY, CoreNullability.NON_NULL);
+    var nullable =
+        new CoreType.Declared(
+            constructor, List.of(), CoreValueCategory.IDENTITY, CoreNullability.NULLABLE);
+    for (boolean nullableFirst : List.of(false, true)) {
+      var object = new RuntimeValues.ObjectValue(info(Map.of()), concrete);
+      try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+        assertSame(object, transaction.transform(object, nullableFirst ? nullable : concrete));
+        assertSame(object, transaction.transform(object, nullableFirst ? concrete : nullable));
+        assertEquals(concrete, object.type());
+        transaction.commit();
+      }
+      assertEquals(concrete, object.type());
+    }
+  }
+
+  @Test
   void intermediateRetiredSchemasCanBeCollectedDespiteMetadataValueCycles() throws Exception {
     var history = metadataHistory(-1);
     for (int attempt = 0;

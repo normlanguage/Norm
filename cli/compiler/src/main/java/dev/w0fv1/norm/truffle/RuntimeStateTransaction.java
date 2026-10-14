@@ -296,7 +296,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
                 expected instanceof CoreType.Declared declared
                         && target.type() instanceof CoreType.Declared original
                         && declared.constructor().equals(original.constructor())
-                    ? expected
+                    ? instanceType(declared)
                     : target.type();
             prepare(target, target.info(execution), desiredType);
             var context = objects.get(target.state());
@@ -426,10 +426,21 @@ final class RuntimeStateTransaction implements AutoCloseable {
 
   private CoreType.Declared containerType(CoreType actual, CoreType expected) {
     var concrete = (CoreType.Declared) actual;
-    return expected instanceof CoreType.Declared declared
-            && declared.constructor().equals(concrete.constructor())
+    return instanceType(
+        expected instanceof CoreType.Declared declared
+                && declared.constructor().equals(concrete.constructor())
+            ? declared
+            : concrete);
+  }
+
+  private CoreType.Declared instanceType(CoreType.Declared declared) {
+    return declared.nullability() == dev.w0fv1.norm.core.CoreNullability.NON_NULL
         ? declared
-        : concrete;
+        : new CoreType.Declared(
+            declared.constructor(),
+            declared.arguments(),
+            declared.category(),
+            dev.w0fv1.norm.core.CoreNullability.NON_NULL);
   }
 
   private void validateType(CoreType expected, Object value) {
@@ -500,7 +511,13 @@ final class RuntimeStateTransaction implements AutoCloseable {
       if (!converted && context.requiresConverter() && execution != null)
         converted = MigrationPolicy.migrate(context, execution);
       if (context.destructive() && !converted)
-        throw new StateMigrationFailure("Destructive runtime state migration requires a converter");
+        throw new StateMigrationFailure(
+            "Destructive runtime state migration requires a converter for "
+                + object.objectInfo.name()
+                + ": "
+                + context.objectType()
+                + " -> "
+                + context.targetType());
       var fields = RuntimeObjectState.Schema.of(view, object.type()).fields();
       for (var configured : object.configurationFor(view).entrySet())
         context.write(configured.getKey(), fields.get(configured.getKey()), configured.getValue());
