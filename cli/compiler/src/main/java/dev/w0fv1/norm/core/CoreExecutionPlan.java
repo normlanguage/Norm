@@ -18,10 +18,22 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
 
   public static CoreExecutionPlan forArtifact(
       CoreArtifact artifact, Set<DefinitionId> entryPoints) {
-    var analysis = new Analysis(artifact);
+    return forArtifact(artifact, entryPoints, false);
+  }
+
+  public static CoreExecutionPlan forLiveArtifact(CoreArtifact artifact) {
+    return forArtifact(artifact, Set.of(), true);
+  }
+
+  private static CoreExecutionPlan forArtifact(
+      CoreArtifact artifact, Set<DefinitionId> entryPoints, boolean retainDeclarations) {
+    var analysis = new Analysis(artifact, retainDeclarations);
     analysis.require(artifact.entryDefinition());
     entryPoints.forEach(analysis::require);
     for (var record : artifact.program().definitions()) {
+      if (retainDeclarations && record.definition() instanceof CoreDefinition.Callable) {
+        analysis.require(record.id());
+      }
       if (record.definition() instanceof CoreDefinition.Aggregate aggregate
           && analysis.runtimeConstructed(record.id(), aggregate)) {
         aggregate
@@ -69,6 +81,7 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
 
   private static final class Analysis {
     private final CoreProgram program;
+    private final boolean retainDeclarations;
     private final Map<DefinitionId, Set<DefinitionId>> representatives = new HashMap<>();
     private final Set<DefinitionId> required = new HashSet<>();
     private final ArrayDeque<DefinitionId> pending = new ArrayDeque<>();
@@ -79,8 +92,9 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
     private boolean dynamicDefaults;
     private final Map<DefinitionId, Set<DefinitionId>> defaults = new HashMap<>();
 
-    private Analysis(CoreArtifact artifact) {
+    private Analysis(CoreArtifact artifact, boolean retainDeclarations) {
       program = artifact.program();
+      this.retainDeclarations = retainDeclarations;
       for (var binding : artifact.namespace().bindings()) {
         binding.shape().parameters().stream()
             .flatMap(parameter -> parameter.defaultValue().stream())
@@ -223,7 +237,10 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
             }
             case INTERFACE_CALL -> activate(id);
             case ANNOTATION -> requireAnnotationLifecycle();
-            case TYPE, FIELD, CONSTRUCTION, DECLARED_MEMBER, IMPLEMENTATION -> {}
+            case DECLARED_MEMBER -> {
+              if (retainDeclarations) activate(id);
+            }
+            case TYPE, FIELD, CONSTRUCTION, IMPLEMENTATION -> {}
           }
         }
 

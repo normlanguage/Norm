@@ -60,7 +60,13 @@ final class CoreReusePlan {
       }
       if (reusableOrigin) {
         reusable.put(
-            key, new CoreDefinitionOrigin(origin.definitionName(), root.orElseThrow(), nodes));
+            key,
+            new CoreDefinitionOrigin(
+                origin.definitionName(),
+                root.orElseThrow(),
+                nodes,
+                origin.declarationIdentity(),
+                origin.localNames()));
       } else {
         changed.add(occurrence.id());
       }

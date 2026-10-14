@@ -1748,8 +1748,12 @@ final class Binder {
     List<BoundParameter> captureParameters = new ArrayList<>();
     int ordinal = 0;
     for (Map.Entry<BoundLocalId, SemanticType> capture : captures.entrySet()) {
+      String captureName =
+          capture.getKey().equals(thisLocal)
+              ? "this"
+              : semantics.symbol(new SymbolId(capture.getKey().value())).orElseThrow().name();
       captureParameters.add(
-          new BoundParameter(capture.getKey(), "$capture" + ordinal, capture.getValue(), ordinal));
+          new BoundParameter(capture.getKey(), captureName, capture.getValue(), ordinal));
       ordinal++;
     }
     callables.put(

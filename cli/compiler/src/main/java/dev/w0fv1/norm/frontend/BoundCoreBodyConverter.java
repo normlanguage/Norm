@@ -50,6 +50,7 @@ final class BoundCoreBodyConverter {
   private final LocalTable locals = new LocalTable();
   private final NodeTable nodes = new NodeTable();
   private final Map<Integer, Integer> referenceTargets = new LinkedHashMap<>();
+  private final Map<BoundLocalId, String> localNames = new LinkedHashMap<>();
 
   BoundCoreBodyConverter(
       BoundCoreTypeConverter types,
@@ -69,14 +70,17 @@ final class BoundCoreBodyConverter {
     declaration
         .captures()
         .forEach(
-            capture ->
-                locals.add(capture.id(), types.convert(capture.type()), CoreLocal.Kind.CAPTURE));
+            capture -> {
+              locals.add(capture.id(), types.convert(capture.type()), CoreLocal.Kind.CAPTURE);
+              localNames.put(capture.id(), capture.name());
+            });
     declaration
         .parameters()
         .forEach(
-            parameter ->
-                locals.add(
-                    parameter.id(), types.convert(parameter.type()), CoreLocal.Kind.PARAMETER));
+            parameter -> {
+              locals.add(parameter.id(), types.convert(parameter.type()), CoreLocal.Kind.PARAMETER);
+              localNames.put(parameter.id(), parameter.name());
+            });
     declaration
         .reifiedParameters()
         .forEach(
@@ -85,7 +89,10 @@ final class BoundCoreBodyConverter {
     scanLocals(declaration.body());
     nodes.add(0, declaration.span());
     CoreBlock body = convert(declaration.body());
-    return new Result(body, locals.values(), locals.indices(), nodes.spans(), referenceTargets);
+    var namedSlots = new LinkedHashMap<Integer, String>();
+    localNames.forEach((id, name) -> namedSlots.put(locals.index(id), name));
+    return new Result(
+        body, locals.values(), locals.indices(), nodes.spans(), referenceTargets, namedSlots);
   }
 
   private void scanLocals(BoundBlock block) {
@@ -93,6 +100,7 @@ final class BoundCoreBodyConverter {
       switch (statement) {
         case BoundStatement.LocalDeclaration local -> {
           locals.add(local.local(), types.convert(local.type()), CoreLocal.Kind.VARIABLE);
+          localNames.put(local.local(), local.name());
           scanExpression(local.initializer());
         }
         case BoundStatement.LocalAssignment assignment -> scanExpression(assignment.value());
@@ -121,6 +129,7 @@ final class BoundCoreBodyConverter {
         case BoundStatement.ForStatement loop -> {
           locals.add(loop.iterator(), CoreType.DYNAMIC, CoreLocal.Kind.ITERATOR);
           locals.add(loop.variable(), types.convert(loop.variableType()), CoreLocal.Kind.VARIABLE);
+          localNames.put(loop.variable(), loop.variableName());
           loop.index()
               .ifPresent(index -> locals.add(index, CoreType.INTEGER, CoreLocal.Kind.VARIABLE));
           scanExpression(loop.iterable());
@@ -538,18 +547,21 @@ final class BoundCoreBodyConverter {
     private final Map<BoundLocalId, Integer> localIndices;
     private final Map<Integer, SourceSpan> nodeSpans;
     private final Map<Integer, Integer> referenceTargets;
+    private final Map<Integer, String> localNames;
 
     private Result(
         CoreBlock body,
         List<CoreLocal> locals,
         Map<BoundLocalId, Integer> localIndices,
         Map<Integer, SourceSpan> nodeSpans,
-        Map<Integer, Integer> referenceTargets) {
+        Map<Integer, Integer> referenceTargets,
+        Map<Integer, String> localNames) {
       this.body = Objects.requireNonNull(body, "body");
       this.locals = List.copyOf(locals);
       this.localIndices = Map.copyOf(localIndices);
       this.nodeSpans = Map.copyOf(nodeSpans);
       this.referenceTargets = Map.copyOf(referenceTargets);
+      this.localNames = Map.copyOf(localNames);
     }
 
     CoreBlock body() {
@@ -570,6 +582,10 @@ final class BoundCoreBodyConverter {
 
     Map<Integer, Integer> referenceTargets() {
       return referenceTargets;
+    }
+
+    Map<Integer, String> localNames() {
+      return localNames;
     }
 
     int localIndex(BoundLocalId id) {

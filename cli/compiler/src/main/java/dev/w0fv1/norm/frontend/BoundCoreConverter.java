@@ -761,12 +761,14 @@ final class BoundCoreConverter {
         };
     return new Declaration(
         definition,
-        origin(
+        new CoreDefinitionOrigin(
             declaration.kind() == BoundCallableKind.LAMBDA
                 ? declaration.id().value()
                 : declaration.name(),
             declaration.span(),
-            body.nodeSpans()),
+            body.nodeSpans(),
+            Optional.empty(),
+            body.localNames()),
         body.referenceTargets(),
         declaration.kind() == BoundCallableKind.CONSTRUCTOR
                 || declaration.kind() == BoundCallableKind.DEFAULT_ARGUMENT

@@ -137,6 +137,14 @@ abstract class CoreWalker {
 
   protected void visitExpression(CoreExpression expression) {}
 
+  protected void visitBlock(CoreBlock block) {}
+
+  protected void visitStatement(CoreStatement statement) {}
+
+  protected void visitCollectionElement(CoreCollectionElement element) {}
+
+  protected void visitPattern(CorePattern pattern) {}
+
   protected void visitIntrinsic(IntrinsicId intrinsic) {}
 
   private void walkType(CoreType type) {
@@ -153,10 +161,12 @@ abstract class CoreWalker {
   }
 
   private void walkBlock(CoreBlock block) {
+    visitBlock(block);
     block.statements().forEach(this::walkStatement);
   }
 
   private void walkStatement(CoreStatement statement) {
+    visitStatement(statement);
     switch (statement) {
       case CoreStatement.LocalDeclaration local -> walkExpression(local.initializer());
       case CoreStatement.LocalAssignment assignment -> walkExpression(assignment.value());
@@ -306,6 +316,7 @@ abstract class CoreWalker {
   }
 
   private void walkPattern(CorePattern pattern) {
+    visitPattern(pattern);
     switch (pattern) {
       case CorePattern.Variant variant -> variant.arguments().forEach(this::walkPattern);
       case CorePattern.Binding binding -> walkRuntimeType(binding.runtimeType());
@@ -316,6 +327,7 @@ abstract class CoreWalker {
   }
 
   private void walkCollectionElement(CoreCollectionElement element) {
+    visitCollectionElement(element);
     switch (element) {
       case CoreExpression expression -> walkExpression(expression);
       case CoreCollectionElement.Conditional conditional -> {

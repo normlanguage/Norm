@@ -111,6 +111,12 @@ final class CoreArtifactIdentity {
   private static byte[] encodeOrigin(
       CoreDefinitionOrigin origin, Map<String, Integer> documentIndexes) {
     CanonicalWriter writer = new CanonicalWriter();
+    writer.writeBoolean(origin.declarationIdentity().isPresent());
+    origin.declarationIdentity().ifPresent(writer::writeString);
+    writer.writeInt(origin.localNames().size());
+    origin.localNames().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(entry -> writer.writeInt(entry.getKey()).writeString(entry.getValue()));
     writeSpanDocument(
             writer.writeString(origin.definitionName()), origin.rootSpan(), documentIndexes)
         .writeInt(origin.rootSpan().startOffset())

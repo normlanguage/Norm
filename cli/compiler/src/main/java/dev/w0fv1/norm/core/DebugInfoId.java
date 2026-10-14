@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import java.util.Objects;
 
 public record DebugInfoId(ContentHash hash) implements Comparable<DebugInfoId> {
-  private static final String DOMAIN = "norm:debug-info:v1\0";
+  private static final String DOMAIN = "norm:debug-info:v2\0";
 
   public DebugInfoId {
     Objects.requireNonNull(hash, "hash");
