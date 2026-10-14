@@ -27,6 +27,12 @@ final class CoreCodec {
     return writer.toByteArray();
   }
 
+  static byte[] encodeDefinitionContent(CoreDefinition definition) {
+    CanonicalWriter writer = new CanonicalWriter();
+    writeDefinition(writer, Objects.requireNonNull(definition, "definition"), link -> link);
+    return writer.toByteArray();
+  }
+
   static byte[] encodeAnnotationApplication(CoreAnnotationApplication application) {
     CanonicalWriter writer = new CanonicalWriter().writeTag("annotation-application");
     writeDefinitionId(writer, application.annotation());
@@ -41,7 +47,7 @@ final class CoreCodec {
   private static void writeDefinition(
       CanonicalWriter writer,
       CoreDefinition definition,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (definition) {
       case CoreDefinition.Callable callable -> {
         writer.writeTag("callable").writeBoolean(callable.receiverType().isPresent());
@@ -196,7 +202,7 @@ final class CoreCodec {
   private static void writeInterceptors(
       CanonicalWriter writer,
       List<CoreInterceptor> interceptors,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(interceptors.size());
     interceptors.forEach(
         interceptor -> {
@@ -211,7 +217,7 @@ final class CoreCodec {
   private static void writeLocal(
       CanonicalWriter writer,
       CoreLocal local,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(local.index()).writeTag(local.kind().name());
     writeType(writer, local.type(), referenceResolver);
   }
@@ -219,7 +225,7 @@ final class CoreCodec {
   private static void writeBlock(
       CanonicalWriter writer,
       CoreBlock block,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeTag("block").writeInt(block.statements().size());
     block.statements().forEach(statement -> writeStatement(writer, statement, referenceResolver));
   }
@@ -227,7 +233,7 @@ final class CoreCodec {
   private static void writeStatement(
       CanonicalWriter writer,
       CoreStatement statement,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (statement) {
       case CoreStatement.LocalDeclaration local -> {
         writer.writeTag("local-declaration").writeInt(local.localIndex());
@@ -309,7 +315,7 @@ final class CoreCodec {
   private static void writeExpression(
       CanonicalWriter writer,
       CoreExpression expression,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (expression) {
       case CoreExpression.Literal literal -> {
         writer.writeTag("literal");
@@ -476,7 +482,7 @@ final class CoreCodec {
   private static void writeSwitchCase(
       CanonicalWriter writer,
       CoreSwitchCase switchCase,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writePattern(writer, switchCase.pattern(), referenceResolver);
     writeBlock(writer, switchCase.body(), referenceResolver);
   }
@@ -484,7 +490,7 @@ final class CoreCodec {
   private static void writePattern(
       CanonicalWriter writer,
       CorePattern pattern,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (pattern) {
       case CorePattern.Variant variant -> {
         writer.writeTag("variant-pattern").writeString(variant.variantKey());
@@ -508,7 +514,7 @@ final class CoreCodec {
   private static void writeArguments(
       CanonicalWriter writer,
       List<CoreArgument> arguments,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(arguments.size());
     arguments.forEach(
         argument -> {
@@ -520,7 +526,7 @@ final class CoreCodec {
   private static void writeRuntimeType(
       CanonicalWriter writer,
       CoreRuntimeType runtimeType,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writeType(writer, runtimeType.template(), referenceResolver);
     writer.writeInt(runtimeType.captures().size());
     runtimeType
@@ -533,7 +539,7 @@ final class CoreCodec {
   private static void writeConformance(
       CanonicalWriter writer,
       CoreConformance conformance,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writeType(writer, conformance.interfaceType(), referenceResolver);
     writer.writeInt(conformance.witnesses().size());
     conformance.witnesses().stream()
@@ -556,7 +562,7 @@ final class CoreCodec {
             });
   }
 
-  private static byte[] referenceBytes(DefinitionReference reference) {
+  private static byte[] referenceBytes(CoreDefinitionLink reference) {
     CanonicalWriter writer = new CanonicalWriter();
     writeReference(writer, reference);
     return writer.toByteArray();
@@ -564,12 +570,12 @@ final class CoreCodec {
 
   private static byte[] conformanceKey(
       CoreConformance conformance,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     return typeKey(conformance.interfaceType(), referenceResolver);
   }
 
   private static byte[] typeKey(
-      CoreType type, Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      CoreType type, Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     CanonicalWriter writer = new CanonicalWriter();
     writeType(writer, type, referenceResolver);
     return writer.toByteArray();
@@ -578,7 +584,7 @@ final class CoreCodec {
   private static void writeTypes(
       CanonicalWriter writer,
       List<CoreType> types,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(types.size());
     types.forEach(type -> writeType(writer, type, referenceResolver));
   }
@@ -586,7 +592,7 @@ final class CoreCodec {
   private static void writeTypeParameters(
       CanonicalWriter writer,
       List<CoreTypeParameter> parameters,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(parameters.size());
     parameters.forEach(
         parameter -> {
@@ -604,7 +610,7 @@ final class CoreCodec {
   private static void writeType(
       CanonicalWriter writer,
       CoreType type,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (type) {
       case CoreType.Declared declared -> {
         writer.writeTag("declared-type");
@@ -653,12 +659,12 @@ final class CoreCodec {
   private static void writeField(
       CanonicalWriter writer,
       CoreFieldReference field,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writeReference(writer, referenceResolver.apply(field.owner()));
     writer.writeInt(field.ordinal());
   }
 
-  private static void writeReference(CanonicalWriter writer, DefinitionReference reference) {
+  private static void writeReference(CanonicalWriter writer, CoreDefinitionLink reference) {
     switch (Objects.requireNonNull(reference, "reference")) {
       case DefinitionReference.External external ->
           writer
@@ -667,6 +673,8 @@ final class CoreCodec {
               .writeInt(external.definition().memberIndex());
       case DefinitionReference.RecursiveMember recursive ->
           writer.writeTag("recursive-member").writeInt(recursive.memberIndex());
+      case PendingDefinitionReference pending ->
+          writer.writeTag("declaration-slot").writeInt(pending.declarationIndex());
     }
   }
 
@@ -686,7 +694,7 @@ final class CoreCodec {
   private static void writeOptionalAnnotationValue(
       CanonicalWriter writer,
       Optional<CoreAnnotationValue> value,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeBoolean(value.isPresent());
     value.ifPresent(item -> writeAnnotationValue(writer, item, referenceResolver));
   }
@@ -694,7 +702,7 @@ final class CoreCodec {
   static void writeAnnotationValue(
       CanonicalWriter writer,
       CoreAnnotationValue value,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writeType(writer, value.type(), referenceResolver);
     switch (value.value()) {
       case CoreAnnotationValue.Null ignored -> writer.writeTag("null-annotation-value");
@@ -774,7 +782,7 @@ final class CoreCodec {
   private static void writeOptionalExpression(
       CanonicalWriter writer,
       Optional<CoreExpression> value,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeBoolean(value.isPresent());
     value.ifPresent(expression -> writeExpression(writer, expression, referenceResolver));
   }
@@ -792,7 +800,7 @@ final class CoreCodec {
   private static void writeCollectionElement(
       CanonicalWriter writer,
       CoreCollectionElement element,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (element) {
       case CoreExpression expression -> {
         writer.writeTag("element");
@@ -824,7 +832,7 @@ final class CoreCodec {
   private static void writeIteration(
       CanonicalWriter writer,
       CoreIteration iteration,
-      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+      Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     switch (iteration) {
       case CoreIteration.Builtin builtin ->
           writer.writeTag("builtin").writeTag(builtin.intrinsic().name());

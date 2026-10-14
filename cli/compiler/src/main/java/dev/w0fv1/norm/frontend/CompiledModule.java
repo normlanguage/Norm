@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class CompiledModule {
-  public static final String ABI = "norm-compiled-module-1";
+  public static final String ABI = "norm-compiled-module-2";
   public static final String ENTRY = "core/module.bin";
   private final Payload payload;
   private final dev.w0fv1.norm.value.Sha256Digest contentId;

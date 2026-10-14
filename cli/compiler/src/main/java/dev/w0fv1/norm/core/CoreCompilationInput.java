@@ -24,25 +24,49 @@ public record CoreCompilationInput(List<Declaration> declarations, CoreProgram d
 
   public sealed interface Declaration permits Source, Compiled {}
 
-  public record Source(CoreDefinition definition) implements Declaration {
+  public record Source(CoreDefinitionContent content, CoreLinkage linkage) implements Declaration {
     public Source {
+      Objects.requireNonNull(content, "content");
+      Objects.requireNonNull(linkage, "linkage");
+      if (content.slots() != linkage.declarations().size())
+        throw new IllegalArgumentException("linkage must bind every content slot exactly once");
+    }
+
+    public Source(CoreDefinition definition) {
+      this(capture(definition));
+    }
+
+    private Source(Source captured) {
+      this(captured.content(), captured.linkage());
+    }
+
+    private static Source capture(CoreDefinition definition) {
       Objects.requireNonNull(definition, "definition");
+      var slots = new java.util.LinkedHashMap<Integer, Integer>();
+      CoreTree.links(definition).stream()
+          .filter(PendingDefinitionReference.class::isInstance)
+          .map(PendingDefinitionReference.class::cast)
+          .forEach(
+              pending ->
+                  slots.computeIfAbsent(pending.declarationIndex(), ignored -> slots.size()));
+      var normalized =
+          CoreRewriter.resolve(
+              definition,
+              pending -> new PendingDefinitionReference(slots.get(pending.declarationIndex())));
+      return new Source(
+          new CoreDefinitionContent(normalized), new CoreLinkage(List.copyOf(slots.keySet())));
+    }
+
+    public CoreDefinition definition() {
+      return content.bind(linkage);
     }
 
     public Set<Integer> references() {
-      return CoreTree.links(definition).stream()
-          .filter(PendingDefinitionReference.class::isInstance)
-          .map(PendingDefinitionReference.class::cast)
-          .map(PendingDefinitionReference::declarationIndex)
-          .collect(java.util.stream.Collectors.toUnmodifiableSet());
+      return Set.copyOf(linkage.declarations());
     }
 
     public Source relocate(java.util.function.IntUnaryOperator indices) {
-      return new Source(
-          CoreRewriter.resolve(
-              definition,
-              pending ->
-                  new PendingDefinitionReference(indices.applyAsInt(pending.declarationIndex()))));
+      return new Source(content, linkage.relocate(indices));
     }
   }
 

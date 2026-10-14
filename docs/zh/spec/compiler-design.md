@@ -69,6 +69,7 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 | 身份 | 所属世界 | 作用 |
 | --- | --- | --- |
 | `DocumentId` / `SymbolId` | authoring | 文档修订、诊断和编辑器操作 |
+| `CoreContentId` | relocatable Core | 已规范化声明槽位的定义内容，具体引用保持固定 |
 | `DefinitionId` | semantic Core | 不可变定义及其固定依赖 |
 | `PublicAbiId` | namespace | 导出的名字、可见性和公开签名 |
 | `CoreCodeId` / `MetadataId` | executable | Core 代码与运行期 companion metadata |
@@ -85,6 +86,10 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 `CoreNamespace` 保存 authoring 名字、签名、可见性、导出状态与精确 occurrence。 参数调用策略由 [ParameterPolicy](../../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ParameterPolicy.java) 在语义声明与 Core 签名之间共享，默认参数标记、标签策略和回调参数名参与公开 ABI；验收见 [ParameterContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/ParameterContractTest.java)。`CoreAuthoringMap` 为每个 canonical definition 保存按来源稳定编号的 `DefinitionOccurrenceId`、声明 role、`CoreDefinitionOrigin` 和引用 occurrence 路由。`CoreArtifact.metadata` 保存以 occurrence 为目标的 companion metadata。Lowerer 按调用所在 occurrence 选择对应来源，因此共享同一 `DefinitionId` 的多个源码定义仍保留各自的角色、名字、位置、调用栈和注解。
 
 ## Canonical Core
+
+可重定位输入由 [CoreCompilationInput.Source](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreCompilationInput.java) 统一持有 [CoreDefinitionContent](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreDefinitionContent.java) 与 [CoreLinkage](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreLinkage.java)。内容身份不包含待绑定声明的编译单元索引；已经解析的外部与递归引用仍属于内容。槽位、重复目标和重链接约束见 [CoreDefinitionContentTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreDefinitionContentTest.java)。内容身份不等于完整程序身份，也不能作为已绑定 Truffle 调用目标的唯一缓存键。
+
+持久化与发布单元的声明表归属 [CoreBuildHistory](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CoreBuildHistory.java)，代码与公开绑定共用该表；验证见 [CoreBuildHistoryTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/CoreBuildHistoryTest.java)。内容、绑定及旧新制品隔离的验收见 [CoreContentLinkageTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/CoreContentLinkageTest.java)，序列化由 [PortableObjectCodec](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/store/PortableObjectCodec.java) 重建并校验内容。
 
 `CoreBuilder` 通过 [CoreCompilationInput](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreCompilationInput.java) 统一接收待转换声明和已编译定义。源码声明从 resolved representation 转成强类型 `CoreDefinition`，复用声明保留内容组并重新绑定当前作者态信息。callable、aggregate、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
