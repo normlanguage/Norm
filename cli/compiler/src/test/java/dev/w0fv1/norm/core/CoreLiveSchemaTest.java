@@ -12,6 +12,94 @@ final class CoreLiveSchemaTest {
   @TempDir Path directory;
 
   @Test
+  void permitsNewConstructorFramesAfterExplicitFieldTypeMigration() {
+    String before =
+        """
+        import std.runtime.StateMigration
+        import std.runtime.MigrationState
+        @StateMigration(convert: convertState.function)
+        class State { Integer total = 1 }
+        Void convertState(MigrationState state) {
+          state.write(field: State.total.field, value: 1)
+        }
+        Void main() { var state = State() }
+        """;
+    String after =
+        before
+            .replace("Integer total = 1", "String total = \"one\"")
+            .replace("value: 1", "value: state.read<Integer>(\"total\").toString()");
+    var first = dev.w0fv1.norm.testing.NormTestKit.compile(before);
+    var second = dev.w0fv1.norm.testing.NormTestKit.compile(after);
+    assertTrue(first.isSuccess(), first.diagnostics().toString());
+    assertTrue(second.isSuccess(), second.diagnostics().toString());
+    assertDoesNotThrow(
+        () ->
+            CoreLiveSchema.create(first.output().orElseThrow().artifact())
+                .requireCompatible(
+                    CoreLiveSchema.create(second.output().orElseThrow().artifact())));
+  }
+
+  @Test
+  void requiresCollectionKeyMigrationForChangedValueFieldTypes() {
+    var first = compile("value Key { Integer count = 1 } Void main() { var key = Key() }");
+    var second = compile("value Key { String count = \"one\" } Void main() { var key = Key() }");
+    var before = CoreRuntimeSchema.create(first);
+    var after = CoreRuntimeSchema.create(second);
+    var id =
+        before
+            .identity()
+            .id(first.namespace().occurrence("", "Key").orElseThrow().representative());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> before.requireCompatible(after, java.util.Set.of(id)));
+  }
+
+  @Test
+  void migratesFieldInitializerContractsOnlyWithTheirOwningType() {
+    var first =
+        compile(
+            "class State { Integer count = 1 } Integer value() { 1 } Void main() { var state = State() }");
+    var second =
+        compile(
+            "class State { String count = \"one\" } Integer value() { 1 } Void main() { var state = State() }");
+    var before = CoreRuntimeSchema.create(first);
+    var after = CoreRuntimeSchema.create(second);
+    var id =
+        before
+            .identity()
+            .id(first.namespace().occurrence("", "State").orElseThrow().representative());
+    assertThrows(IllegalArgumentException.class, () -> before.requireCompatible(after));
+    assertDoesNotThrow(() -> before.requireCompatible(after, java.util.Set.of(id)));
+    var changedFunction =
+        CoreRuntimeSchema.create(
+            compile(
+                "class State { String count = \"one\" } String value() { \"one\" } Void main() { var state = State() }"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> before.requireCompatible(changedFunction, java.util.Set.of(id)));
+  }
+
+  @Test
+  void requiresAnExplicitTypeScopedMigrationForDestructiveStateChanges() {
+    var first = compile("class State { Integer count = 1 } Void main() { var state = State() }");
+    var second =
+        compile("class State { String text = \"one\" } Void main() { var state = State() }");
+    var before = CoreRuntimeSchema.create(first);
+    var after = CoreRuntimeSchema.create(second);
+    var id =
+        before
+            .identity()
+            .id(first.namespace().occurrence("", "State").orElseThrow().representative());
+    assertThrows(IllegalArgumentException.class, () -> before.requireCompatible(after));
+    assertDoesNotThrow(() -> before.requireCompatible(after, java.util.Set.of(id)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            before.requireCompatible(
+                after, java.util.Set.of(DefinitionId.parse("0".repeat(64) + ":0"))));
+  }
+
+  @Test
   void bindsDeclarationsAcrossContentAndSourcePositionChanges() {
     var first =
         compile("Integer first() { 1 } Integer second() { 1 } Void main() { printLine(first()) }");

@@ -14,6 +14,9 @@ public final class CoreExecutionLayout extends CoreWalker {
   private final Map<Integer, String> expressions = new LinkedHashMap<>();
   private final Map<Integer, String> locals = new LinkedHashMap<>();
   private final Map<Integer, String> names;
+  private final Map<String, java.util.List<String>> blockStatements = new LinkedHashMap<>();
+  private final Map<String, java.util.List<String>> statementExpressions = new LinkedHashMap<>();
+  private final Set<String> stateWrites = new LinkedHashSet<>();
   private final java.util.List<CoreCallableParameter> parameters;
   private final Map<Integer, Integer> guardedBlocks = new HashMap<>();
   private final Map<String, Set<Integer>> reads = new LinkedHashMap<>();
@@ -54,6 +57,27 @@ public final class CoreExecutionLayout extends CoreWalker {
 
   public String statement(int index) {
     return statements.get(index);
+  }
+
+  public java.util.List<String> statements(String block) {
+    return java.util.List.copyOf(blockStatements.getOrDefault(block, java.util.List.of()));
+  }
+
+  public java.util.List<String> expressions(String statement) {
+    return java.util.List.copyOf(statementExpressions.getOrDefault(statement, java.util.List.of()));
+  }
+
+  public boolean writesState(String expression) {
+    return stateWrites.contains(expression);
+  }
+
+  @Override
+  protected void visitIntrinsic(dev.w0fv1.norm.abi.IntrinsicId intrinsic) {
+    if (!intrinsic.writesState()) return;
+    for (Scope scope : scopes) {
+      if (!scope.expression) break;
+      stateWrites.add(scope.key);
+    }
   }
 
   public String expression(int index) {
@@ -102,6 +126,9 @@ public final class CoreExecutionLayout extends CoreWalker {
           default -> statement.getClass().getSimpleName();
         };
     String key = scopes.peek().next(role, statement);
+    blockStatements
+        .computeIfAbsent(scopes.peek().key, ignored -> new java.util.ArrayList<>())
+        .add(key);
     statements.put(statement.nodeIndex(), key);
     if (statement instanceof CoreStatement.LocalDeclaration local) {
       locals.put(local.localIndex(), key);
@@ -134,7 +161,9 @@ public final class CoreExecutionLayout extends CoreWalker {
       for (int index = 0; index < tried.catches().size(); index++)
         locals.put(tried.catches().get(index).localIndex(), key + "/catch:" + index);
     }
-    scopes.push(new Scope(key));
+    Scope scope = new Scope(key);
+    scope.statement = true;
+    scopes.push(scope);
   }
 
   @Override
@@ -145,8 +174,14 @@ public final class CoreExecutionLayout extends CoreWalker {
   @Override
   protected void visitExpression(CoreExpression expression) {
     String key = scopes.peek().next("expression", expression);
+    if (scopes.peek().statement)
+      statementExpressions
+          .computeIfAbsent(scopes.peek().key, ignored -> new java.util.ArrayList<>())
+          .add(key);
     expressions.put(expression.nodeIndex(), key);
-    scopes.push(new Scope(key));
+    Scope expressionScope = new Scope(key);
+    expressionScope.expression = true;
+    scopes.push(expressionScope);
     Integer local =
         switch (expression) {
           case CoreExpression.LocalRead read -> read.localIndex();
@@ -175,6 +210,8 @@ public final class CoreExecutionLayout extends CoreWalker {
   private final class Scope {
     private final String key;
     private Integer guardedLocal;
+    private boolean statement;
+    private boolean expression;
     private final Map<String, Integer> ordinals = new HashMap<>();
 
     private Scope(String key) {

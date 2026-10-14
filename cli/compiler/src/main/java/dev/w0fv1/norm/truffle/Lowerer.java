@@ -237,8 +237,8 @@ final class Lowerer {
   }
 
   private void initializeAnnotations() {
-    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
-    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    Map<DefinitionOccurrenceId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
+    callables.values().forEach(plan -> targets.put(plan.id, plan.target));
     annotations.initialize(aggregateInfo, targets);
   }
 
@@ -503,11 +503,19 @@ final class Lowerer {
       if (parentOccurrence == null) {
         throw new IllegalStateException("aggregate parent occurrence is absent");
       }
+      var arguments =
+          ((CoreType.Declared) parent)
+              .arguments().stream()
+                  .map(type -> identity.type(occurrence.representative(), type))
+                  .toList();
       result.addAll(
           fieldPlans(
-              parentOccurrence,
-              (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow(),
-              occurrences));
+                  parentOccurrence,
+                  (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow(),
+                  occurrences)
+              .stream()
+              .map(field -> field.project(arguments))
+              .toList());
     }
     aggregate
         .fields()
@@ -746,7 +754,17 @@ final class Lowerer {
               .map(plan::binding)
               .toList());
     }
-    return lowered;
+    if (liveNodes == null) return lowered;
+    String key = plan.layout.statement(statement.nodeIndex());
+    return liveNodes
+        .statement(
+            new LiveBindings.Key(liveSchema.key(plan.id), key),
+            lowered,
+            plan.layout.required(key).stream().map(plan::binding).toList(),
+            statement instanceof CoreStatement.FieldAssignment
+                || statement instanceof CoreStatement.ReferenceAssignment
+                || statement instanceof CoreStatement.IntrinsicAssignment)
+        .at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
   }
 
   private RuntimeValues.FieldKey fieldKey(FunctionPlan plan, CoreFieldReference reference) {
@@ -857,7 +875,8 @@ final class Lowerer {
                 lowered,
                 plan.layout.required(plan.layout.expression(expression.nodeIndex())).stream()
                     .map(plan::binding)
-                    .toList())
+                    .toList(),
+                plan.layout.writesState(plan.layout.expression(expression.nodeIndex())))
             .at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
   }
 

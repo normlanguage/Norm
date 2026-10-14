@@ -206,27 +206,35 @@ final class RuntimeValues {
     }
   }
 
-  record FieldReference(ObjectValue receiver, FieldKey field) implements ReferenceValue {
+  record FieldReference(ObjectValue receiver, FieldKey field, AggregateInfo view)
+      implements ReferenceValue {
     FieldReference {
       Objects.requireNonNull(receiver, "receiver");
       Objects.requireNonNull(field, "field");
+      Objects.requireNonNull(view, "view");
+    }
+
+    FieldReference(ObjectValue receiver, FieldKey field) {
+      this(receiver, field, receiver.selectedInfo());
     }
 
     @Override
     public Object read() {
-      return receiver.readField(field, null);
+      return receiver.readField(field, view, null);
     }
 
     @Override
     public boolean sameLocation(ReferenceValue other) {
       return other instanceof FieldReference reference
           && receiver == reference.receiver
-          && field.equals(reference.field);
+          && field.equals(reference.field)
+          && receiver.state.sameLocation(view, reference.view, receiver.type, field);
     }
 
     @Override
     public int locationHash() {
-      return 31 * System.identityHashCode(receiver) + field.hashCode();
+      return 31 * System.identityHashCode(receiver)
+          + receiver.state.locationHash(view, receiver.type, field);
     }
   }
 
@@ -285,7 +293,7 @@ final class RuntimeValues {
   @TruffleBoundary
   static ObjectValue copyObject(ObjectValue object) {
     ObjectValue result = new ObjectValue(object.objectInfo, object.type);
-    object.cells.forEach((key, value) -> result.cells.put(key, copy(value)));
+    object.cells().forEach((key, value) -> result.cells().put(key, copy(value)));
     object.configuration.forEach((key, value) -> result.configuration.put(key, copy(value)));
     return result;
   }
@@ -369,7 +377,7 @@ final class RuntimeValues {
           isValueObject(item)
               ? orderedHash(
                   31 * 0x56414c55 + item.type.hashCode(),
-                  item.cells.keySet().stream()
+                  item.cells().keySet().stream()
                       .sorted(
                           java.util.Comparator.comparing((FieldKey key) -> key.owner().toString())
                               .thenComparing(FieldKey::name))
@@ -1192,6 +1200,36 @@ final class RuntimeValues {
       initializer = Objects.requireNonNull(initializer, "initializer");
     }
 
+    FieldPlan project(List<CoreType> parentArguments) {
+      var projected =
+          initializer.map(
+              target ->
+                  (CallTarget)
+                      new com.oracle.truffle.api.nodes.RootNode(null) {
+                        @Override
+                        public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
+                          var incoming = frame.getArguments();
+                          var outgoing = new Object[parentArguments.size() + 2];
+                          outgoing[0] = incoming[0];
+                          outgoing[1] = incoming[1];
+                          for (int index = 0; index < parentArguments.size(); index++)
+                            outgoing[index + 2] =
+                                parentArguments
+                                    .get(index)
+                                    .substitute(parameter -> (CoreType) incoming[parameter + 2]);
+                          return target.call(outgoing);
+                        }
+                      }.getCallTarget());
+      return new FieldPlan(
+          owner,
+          name,
+          index,
+          publicField,
+          interceptors,
+          type.substitute(parentArguments::get),
+          projected);
+    }
+
     FieldKey key() {
       return new FieldKey(owner.representative(), name);
     }
@@ -1222,6 +1260,34 @@ final class RuntimeValues {
     else current.effects.add(effect);
   }
 
+  static RuntimeObjectState.CellValue stateCellView(RuntimeObjectState.Cell cell) {
+    StateMigration migration = MIGRATION.get();
+    return migration == null ? cell.value : migration.cellView(cell);
+  }
+
+  static void stateCellWrite(RuntimeObjectState.Cell cell, RuntimeObjectState.CellValue value) {
+    StateMigration migration = MIGRATION.get();
+    if (migration == null) cell.value = value;
+    else migration.cells.put(cell, value);
+  }
+
+  static Map<FieldKey, Object> stateStorage(Map<FieldKey, Object> cells) {
+    StateMigration migration = MIGRATION.get();
+    return migration == null ? cells : migration.storage(cells);
+  }
+
+  static RuntimeObjectState.ViewMap stateView(RuntimeObjectState state) {
+    StateMigration migration = MIGRATION.get();
+    return migration == null ? state.current() : migration.objectView(state);
+  }
+
+  static boolean migrating(GuestCallbackScheduler scheduler) {
+    StateMigration migration = MIGRATION.get();
+    return migration != null
+        && migration.execution != null
+        && migration.execution.callbacks() == scheduler;
+  }
+
   static StateMigration prepareState(Iterable<Object> roots, ExecutionState execution) {
     StateMigration migration = new StateMigration(execution, MIGRATION.get());
     MIGRATION.set(migration);
@@ -1234,10 +1300,18 @@ final class RuntimeValues {
     }
   }
 
-  static final class StateMigrationFailure extends RuntimeException {
+  static class StateMigrationFailure extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     StateMigrationFailure(String message) {
+      super(message);
+    }
+  }
+
+  static final class StateMigrationPending extends StateMigrationFailure {
+    private static final long serialVersionUID = 1L;
+
+    StateMigrationPending(String message) {
       super(message);
     }
   }
@@ -1253,6 +1327,12 @@ final class RuntimeValues {
         initializing = new java.util.IdentityHashMap<>();
     private final java.util.IdentityHashMap<RuntimeCollections.Storage<?>, Object> containers =
         new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<RuntimeObjectState.Cell, RuntimeObjectState.CellValue>
+        cells = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<RuntimeObjectState, RuntimeObjectState.MigrationContext>
+        objects = new java.util.IdentityHashMap<>();
+    private final List<RuntimeObjectState.MigrationContext> transitions = new ArrayList<>();
+    private LiveBindings.StateTransition transition;
     private final List<Runnable> effects = new ArrayList<>();
     private boolean closed;
     private boolean committed;
@@ -1264,7 +1344,45 @@ final class RuntimeValues {
 
     Map<FieldKey, Object> storage(Map<FieldKey, Object> cells) {
       return staged.computeIfAbsent(
-          cells, key -> new LinkedHashMap<>(parent == null ? key : parent.storage(key)));
+          cells, key -> new JournalMap(parent == null ? key : parent.storage(key)));
+    }
+
+    RuntimeObjectState.CellValue cellView(RuntimeObjectState.Cell cell) {
+      var value = cells.get(cell);
+      return value != null ? value : parent == null ? cell.value : parent.cellView(cell);
+    }
+
+    private static final class JournalMap extends LinkedHashMap<FieldKey, Object> {
+      private static final long serialVersionUID = 1L;
+      boolean dirty;
+
+      JournalMap(Map<FieldKey, Object> source) {
+        super(source);
+      }
+
+      @Override
+      public Object put(FieldKey key, Object value) {
+        dirty = true;
+        return super.put(key, value);
+      }
+
+      @Override
+      public Object remove(Object key) {
+        dirty = true;
+        return super.remove(key);
+      }
+
+      @Override
+      public void clear() {
+        dirty = true;
+        super.clear();
+      }
+
+      @Override
+      public void putAll(Map<? extends FieldKey, ?> values) {
+        dirty = true;
+        super.putAll(values);
+      }
     }
 
     @SuppressWarnings("unchecked")
@@ -1278,64 +1396,160 @@ final class RuntimeValues {
       return (T) containers.computeIfAbsent(storage, key -> storage.snapshot(view(storage)));
     }
 
+    AggregateInfo objectInfo(ObjectValue object) {
+      var context = objects.get(object.state);
+      return context != null
+          ? context.targetInfo()
+          : parent == null ? object.state.currentInfo() : parent.objectInfo(object);
+    }
+
+    RuntimeObjectState.ViewMap objectView(RuntimeObjectState state) {
+      var context = objects.get(state);
+      return context != null
+          ? context.target()
+          : parent == null ? state.current() : parent.objectView(state);
+    }
+
+    RuntimeObjectState.MigrationContext migrate(ObjectValue object, AggregateInfo view) {
+      var existing = objects.get(object.state);
+      if (existing != null && existing.targetInfo() == view) return existing;
+      if (object.state.shapeChanges(view, object.type)
+          && execution != null
+          && execution.liveBindings() != null
+          && transition == null) {
+        transition = execution.liveBindings().stateTransition();
+      }
+      if (transition != null) {
+        var checked = new java.util.IdentityHashMap<Object, Boolean>();
+        transition.roots().forEach(root -> checkWritableHandles(root, checked));
+      }
+      var context = object.state.prepare(object, view);
+      if (context.shapeChanged()
+          && execution != null
+          && execution.liveBindings() != null
+          && transition == null) {
+        transition = execution.liveBindings().stateTransition();
+        context = object.state.prepare(object, view);
+      }
+      objects.put(object.state, context);
+      transitions.add(context);
+      return context;
+    }
+
     void include(Iterable<Object> roots) {
-      for (Object root : roots) visit(root);
+      var retained = new ArrayList<Object>();
+      roots.forEach(retained::add);
+      var checked = new java.util.IdentityHashMap<Object, Boolean>();
+      retained.forEach(value -> checkWritableHandles(value, checked));
+      retained.forEach(this::visit);
+    }
+
+    private void checkWritableHandles(
+        Object value, java.util.IdentityHashMap<Object, Boolean> checked) {
+      if (value == null || checked.put(value, Boolean.TRUE) != null) return;
+      if (value instanceof FieldReference reference) {
+        CoreType declared =
+            RuntimeObjectState.Schema.of(reference.view(), reference.receiver().type)
+                .fields()
+                .get(reference.field());
+        requireWritableHandle(reference.receiver(), reference.field(), declared);
+      } else if (value instanceof OpaqueValue opaque
+          && opaque.value instanceof AnnotationRuntime.FieldHandle handle) {
+        requireWritableHandle(handle.receiver(), handle.field().key(), handle.field().fieldType());
+      }
+      for (Object child : children(value)) checkWritableHandles(child, checked);
+    }
+
+    private void requireWritableHandle(ObjectValue object, FieldKey key, CoreType type) {
+      AggregateInfo target = execution == null ? objectInfo(object) : object.info(execution);
+      var candidate = RuntimeObjectState.Schema.of(target, object.type).fields().get(key);
+      if (!Objects.equals(type, candidate))
+        throw new StateMigrationPending(
+            "State update awaits a retained writable field handle: " + key);
     }
 
     private void visit(Object value) {
       if (value == null || visited.put(value, Boolean.TRUE) != null) return;
+      if (value instanceof ObjectValue object) prepare(object, object.info(execution));
+      for (Object child : children(value)) visit(child);
+    }
+
+    private Iterable<Object> children(Object value) {
+      var children = new ArrayList<Object>();
       switch (value) {
         case ObjectValue object -> {
-          prepare(object, object.info(execution));
-          include(new ArrayList<>(storage(object.cells).values()));
-          include(new ArrayList<>(storage(object.configuration).values()));
+          children.addAll(object.cells().values());
+          children.addAll(storage(object.configuration).values());
         }
         case Closure closure -> {
-          visit(closure.receiver());
-          include(java.util.Arrays.asList(closure.captures()));
+          children.add(closure.receiver());
+          children.addAll(java.util.Arrays.asList(closure.captures()));
         }
-        case ReferenceValue reference -> visit(reference.read());
+        case FieldReference reference -> {
+          children.add(reference.receiver());
+          children.add(reference.read());
+        }
+        case ReferenceValue reference -> children.add(reference.read());
         case OpaqueValue opaque -> {
-          visit(opaque.owner);
+          children.add(opaque.owner);
           if (opaque.value instanceof AnnotationRuntime.FieldHandle handle)
-            visit(handle.receiver());
+            children.add(handle.receiver());
         }
-        case OpaqueResource resource -> visit(resource.borrowingOwner);
-        case ArrayValue array -> include(array.values);
-        case ListValue list -> include(list.values);
+        case OpaqueResource resource -> children.add(resource.borrowingOwner);
+        case ArrayValue array -> children.addAll(array.values);
+        case ListValue list -> children.addAll(list.values);
         case MapValue map -> {
-          map.values.keySet().forEach(key -> visit(key.value));
-          include(map.values.values());
+          map.values.keySet().forEach(key -> children.add(key.value));
+          children.addAll(map.values.values());
         }
-        case SetValue set -> set.values.forEach(key -> visit(key.value));
-        case StackValue stack -> include(stack.values);
-        case QueueValue queue -> include(queue.values);
-        case DequeValue deque -> include(deque.values);
-        case EnumValue enumeration -> include(enumeration.payload);
+        case SetValue set -> set.values.forEach(key -> children.add(key.value));
+        case StackValue stack -> children.addAll(stack.values);
+        case QueueValue queue -> children.addAll(queue.values);
+        case DequeValue deque -> children.addAll(deque.values);
+        case EnumValue enumeration -> children.addAll(enumeration.payload);
         case PairValue pair -> {
-          visit(pair.first());
-          visit(pair.second());
+          children.add(pair.first());
+          children.add(pair.second());
         }
         default -> {}
       }
+      return children;
     }
 
     void prepare(ObjectValue object, AggregateInfo view) {
-      for (FieldPlan field : view.fields()) {
-        if (!isInitializing(object.cells, field.key())) prepareField(object, field);
+      RuntimeObjectState.MigrationContext context = null;
+      if (object.state.hasView(view, object.type) && !object.state.schemaMatches(view, object.type))
+        return;
+      if (!object.state.schemaMatches(view, object.type)) {
+        context = migrate(object, view);
+        boolean converted = context.hasExplicitChanges();
+        if (!converted && context.requiresConverter() && execution != null)
+          converted = MigrationPolicy.migrate(context, execution);
+        if (context.destructive() && !converted)
+          throw new StateMigrationFailure(
+              "Destructive runtime state migration requires a converter");
+        var fields = RuntimeObjectState.Schema.of(view, object.type).fields();
+        for (var configured : object.configurationFor(view).entrySet())
+          context.write(
+              configured.getKey(), fields.get(configured.getKey()), configured.getValue());
       }
+      for (FieldPlan field : view.fields()) {
+        if (!isInitializing(object.cells(), field.key())) prepareField(object, field);
+      }
+      if (context != null) context.validateCoverage();
     }
 
     void prepareField(ObjectValue object, FieldPlan field) {
-      Map<FieldKey, Object> target = storage(object.cells);
+      Map<FieldKey, Object> target = object.cells();
       if (target.containsKey(field.key())) return;
-      if (storage(object.configuration).containsKey(field.key())) {
+      if (object.configurationFor(objectInfo(object)).containsKey(field.key())) {
         target.put(field.key(), storage(object.configuration).get(field.key()));
         return;
       }
-      if (isInitializing(object.cells, field.key()))
+      if (isInitializing(object.cells(), field.key()))
         throw new StateMigrationFailure("cyclic runtime field initializer: " + field.key());
-      var active = initializing.computeIfAbsent(object.cells, ignored -> new java.util.HashSet<>());
+      var active =
+          initializing.computeIfAbsent(object.cells(), ignored -> new java.util.HashSet<>());
       active.add(field.key());
       try {
         CallTarget initializer =
@@ -1363,17 +1577,36 @@ final class RuntimeValues {
     }
 
     void commit() {
+      if (transition != null) include(transition.roots());
+      transitions.forEach(RuntimeObjectState.MigrationContext::validateCoverage);
       staged.forEach(
           (cells, values) -> {
+            if (!((JournalMap) values).dirty) return;
             Map<FieldKey, Object> target = parent == null ? cells : parent.storage(cells);
             target.clear();
             target.putAll(values);
+          });
+      cells.forEach(
+          (cell, value) -> {
+            if (parent == null) cell.value = value;
+            else parent.cells.put(cell, value);
           });
       containers.forEach(
           (storage, value) -> {
             if (parent == null) storage.commit(value);
             else parent.containers.put(storage, value);
           });
+      if (parent == null) {
+        objects.forEach((state, context) -> state.publish(context.target()));
+        if (transition != null) transition.commit();
+      } else {
+        parent.objects.putAll(objects);
+        parent.transitions.addAll(transitions);
+        if (parent.transition == null) {
+          parent.transition = transition;
+          transition = null;
+        }
+      }
       committed = true;
     }
 
@@ -1383,9 +1616,15 @@ final class RuntimeValues {
       closed = true;
       if (parent == null) MIGRATION.remove();
       else MIGRATION.set(parent);
-      if (committed) {
-        if (parent == null) effects.forEach(Runnable::run);
-        else parent.effects.addAll(effects);
+      try {
+        if (committed) {
+          if (parent == null) effects.forEach(Runnable::run);
+          else parent.effects.addAll(effects);
+        }
+      } finally {
+        if (!committed || parent == null)
+          transitions.forEach(RuntimeObjectState.MigrationContext::close);
+        if (transition != null) transition.close();
       }
     }
   }
@@ -1393,9 +1632,10 @@ final class RuntimeValues {
   static final class ObjectValue {
     final ObjectInfo objectInfo;
     final CoreType type;
-    final Map<FieldKey, Object> cells;
+    private final RuntimeObjectState state;
     final Map<FieldKey, Object> configuration;
     Object hostValue;
+    AggregateInfo hostSchema;
     boolean dispatchToHost;
     FieldObservations observations;
 
@@ -1408,8 +1648,7 @@ final class RuntimeValues {
     }
 
     Object rawField(FieldKey field) {
-      Map<FieldKey, Object> configured = storage(configuration);
-      return configured.containsKey(field) ? configured.get(field) : storage(cells).get(field);
+      return rawField(field, selectedInfo());
     }
 
     void writeRawField(int field, Object value) {
@@ -1417,29 +1656,56 @@ final class RuntimeValues {
     }
 
     void writeRawField(FieldKey field, Object value) {
-      if (storage(configuration).containsKey(field)) storage(configuration).put(field, value);
-      else storage(cells).put(field, value);
-    }
-
-    int fieldIndex(FieldKey field) {
-      int index = 0;
-      for (var key : storage(cells).keySet()) {
-        if (key.equals(field)) return index;
-        index++;
-      }
-      throw new IllegalArgumentException("object field is absent: " + field);
+      writeRawField(field, value, selectedInfo());
     }
 
     FieldKey fieldKey(int index) {
-      return storage(cells).keySet().stream().skip(index).findFirst().orElseThrow();
+      return cells().keySet().stream().skip(index).findFirst().orElseThrow();
     }
 
     Object readField(FieldKey field, ExecutionState execution) {
-      if (execution != null) ensureField(field, execution);
-      if (!storage(cells).containsKey(field) && !storage(configuration).containsKey(field))
+      return readField(field, execution == null ? selectedInfo() : info(execution), execution);
+    }
+
+    Object readField(FieldKey field, AggregateInfo view, ExecutionState execution) {
+      if (execution != null) ensureLayout(view, execution);
+      Map<FieldKey, Object> selected = state.view(view, type);
+      if (!selected.containsKey(field) && !configurationFor(view).containsKey(field))
         throw new IllegalArgumentException("object field is absent: " + field);
-      if (observations != null) afterStateCommit(() -> observations.read(fieldIndex(field)));
-      return rawField(field);
+      if (observations != null) afterStateCommit(() -> observations.read(field, view));
+      return configurationFor(view).containsKey(field)
+          ? storage(configuration).get(field)
+          : selected.get(field);
+    }
+
+    Object rawField(FieldKey field, AggregateInfo view) {
+      Map<FieldKey, Object> selected = state.view(view, type);
+      return configurationFor(view).containsKey(field)
+          ? storage(configuration).get(field)
+          : selected.get(field);
+    }
+
+    void writeRawField(FieldKey field, Object value, AggregateInfo view) {
+      var selected = (RuntimeObjectState.ViewMap) state.view(view, type);
+      selected.checkWrite(field, value);
+      if (configurationFor(view).containsKey(field)) storage(configuration).put(field, value);
+      else selected.put(field, value);
+    }
+
+    Map<FieldKey, Object> configurationFor(AggregateInfo view) {
+      var values = new LinkedHashMap<FieldKey, Object>();
+      storage(configuration)
+          .forEach(
+              (key, value) -> {
+                if (state.sameFieldType((AggregateInfo) objectInfo, view, type, key))
+                  values.put(key, value);
+              });
+      return values;
+    }
+
+    private AggregateInfo selectedInfo() {
+      StateMigration migration = MIGRATION.get();
+      return migration == null ? state.currentInfo() : migration.objectInfo(this);
     }
 
     AggregateInfo info(ExecutionState execution) {
@@ -1456,21 +1722,10 @@ final class RuntimeValues {
     }
 
     void ensureField(FieldKey key, ExecutionState execution) {
-      if (storage(cells).containsKey(key) || storage(configuration).containsKey(key)) return;
-      FieldPlan field =
-          info(execution).fields().stream()
-              .filter(plan -> plan.key().equals(key))
-              .findFirst()
-              .orElseThrow();
-      StateMigration migration = MIGRATION.get();
-      if (migration != null) {
-        migration.prepareField(this, field);
-        return;
-      }
-      try (StateMigration prepared = prepareState(List.of(), execution)) {
-        prepared.prepareField(this, field);
-        prepared.commit();
-      }
+      ensureLayout(info(execution), execution);
+      if (!state.view(info(execution), type).containsKey(key)
+          && !configurationFor(info(execution)).containsKey(key))
+        throw new StateMigrationFailure("object field is absent: " + key);
     }
 
     void ensureLayout(AggregateInfo view, ExecutionState execution) {
@@ -1479,27 +1734,30 @@ final class RuntimeValues {
         current.prepare(this, view);
         return;
       }
-      if (view.fields().stream().allMatch(field -> cells.containsKey(field.key()))) return;
+      if (state.schemaMatches(view, type)
+          && view.fields().stream().allMatch(field -> cells().containsKey(field.key()))) return;
       try (StateMigration migration = prepareState(List.of(), execution)) {
         migration.prepare(this, view);
         migration.commit();
       }
     }
 
-    void fieldChanged(int field, Object previous) {
+    void fieldChanged(FieldKey field, Object previous, AggregateInfo view) {
       if (observations != null) {
         afterStateCommit(
             () -> {
-              observations.bind(field);
-              Object current = rawField(fieldKey(field));
-              if (!equal(previous, current)) observations.changed(field, previous, current);
+              observations.bind(field, view);
+              Object current = rawField(field, view);
+              if (!equal(previous, current)) observations.changed(field, view, previous, current);
             });
       }
     }
 
     ObjectValue(ObjectInfo objectInfo, CoreType type) {
       this(objectInfo, type, new LinkedHashMap<>(), new LinkedHashMap<>());
-      ((AggregateInfo) objectInfo).fields().forEach(field -> cells.putIfAbsent(field.key(), null));
+      ((AggregateInfo) objectInfo)
+          .fields()
+          .forEach(field -> cells().putIfAbsent(field.key(), null));
     }
 
     ObjectValue(
@@ -1509,13 +1767,21 @@ final class RuntimeValues {
         Map<FieldKey, Object> configuration) {
       this.objectInfo = objectInfo;
       this.type = type;
-      this.cells = cells;
+      this.state = RuntimeObjectState.shared((AggregateInfo) objectInfo, type, cells);
       this.configuration = configuration;
       if (objectInfo.annotations() != null) objectInfo.annotations().retain(this);
     }
 
     Map<FieldKey, Object> stateCells() {
-      return cells;
+      return cells();
+    }
+
+    RuntimeObjectState state() {
+      return state;
+    }
+
+    private Map<FieldKey, Object> cells() {
+      return stateView(state);
     }
 
     void attachHost(Object value) {
@@ -1524,14 +1790,15 @@ final class RuntimeValues {
       if (hostValue != null)
         throw new IllegalStateException("runtime object already has a host value");
       hostValue = value;
+      hostSchema = selectedInfo();
     }
 
     private boolean sameValue(ObjectValue other) {
       return isValueObject(this)
           && isValueObject(other)
           && type.equals(other.type)
-          && cells.keySet().equals(other.cells.keySet())
-          && cells.keySet().stream().allMatch(key -> equal(rawField(key), other.rawField(key)));
+          && cells().keySet().equals(other.cells().keySet())
+          && cells().keySet().stream().allMatch(key -> equal(rawField(key), other.rawField(key)));
     }
   }
 }

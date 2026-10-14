@@ -17,7 +17,9 @@ final class LiveBindings implements AutoCloseable {
 
   record Block(StatementNode node, List<FrameBinding> required) {}
 
-  record Expression(ExpressionNode node, List<FrameBinding> required) {}
+  record Expression(ExpressionNode node, List<FrameBinding> required, boolean writesState) {}
+
+  record Statement(StatementNode node, List<FrameBinding> required, boolean writesState) {}
 
   record Initializer(StatementNode node, List<FrameBinding> required) {}
 
@@ -29,6 +31,7 @@ final class LiveBindings implements AutoCloseable {
     final Map<String, Callable> callables;
     final Map<Key, Block> blocks;
     final Map<Key, Expression> expressions;
+    final Map<Key, Statement> statements;
     final Map<Key, Initializer> initializers;
     private ExecutionRevision revision;
     private ExecutableProgram program;
@@ -40,6 +43,7 @@ final class LiveBindings implements AutoCloseable {
         Map<String, Callable> callables,
         Map<Key, Block> blocks,
         Map<Key, Expression> expressions,
+        Map<Key, Statement> statements,
         Map<Key, Initializer> initializers,
         CoreLiveSchema schema) {
       this.callables = Map.copyOf(callables);
@@ -47,6 +51,7 @@ final class LiveBindings implements AutoCloseable {
       this.schema = schema;
       this.blocks = Map.copyOf(blocks);
       this.expressions = Map.copyOf(expressions);
+      this.statements = Map.copyOf(statements);
     }
 
     void attach(ExecutionRevision revision) {
@@ -105,6 +110,7 @@ final class LiveBindings implements AutoCloseable {
     private final Map<String, Callable> callables = new LinkedHashMap<>();
     private final Map<Key, Block> blocks = new LinkedHashMap<>();
     private final Map<Key, Expression> expressions = new LinkedHashMap<>();
+    private final Map<Key, Statement> statements = new LinkedHashMap<>();
     private final Map<Key, Initializer> initializers = new LinkedHashMap<>();
     private Version owner;
     private final CoreLiveSchema schema;
@@ -128,8 +134,9 @@ final class LiveBindings implements AutoCloseable {
       return new BlockBinding(key, this, node);
     }
 
-    ExpressionNode expression(Key key, ExpressionNode node, List<FrameBinding> required) {
-      if (expressions.put(key, new Expression(node, List.copyOf(required))) != null)
+    ExpressionNode expression(
+        Key key, ExpressionNode node, List<FrameBinding> required, boolean writesState) {
+      if (expressions.put(key, new Expression(node, List.copyOf(required), writesState)) != null)
         throw new IllegalStateException("duplicate expression binding");
       return new ExpressionBinding(key, this, node);
     }
@@ -139,8 +146,16 @@ final class LiveBindings implements AutoCloseable {
         throw new IllegalStateException("duplicate local initializer");
     }
 
+    StatementNode statement(
+        Key key, StatementNode node, List<FrameBinding> required, boolean writesState) {
+      if (statements.put(key, new Statement(node, List.copyOf(required), writesState)) != null)
+        throw new IllegalStateException("duplicate statement binding");
+      return new StatementBinding(key, this, node);
+    }
+
     Version build() {
-      if (owner == null) owner = new Version(callables, blocks, expressions, initializers, schema);
+      if (owner == null)
+        owner = new Version(callables, blocks, expressions, statements, initializers, schema);
       return owner;
     }
   }
@@ -155,6 +170,128 @@ final class LiveBindings implements AutoCloseable {
   private final ThreadLocal<Fallback> fallback = new ThreadLocal<>();
   private final ThreadLocal<Version> expressionVersion = new ThreadLocal<>();
   private final ThreadLocal<Version> executionVersion = new ThreadLocal<>();
+  private final ThreadLocal<Version> writeVersion = new ThreadLocal<>();
+  private final java.util.concurrent.locks.ReentrantReadWriteLock stateLock =
+      new java.util.concurrent.locks.ReentrantReadWriteLock();
+  private final Set<Continuation> continuations = ConcurrentHashMap.newKeySet();
+  private final ThreadLocal<java.util.Deque<Continuation>> activeBlocks =
+      ThreadLocal.withInitial(java.util.ArrayDeque::new);
+
+  private static final class Continuation {
+    final Version origin;
+    Version adopted;
+    final Key region;
+    final String declaration;
+    final List<String> statements;
+    final com.oracle.truffle.api.frame.Frame frame;
+    volatile int position = -1;
+
+    Continuation(Version origin, Key key, VirtualFrame frame) {
+      this.origin = origin;
+      adopted = origin;
+      region = key;
+      this.frame = frame.materialize();
+      declaration = key.declaration();
+      statements = origin.schema.layout(declaration).statements(key.location());
+    }
+  }
+
+  final class StateTransition implements AutoCloseable {
+    private boolean closed;
+
+    void commit() {
+      Version candidate = selected();
+      for (Continuation continuation : continuations) {
+        continuation.adopted = candidate;
+        int slot =
+            continuation
+                .frame
+                .getFrameDescriptor()
+                .findOrAddAuxiliarySlot(new AdoptedRegion(continuation.region));
+        continuation.frame.setAuxiliarySlot(slot, candidate);
+      }
+    }
+
+    List<Object> roots() {
+      Version candidate = selected();
+      var roots = new ArrayList<Object>();
+      for (Continuation continuation : continuations) {
+        for (int index = Math.max(0, continuation.position);
+            index < continuation.statements.size();
+            index++) {
+          var statement =
+              candidate.statements.get(
+                  new Key(continuation.declaration, continuation.statements.get(index)));
+          if (statement == null) continue;
+          for (FrameBinding binding : statement.required())
+            if (binding.initialized(continuation.frame))
+              roots.add(binding.read(continuation.frame));
+        }
+      }
+      return roots;
+    }
+
+    @Override
+    public void close() {
+      if (!closed) {
+        closed = true;
+        stateLock.writeLock().unlock();
+      }
+    }
+  }
+
+  final class StateWrite implements AutoCloseable {
+    private boolean closed;
+
+    @Override
+    public void close() {
+      if (!closed) {
+        closed = true;
+        stateLock.readLock().unlock();
+      }
+    }
+  }
+
+  StateWrite stateWrite() {
+    stateLock.readLock().lock();
+    return new StateWrite();
+  }
+
+  StateTransition stateTransition() {
+    if (stateLock.getReadHoldCount() != 0 && !stateLock.isWriteLockedByCurrentThread()
+        || !stateLock.writeLock().tryLock())
+      throw new RuntimeValues.StateMigrationPending(
+          "State update awaits an active write continuation");
+    var transition = new StateTransition();
+    try {
+      Version candidate = selected();
+      for (Continuation continuation : continuations) {
+        if (continuation.position >= 0) {
+          var layout = continuation.origin.schema.layout(continuation.declaration);
+          for (String expression :
+              layout.expressions(continuation.statements.get(continuation.position))) {
+            Key key = new Key(continuation.declaration, expression);
+            if (!maps(continuation.origin, candidate, key))
+              throw new RuntimeValues.StateMigrationPending(
+                  "State update awaits expression continuation: " + key);
+          }
+        }
+        for (int index = continuation.position + 1;
+            index < continuation.statements.size();
+            index++) {
+          Key key = new Key(continuation.declaration, continuation.statements.get(index));
+          if (!maps(continuation.origin, candidate, key))
+            throw new RuntimeValues.StateMigrationPending(
+                "State update awaits continuation: " + key);
+        }
+      }
+      return transition;
+    } catch (RuntimeException failure) {
+      transition.close();
+      throw failure;
+    }
+  }
+
   private static final Object ACTIVATION = new Object();
   private final Map<Object, Set<Key>> pending = new ConcurrentHashMap<>();
 
@@ -241,6 +378,8 @@ final class LiveBindings implements AutoCloseable {
   private Version selected() {
     Version pinned = pinnedVersion.get();
     if (pinned != null) return pinned;
+    Version writing = writeVersion.get();
+    if (writing != null) return writing;
     Version current = version;
     Fallback retained = fallback.get();
     return retained != null && retained.rejected() == current ? retained.retained() : current;
@@ -324,10 +463,19 @@ final class LiveBindings implements AutoCloseable {
     if (failure != null) throw failure;
   }
 
+  private static final class FailedMigrations {
+    final Set<Version> versions =
+        java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+  }
+
   private boolean prepare(
       VirtualFrame frame, Version candidate, Key region, List<FrameBinding> required) {
     int failureSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(FAILED_MIGRATION);
-    if (frame.getAuxiliarySlot(failureSlot) == candidate) return false;
+    Object cached = frame.getAuxiliarySlot(failureSlot);
+    FailedMigrations failures =
+        cached instanceof FailedMigrations retained ? retained : new FailedMigrations();
+    frame.setAuxiliarySlot(failureSlot, failures);
+    if (failures.versions.contains(candidate)) return false;
     var ordered = new LinkedHashMap<Key, Initializer>();
     var visiting = new java.util.HashSet<Key>();
     for (FrameBinding local : required) {
@@ -336,20 +484,22 @@ final class LiveBindings implements AutoCloseable {
     boolean committed = false;
     try (var transaction = new FrameBinding.Transaction(frame);
         var scope = pin(candidate);
+        var transition = ordered.isEmpty() ? null : stateTransition();
         var migration =
             RuntimeValues.prepareState(List.of(), ExecutionContextAccess.state(frame))) {
       for (Initializer initializer : ordered.values()) initializer.node().executeVoid(frame);
       migration.include(required.stream().map(local -> local.read(frame)).toList());
       migration.commit();
       transaction.commit();
-      frame.setAuxiliarySlot(failureSlot, null);
+      if (transition != null) transition.commit();
       committed = true;
       return true;
     } catch (NormGuestException | RuntimeValues.StateMigrationFailure failure) {
       if (committed
           || failure instanceof NormGuestException guest
               && guest.code() == dev.w0fv1.norm.execution.RuntimeErrorCode.CANCELLED) throw failure;
-      frame.setAuxiliarySlot(failureSlot, candidate);
+      if (!(failure instanceof RuntimeValues.StateMigrationPending))
+        failures.versions.add(candidate);
       mark(
           frame,
           new Key(
@@ -425,6 +575,8 @@ final class LiveBindings implements AutoCloseable {
     }
   }
 
+  private record AdoptedRegion(Key key) {}
+
   private static final class BlockBinding extends StatementNode {
     private final Key key;
     private final Builder origin;
@@ -440,18 +592,24 @@ final class LiveBindings implements AutoCloseable {
     @Override
     void executeVoid(VirtualFrame frame) {
       LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
+      int adoptedSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(new AdoptedRegion(key));
+      Version adopted = (Version) frame.getAuxiliarySlot(adoptedSlot);
+      if (adopted == null) adopted = origin.owner;
       Version selected = bindings == null ? origin.owner : bindings.selected();
       Version attempted = selected;
       Block block = selected.blocks.get(key);
       boolean retained = false;
       if (block == null
-          || !maps(origin.owner, selected, key)
+          || !maps(adopted, selected, key)
           || (bindings != null && !bindings.prepare(frame, selected, key, block.required()))) {
         if (bindings != null) bindings.mark(frame, key);
-        selected = origin.owner;
+        selected = adopted;
         retained = true;
         block = selected.blocks.get(key);
-      } else if (bindings != null) bindings.clearRegion(frame, key);
+      } else {
+        frame.setAuxiliarySlot(adoptedSlot, selected);
+        if (bindings != null) bindings.clearRegion(frame, key);
+      }
       if (bindings == null) {
         block.node().executeVoid(frame);
         return;
@@ -462,15 +620,79 @@ final class LiveBindings implements AutoCloseable {
       bindings.executionVersion.set(selected);
       Fallback previousFallback = bindings.fallback.get();
       if (retained) bindings.fallback.set(new Fallback(selected, attempted));
+      var continuation = new Continuation(selected, key, frame);
+      bindings.continuations.add(continuation);
+      bindings.activeBlocks.get().push(continuation);
       try {
         block.node().executeVoid(frame);
       } finally {
+        bindings.activeBlocks.get().pop();
+        bindings.continuations.remove(continuation);
         if (previousExpression == null) bindings.expressionVersion.remove();
         else bindings.expressionVersion.set(previousExpression);
         if (previousExecution == null) bindings.executionVersion.remove();
         else bindings.executionVersion.set(previousExecution);
         if (previousFallback == null) bindings.fallback.remove();
         else bindings.fallback.set(previousFallback);
+      }
+    }
+  }
+
+  private static final class StatementBinding extends StatementNode {
+    private final Key key;
+    private final Builder origin;
+    @Child private StatementNode initial;
+
+    StatementBinding(Key key, Builder origin, StatementNode initial) {
+      this.key = key;
+      this.origin = origin;
+      this.initial = initial;
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
+      if (bindings == null) {
+        initial.executeVoid(frame);
+        return;
+      }
+      Continuation continuation = bindings.activeBlocks.get().peek();
+      if (continuation != null && continuation.declaration.equals(key.declaration())) {
+        int position = continuation.statements.indexOf(key.location());
+        if (position >= 0) continuation.position = position;
+      }
+      Version retained =
+          continuation != null && continuation.declaration.equals(key.declaration())
+              ? continuation.adopted
+              : bindings.capture();
+      Version selected = bindings.selected();
+      Statement statement = selected.statements.get(key);
+      if (statement == null
+          || !maps(origin.owner, selected, key)
+          || selected != retained
+              && bindings.pinnedVersion.get() == null
+              && !bindings.prepare(frame, selected, key, statement.required())) {
+        selected = retained;
+        statement = selected.statements.get(key);
+        bindings.mark(frame, key);
+      }
+      boolean writing = statement.writesState();
+      if (writing) bindings.stateLock.readLock().lock();
+      try {
+        Version previousWrite = bindings.writeVersion.get();
+        Version previousExecution = bindings.executionVersion.get();
+        if (statement.writesState()) bindings.writeVersion.set(selected);
+        bindings.executionVersion.set(selected);
+        try {
+          statement.node().executeVoid(frame);
+        } finally {
+          if (previousWrite == null) bindings.writeVersion.remove();
+          else bindings.writeVersion.set(previousWrite);
+          if (previousExecution == null) bindings.executionVersion.remove();
+          else bindings.executionVersion.set(previousExecution);
+        }
+      } finally {
+        if (writing) bindings.stateLock.readLock().unlock();
       }
     }
   }
@@ -492,28 +714,48 @@ final class LiveBindings implements AutoCloseable {
       LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
       if (bindings == null) return origin.owner.expressions.get(key).node().execute(frame);
       Version previous = bindings.expressionVersion.get();
+      Continuation continuation = bindings.activeBlocks.get().peek();
+      Version retained =
+          continuation != null && continuation.declaration.equals(key.declaration())
+              ? continuation.adopted
+              : bindings.capture();
       Version selected =
           bindings.pinnedVersion.get() != null
               ? bindings.pinnedVersion.get()
-              : previous == null ? bindings.selected() : previous;
+              : bindings.writeVersion.get() != null
+                  ? bindings.writeVersion.get()
+                  : previous == null ? bindings.selected() : previous;
       Expression expression = selected.expressions.get(key);
       if (expression == null
           || !maps(origin.owner, selected, key)
-          || expression.required().stream().anyMatch(local -> !local.initialized(frame))) {
-        selected = origin.owner;
+          || selected != retained
+              && previous == null
+              && bindings.pinnedVersion.get() == null
+              && !bindings.prepare(frame, selected, key, expression.required())) {
+        selected = previous == null ? retained : previous;
         expression = selected.expressions.get(key);
         bindings.mark(frame, key);
       }
-      Version previousExecution = bindings.executionVersion.get();
-      bindings.expressionVersion.set(selected);
-      bindings.executionVersion.set(selected);
+      boolean writing = expression.writesState();
+      if (writing) bindings.stateLock.readLock().lock();
       try {
-        return expression.node().execute(frame);
+        Version previousExecution = bindings.executionVersion.get();
+        Version previousWrite = bindings.writeVersion.get();
+        if (writing) bindings.writeVersion.set(selected);
+        bindings.expressionVersion.set(selected);
+        bindings.executionVersion.set(selected);
+        try {
+          return expression.node().execute(frame);
+        } finally {
+          if (previous == null) bindings.expressionVersion.remove();
+          else bindings.expressionVersion.set(previous);
+          if (previousExecution == null) bindings.executionVersion.remove();
+          else bindings.executionVersion.set(previousExecution);
+          if (previousWrite == null) bindings.writeVersion.remove();
+          else bindings.writeVersion.set(previousWrite);
+        }
       } finally {
-        if (previous == null) bindings.expressionVersion.remove();
-        else bindings.expressionVersion.set(previous);
-        if (previousExecution == null) bindings.executionVersion.remove();
-        else bindings.executionVersion.set(previousExecution);
+        if (writing) bindings.stateLock.readLock().unlock();
       }
     }
   }

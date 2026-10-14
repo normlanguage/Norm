@@ -18,6 +18,7 @@ public record ExecutableId(ContentHash hash) implements Comparable<ExecutableId>
             .writeString(backendAbi)
             .writeBytes(CoreCodeId.forArtifact(artifact).hash().bytes())
             .writeBytes(MetadataId.forArtifact(artifact).hash().bytes())
+            .writeBytes(BindingId.forArtifact(artifact).hash().bytes())
             .toByteArray();
     return new ExecutableId(ContentHasher.hash(DOMAIN, CoreIdentityVersion.CURRENT, canonical));
   }

@@ -13,10 +13,12 @@ public final class CoreRuntimeSchema {
   private final Map<DefinitionId, TypeContract> types;
   private final Map<String, CallableContract> callables;
   private final Set<String> constructors;
+  private final Map<String, DefinitionId> fieldInitializers;
 
   private CoreRuntimeSchema(CoreArtifact artifact) {
     identity = CoreRuntimeIdentity.create(artifact);
     var indexedConstructors = new java.util.HashSet<String>();
+    var indexedInitializers = new HashMap<String, DefinitionId>();
     var indexedCallables = new HashMap<String, CallableContract>();
     for (var occurrence : artifact.authoring().occurrences()) {
       var definition =
@@ -49,9 +51,23 @@ public final class CoreRuntimeSchema {
       if (contract != null) indexedCallables.put(identity.key(occurrence.id()), contract);
       if (occurrence.role() == CoreDefinitionRole.CONSTRUCTOR)
         indexedConstructors.add(identity.key(occurrence.id()));
+      if (definition instanceof CoreDefinition.Aggregate aggregate) {
+        for (var field : aggregate.fields()) {
+          field
+              .initializer()
+              .ifPresent(
+                  initializer -> {
+                    var target =
+                        artifact.authoring().target(occurrence.id(), initializer.nodeIndex());
+                    indexedInitializers.put(
+                        identity.key(target), identity.id(occurrence.id().representative()));
+                  });
+        }
+      }
     }
     callables = Map.copyOf(indexedCallables);
     constructors = Set.copyOf(indexedConstructors);
+    fieldInitializers = Map.copyOf(indexedInitializers);
     var indexedTypes = new HashMap<DefinitionId, TypeContract>();
     for (var record : identity.definitions()) {
       TypeContract contract =
@@ -116,7 +132,12 @@ public final class CoreRuntimeSchema {
   }
 
   public void requireCompatible(CoreRuntimeSchema candidate) {
+    requireCompatible(candidate, Set.of());
+  }
+
+  public void requireCompatible(CoreRuntimeSchema candidate, Set<DefinitionId> migrations) {
     Objects.requireNonNull(candidate);
+    Objects.requireNonNull(migrations);
     types.forEach(
         (id, before) -> {
           TypeContract after = candidate.types.get(id);
@@ -129,17 +150,18 @@ public final class CoreRuntimeSchema {
             throw new IllegalArgumentException(
                 "Runtime type contract requires an explicit migration: " + id);
           if (before.category() == CoreValueCategory.VALUE
-              && !before.fields().keySet().equals(after.fields().keySet()))
+              && !before.fields().equals(after.fields()))
             throw new IllegalArgumentException(
                 "Runtime value layout requires collection key migration: " + id);
-          before
-              .fields()
-              .forEach(
-                  (name, field) -> {
-                    if (!field.equals(after.fields().get(name)))
-                      throw new IllegalArgumentException(
-                          "Runtime field requires an explicit migration: " + name);
-                  });
+          if (!migrations.contains(id))
+            before
+                .fields()
+                .forEach(
+                    (name, field) -> {
+                      if (!field.equals(after.fields().get(name)))
+                        throw new IllegalArgumentException(
+                            "Runtime field requires an explicit migration: " + name);
+                    });
           before
               .variants()
               .forEach(
@@ -160,7 +182,20 @@ public final class CoreRuntimeSchema {
                   && before.parameters().equals(after.parameters())
                   && before.captures().equals(after.captures())
                   && before.result().equals(after.result());
-          if (after != null && !before.equals(after) && !compatibleConstructor)
+          DefinitionId initializerOwner = fieldInitializers.get(key);
+          boolean migratedInitializer =
+              initializerOwner != null
+                  && initializerOwner.equals(candidate.fieldInitializers.get(key))
+                  && migrations.contains(initializerOwner)
+                  && after != null
+                  && before.receiver().equals(after.receiver())
+                  && before.parameters().equals(after.parameters())
+                  && before.captures().equals(after.captures())
+                  && before.arguments().equals(after.arguments());
+          if (after != null
+              && !before.equals(after)
+              && !compatibleConstructor
+              && !migratedInitializer)
             throw new IllegalArgumentException(
                 "Runtime callable contract requires an explicit migration: " + key);
         });

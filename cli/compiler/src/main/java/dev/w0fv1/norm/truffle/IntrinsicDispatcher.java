@@ -18,6 +18,12 @@ public final class IntrinsicDispatcher {
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
       case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
+      case STATE_MIGRATION_CONTAINS,
+          STATE_MIGRATION_READ,
+          STATE_MIGRATION_WRITE,
+          STATE_MIGRATION_REMOVE,
+          STATE_MIGRATION_COPY ->
+          MigrationIntrinsicDispatcher.resolve(intrinsic);
       case APPLICATION_ARGUMENTS,
           APPLICATION_ENVIRONMENT,
           APPLICATION_WORKING_DIRECTORY,

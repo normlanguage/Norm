@@ -21,6 +21,83 @@ final class PublishedCoreImportTest {
   @TempDir Path directory;
 
   @Test
+  void importsDefaultAnnotationReferencesWithoutRetainingThePublishingSessionBindings()
+      throws Exception {
+    var std = new ModuleCoordinate("std", 1);
+    var library = new ModuleCoordinate("library", 1);
+    var application = new ModuleCoordinate("application", 1);
+    var policies =
+        SourceFile.of(
+            directory.resolve("policies.norm"),
+            "package std.annotation public interface AnnotationTarget {} public interface TypeTarget extends AnnotationTarget {} public interface AnnotationRetention {} public interface RuntimeRetention extends AnnotationRetention {}");
+    var publishedSource =
+        SourceFile.of(
+            directory.resolve("published/library.norm"),
+            """
+        package library
+        import std.annotation.TypeTarget
+        import std.annotation.RuntimeRetention
+        public annotation Link implements TypeTarget, RuntimeRetention { Function<String()> action = first.function }
+        public String first() { "same" }
+        public String second() { "same" }
+        @Link() public class Original {}
+        @Link(action: second.function) public class Other {}
+        """);
+    CompiledModule published;
+    try (var compiler = new CompilerSession()) {
+      var result =
+          compiler.compileModule(
+              request(
+                      library,
+                      Map.of(std, policies, library, publishedSource),
+                      Map.of(std, Set.of(), library, Set.of(std)))
+                  .asLibrary(),
+              library);
+      assertTrue(result.compilation().isSuccess(), result.compilation().diagnostics().toString());
+      published = CompiledModule.decode(result.module().orElseThrow().encode());
+    }
+    var consumed =
+        SourceFile.of(directory.resolve("consumed/library.norm"), publishedSource.text());
+    var main =
+        SourceFile.of(
+            directory.resolve("main.norm"),
+            """
+        package application
+        import library.Link
+        import library.Original
+        import library.Other
+        @Link() class Local {}
+        Void main() {
+          printLine(Original.class.annotation<Link>()!!.action.name())
+          printLine(Other.class.annotation<Link>()!!.action.name())
+          printLine(Local.class.annotation<Link>()!!.action.name())
+        }
+        """);
+    var input =
+        request(
+            application,
+            Map.of(std, policies, library, consumed, application, main),
+            Map.of(std, Set.of(), library, Set.of(std), application, Set.of(std, library)));
+    for (int run = 0; run < 2; run++) {
+      try (var compiler =
+              CompilerSession.persistent(directory.resolve("annotation-default-cache"));
+          var fresh = new CompilerSession()) {
+        var result = compiler.compile(input, List.of(published));
+        assertTrue(result.isSuccess(), result.diagnostics().toString());
+        var expected = fresh.compile(input);
+        assertTrue(expected.isSuccess(), expected.diagnostics().toString());
+        assertEquals(
+            ArtifactId.forArtifact(expected.output().orElseThrow().artifact(), "test"),
+            ArtifactId.forArtifact(result.output().orElseThrow().artifact(), "test"));
+        var output = new java.io.StringWriter();
+        new dev.w0fv1.norm.runtime.NormRuntime()
+            .run(result.output().orElseThrow().artifact(), new java.io.PrintWriter(output));
+        assertEquals(List.of("first", "second", "first"), output.toString().lines().toList());
+      }
+    }
+  }
+
+  @Test
   void preservesDistinctDependencyBindingsForIdenticalPublishedBodies() throws Exception {
     var base = new ModuleCoordinate("base", 1);
     var facade = new ModuleCoordinate("facade", 1);
