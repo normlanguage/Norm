@@ -38,6 +38,7 @@ import dev.w0fv1.norm.core.CoreDefinitionOrigin;
 import dev.w0fv1.norm.core.CoreDefinitionRole;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreField;
+import dev.w0fv1.norm.core.CoreFieldInitializer;
 import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
@@ -553,6 +554,20 @@ final class BoundCoreConverter {
                         .findFirst()
                         .orElseThrow())
             .toList();
+    var nodeSpans = new LinkedHashMap<Integer, SourceSpan>();
+    nodeSpans.put(0, declaration.span());
+    var referenceTargets = new LinkedHashMap<Integer, Integer>();
+    var initializers = new LinkedHashMap<Integer, CoreFieldInitializer>();
+    for (var field : declaration.fields()) {
+      field.initializer().ifPresent(target -> {
+        var factory = program.callables().stream().filter(callable -> callable.id().equals(target)).findFirst().orElseThrow();
+        int nodeIndex = field.ordinal() + 1;
+        int targetIndex = declarationIndex(target.value());
+        nodeSpans.put(nodeIndex, factory.span());
+        referenceTargets.put(nodeIndex, targetIndex);
+        initializers.put(field.ordinal(), new CoreFieldInitializer(nodeIndex, new PendingDefinitionReference(targetIndex)));
+      });
+    }
     CoreDefinition definition =
         new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
@@ -582,12 +597,7 @@ final class BoundCoreConverter {
                             field.interceptors().stream()
                                 .map(interceptor -> coreInterceptor(interceptor, types))
                                 .toList(),
-                            field
-                                .initializer()
-                                .map(
-                                    initializer ->
-                                        new PendingDefinitionReference(
-                                            declarationIndex(initializer.value())))))
+                            Optional.ofNullable(initializers.get(field.ordinal()))))
                 .toList(),
             declaration.dispatch().stream()
                 .map(
@@ -608,8 +618,8 @@ final class BoundCoreConverter {
             coreConformances(declaration.conformances(), types));
     return new Declaration(
         definition,
-        origin(declaration.name(), declaration.span(), Map.of(0, declaration.span())),
-        Map.of(),
+        origin(declaration.name(), declaration.span(), nodeSpans),
+        referenceTargets,
         new BindingSeed(
             source,
             Optional.empty(),

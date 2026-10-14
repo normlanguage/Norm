@@ -10,7 +10,7 @@ public record CoreField(
     int ordinal,
     CoreType type,
     List<CoreInterceptor> interceptors,
-    Optional<CoreDefinitionLink> initializer) {
+    Optional<CoreFieldInitializer> initializer) {
   public CoreField {
     Objects.requireNonNull(visibility, "visibility");
     Objects.requireNonNull(name, "name");

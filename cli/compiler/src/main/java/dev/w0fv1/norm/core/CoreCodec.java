@@ -95,7 +95,7 @@ final class CoreCodec {
                   writer.writeBoolean(field.initializer().isPresent());
                   field
                       .initializer()
-                      .ifPresent(link -> writeReference(writer, referenceResolver.apply(link)));
+                      .ifPresent(initializer -> writeReference(writer, referenceResolver.apply(initializer.target())));
                 });
         writer.writeInt(aggregateDefinition.dispatch().size());
         aggregateDefinition.dispatch().stream()
@@ -148,7 +148,7 @@ final class CoreCodec {
                             field
                                 .initializer()
                                 .ifPresent(
-                                    link -> writeReference(writer, referenceResolver.apply(link)));
+                                    initializer -> writeReference(writer, referenceResolver.apply(initializer.target())));
                           });
                 });
       }

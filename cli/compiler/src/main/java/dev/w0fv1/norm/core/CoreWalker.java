@@ -46,7 +46,7 @@ abstract class CoreWalker {
                   field
                       .initializer()
                       .ifPresent(
-                          link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
+                          initializer -> visitReferenceDependency(initializer.nodeIndex(), CoreDependency.Kind.CALL, initializer.target()));
                 });
         declaration
             .dispatch()

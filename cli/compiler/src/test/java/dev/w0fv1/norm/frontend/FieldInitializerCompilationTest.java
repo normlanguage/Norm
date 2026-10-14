@@ -29,7 +29,7 @@ final class FieldInitializerCompilationTest {
       var initializer =
           artifact
               .program()
-              .resolve(owner, (DefinitionReference) field.initializer().orElseThrow());
+              .resolve(owner, (DefinitionReference) field.initializer().orElseThrow().target());
       var callable =
           (CoreDefinition.Callable) artifact.program().definition(initializer).orElseThrow();
       assertTrue(callable.receiverType().isEmpty());
@@ -82,11 +82,54 @@ final class FieldInitializerCompilationTest {
             .program()
             .resolve(
                 owner,
-                (DefinitionReference) aggregate.fields().getFirst().initializer().orElseThrow());
+                (DefinitionReference) aggregate.fields().getFirst().initializer().orElseThrow().target());
     var callable = (CoreDefinition.Callable) artifact.program().definition(target).orElseThrow();
     assertEquals(1, callable.typeParameters().size());
     assertEquals(1, callable.reifiedTypeLocals().size());
     assertEquals(1, callable.parameters().size());
+  }
+
+  @Test
+  void identifiesEqualContentInitializersByTheirExactAuthoredOccurrence() throws Exception {
+    String source = "class Box { Integer first = 7 Integer second = 7 Box() {} } Void main() { printLine(Box().second) }";
+    try (var compiler = new CompilerSession()) {
+      var file = directory.resolve("identity.norm");
+      String firstIdentity = null;
+      String secondIdentity = null;
+      for (String text : java.util.List.of(source, source.replace("first = 7", "first = 8"))) {
+        var result = compiler.compile(SourceFile.of(file, text));
+        assertTrue(result.isSuccess(), result.diagnostics().toString());
+        var artifact = PortableObjectCodec.decode(PortableObjectCodec.encode(result.output().orElseThrow().artifact()), CoreArtifact.class);
+        var owner = artifact.namespace().occurrence("", "Box").orElseThrow();
+        var aggregate = (CoreDefinition.Aggregate) artifact.program().definition(owner.representative()).orElseThrow();
+        var first = artifact.authoring().target(owner, aggregate.fields().getFirst().initializer().orElseThrow().nodeIndex());
+        var second = artifact.authoring().target(owner, aggregate.fields().getLast().initializer().orElseThrow().nodeIndex());
+        assertNotEquals(first, second);
+        if (firstIdentity == null) {
+          firstIdentity = artifact.authoring().origin(first).declarationIdentity().orElseThrow();
+          secondIdentity = artifact.authoring().origin(second).declarationIdentity().orElseThrow();
+        } else {
+          assertEquals(firstIdentity, artifact.authoring().origin(first).declarationIdentity().orElseThrow());
+          assertEquals(secondIdentity, artifact.authoring().origin(second).declarationIdentity().orElseThrow());
+          assertNotEquals(first.representative(), second.representative());
+        }
+      }
+    }
+  }
+
+  @Test
+  void keepsInitializerSourceNodeOutsideTheSemanticContentIdentity() {
+    var artifact = compile("class Box { Integer value = 7 } Void main() {} ");
+    var owner = artifact.namespace().definition("", "Box").orElseThrow();
+    var aggregate = (CoreDefinition.Aggregate) artifact.program().definition(owner).orElseThrow();
+    var movedFields = aggregate.fields().stream().map(field -> new dev.w0fv1.norm.core.CoreField(
+        field.visibility(), field.name(), field.ordinal(), field.type(), field.interceptors(),
+        field.initializer().map(initializer -> new dev.w0fv1.norm.core.CoreFieldInitializer(initializer.nodeIndex() + 100, initializer.target())))).toList();
+    var moved = new CoreDefinition.Aggregate(aggregate.nominalType(), aggregate.kind(), aggregate.valueCategory(),
+        aggregate.typeParameters(), aggregate.parentType(), aggregate.fieldCount(), movedFields,
+        aggregate.dispatch(), aggregate.constructors(), aggregate.conformances());
+    assertEquals(new dev.w0fv1.norm.core.CoreDefinitionContent(aggregate).id(), new dev.w0fv1.norm.core.CoreDefinitionContent(moved).id());
+    assertNotEquals(aggregate, moved);
   }
 
   private CoreArtifact compile(String source) {

@@ -67,7 +67,7 @@ final class CoreRewriter {
                               field.interceptors().stream()
                                   .map(interceptor -> resolve(interceptor, resolver))
                                   .toList(),
-                              field.initializer().map(link -> resolve(link, resolver))))
+                              field.initializer().map(initializer -> new CoreFieldInitializer(initializer.nodeIndex(), resolve(initializer.target(), resolver)))))
                   .toList(),
               aggregateDefinition.dispatch().stream()
                   .map(
@@ -106,7 +106,7 @@ final class CoreRewriter {
                                                   .toList(),
                                               field
                                                   .initializer()
-                                                  .map(link -> resolve(link, resolver))))
+                                                  .map(initializer -> new CoreFieldInitializer(initializer.nodeIndex(), resolve(initializer.target(), resolver)))))
                                   .toList()))
                   .toList());
       case CoreDefinition.Interface declaration ->

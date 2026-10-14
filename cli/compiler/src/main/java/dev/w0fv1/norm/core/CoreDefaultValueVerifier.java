@@ -63,7 +63,7 @@ final class CoreDefaultValueVerifier {
   static void verifyFieldInitializer(
       CoreProgram program, CoreVerificationTypes types, DefinitionId owner, CoreField field) {
     if (field.initializer().isEmpty()) return;
-    var target = program.resolve(owner, (DefinitionReference) field.initializer().orElseThrow());
+    var target = program.resolve(owner, (DefinitionReference) field.initializer().orElseThrow().target());
     var factory = factory(program, target);
     var aggregate = (CoreDefinition.Aggregate) program.definition(owner).orElseThrow();
     if (factory.parameters().size() != 1
