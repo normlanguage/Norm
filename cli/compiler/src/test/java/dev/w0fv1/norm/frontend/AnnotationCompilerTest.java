@@ -26,6 +26,19 @@ import org.junit.jupiter.api.Test;
 
 final class AnnotationCompilerTest {
   @Test
+  void excludesPrivateDefaultStateFromImplicitAnnotationConstructorValues() {
+    String source = policies("FunctionTarget", "RuntimeRetention")
+        + "annotation Route implements FunctionTarget, RuntimeRetention { String value private Integer calls = 0 } "
+        + "@Route(\"/hello\") Void hello() {} Void main() {}";
+    var result = compile(source);
+    assertTrue(result.isSuccess(), result.diagnostics().toString());
+    var values = result.output().orElseThrow().artifact().metadata().annotations().getFirst().values();
+    assertEquals(1, values.size());
+    assertEquals("/hello", ((CoreAnnotationValue.Literal) values.getFirst().value()).value());
+    assertDiagnostic(source.replace("@Route(\"/hello\")", "@Route(\"/hello\", calls: 0)"), "calls");
+  }
+
+  @Test
   void bindsTheFirstUnlabelledAnnotationArgumentToValue() {
     CompilationResult result =
         compile(

@@ -19,6 +19,7 @@ import java.util.Optional;
 final class Analyzer {
   private final SemanticAnalysisContext context;
   private final TypeResolver typeResolver;
+  private final DeclarationPolicyResolver policies;
   private final BodyAnalyzer bodies;
   private final DeclarationAnalyzer declarations;
   private final DeclarationAnalysis declarationAnalysis;
@@ -32,7 +33,7 @@ final class Analyzer {
             context.resolution,
             context.model,
             context.diagnostics);
-    var policies =
+    policies =
         new DeclarationPolicyResolver(
             context.declarations, context.resolution, typeResolver, diagnostics);
     declarations =
@@ -163,6 +164,7 @@ final class Analyzer {
               context.resolution,
               context.scope,
               typeResolver,
+              policies,
               bodies.expressionChecker);
       annotationChecker.validateAnnotationSchemas();
       annotationChecker.validateAnnotationApplications();

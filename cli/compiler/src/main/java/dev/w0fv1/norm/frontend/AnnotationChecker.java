@@ -42,6 +42,7 @@ final class AnnotationChecker {
       TypeResolutionState resolution,
       dev.w0fv1.norm.value.CompilationScope scope,
       TypeResolver typeResolver,
+      DeclarationPolicyResolver declarationPolicies,
       ExpressionTyping expressions) {
     this.catalog = catalog;
     this.diagnostics = diagnostics;
@@ -50,10 +51,12 @@ final class AnnotationChecker {
     this.resolution = resolution;
     this.scope = scope;
     this.typeResolver = typeResolver;
+    this.declarationPolicies = declarationPolicies;
     this.expressions = expressions;
   }
 
   private final TypeResolver typeResolver;
+  private final DeclarationPolicyResolver declarationPolicies;
   private final ExpressionTyping expressions;
   private final Set<AnnotationApplicationKey> indexedAnnotationApplications = new HashSet<>();
 
@@ -152,7 +155,7 @@ final class AnnotationChecker {
           List<AnnotationParameterInfo> parameters = new ArrayList<>();
           List<?> constructorParameters =
               declaration.constructors().isEmpty()
-                  ? declaration.fields()
+                  ? declaration.fields().stream().filter(declarationPolicies::constructorInput).toList()
                   : declaration.constructors().getFirst().parameters();
           for (Object parameter : constructorParameters) {
             Syntax.TypeRef typeRef =
