@@ -17,6 +17,13 @@ public final class IntrinsicDispatcher {
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
+      case RUNTIME_STATUS,
+          RUNTIME_LATEST,
+          RUNTIME_BEGIN,
+          RUNTIME_PUBLISH,
+          RUNTIME_COMMIT,
+          RUNTIME_CLOSE ->
+          RuntimeUpdateIntrinsicDispatcher.resolve(intrinsic);
       case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
       case STATE_MIGRATION_CONTAINS,
           STATE_MIGRATION_READ,
@@ -54,6 +61,7 @@ public final class IntrinsicDispatcher {
           FIELD_ANNOTATION,
           FIELD_READ,
           FUNCTION_NAME,
+          FUNCTION_SNAPSHOT,
           FUNCTION_OWNER,
           FUNCTION_PARAMETERS,
           FUNCTION_ANNOTATION,

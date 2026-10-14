@@ -4,19 +4,48 @@ import std.core.Exception
 import std.json.JsonValue
 import std.json.writeJson
 
+public class AgentSession {
+  private List<JsonValue> history = []
+
+  public Void append(JsonValue item) { history.add(item) }
+
+  public List<JsonValue> items() { return history }
+
+  public Void addContext(String text) {
+    Map<String, JsonValue> message = Map<>()
+    message.put(key: "role", value: JsonValue.String(value: "user"))
+    message.put(key: "content", value: JsonValue.String(value: text))
+    this.append(item: JsonValue.Object(fields: message))
+  }
+}
+
+public interface ToolScope {
+  String? complete()
+  Void close()
+}
+
 public class Agent {
   private Client client
   private String? instructions
-  private ToolRegistry registry
+  private List<Function<?>> tools
+  private Function<List<Function<?>>()>? toolProvider
+  private Function<ToolScope()>? beginToolScope
+  private Function<String?()>? contextProvider
+  private ToolCatalog catalog = ToolCatalog()
   private Integer maximumRounds
   private Integer maximumOutputTokens
 
   Agent(Client client, String? instructions = null, List<Function<?>> tools = [],
-    Integer maximumRounds = 64, Integer maximumOutputTokens = 8192) {
+    Integer maximumRounds = 64, Integer maximumOutputTokens = 8192,
+    Function<List<Function<?>>()>? toolProvider = null, Function<ToolScope()>? beginToolScope = null,
+    Function<String?()>? contextProvider = null) {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
     this.client = client
     this.instructions = instructions
-    this.registry = ToolRegistry(tools: tools)
+    this.tools = tools
+    this.toolProvider = toolProvider
+    this.beginToolScope = beginToolScope
+    this.contextProvider = contextProvider
     this.maximumRounds = maximumRounds
     this.maximumOutputTokens = maximumOutputTokens
   }
@@ -33,18 +62,24 @@ public class Agent {
     Function<Void(Exception)>? onFailed = null,
     Function<Void(String)>? onRunStarted = null,
     Function<Void(Response)>? onRunCompleted = null,
-    Function<Void(GenerationEvent)>? onEvent = null) {
+    Function<Void(GenerationEvent)>? onEvent = null,
+    AgentSession session = AgentSession()) {
     var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: onText, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
     try {
       callbacks.emit(event: GenerationEvent.RunStarted(input: input))
-      Map<String, JsonValue> user = Map<>()
-      user.put(key: "role", value: JsonValue.String(value: "user"))
-      user.put(key: "content", value: JsonValue.String(value: input))
-      List<JsonValue> history = [JsonValue.Object(fields: user)]
+      session.addContext(text: input)
       for Integer round : range(start: 0, end: maximumRounds) {
-        var response = client.exchange(request: ResponseRequest(model: client.defaultModel(), input: ResponseInput.Items(values: history),
+        if contextProvider != null {
+          String? context = contextProvider()
+          if context != null { session.addContext(text: context) }
+        }
+        var registry = catalog.refresh(tools: if toolProvider == null { tools } else { toolProvider() })
+        String? rejection = catalog.rejection()
+        if rejection != null { session.addContext(text: rejection) }
+        var response = client.exchange(request: ResponseRequest(model: client.defaultModel(), input: ResponseInput.Items(values: session.items()),
           instructions: instructions, tools: registry.definitions(), maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
         if response.status != ResponseStatus.Completed || response.refusal != null || response.calls.isEmpty() {
+          for JsonValue item : response.output { session.append(item: item) }
           callbacks.emit(event: GenerationEvent.RunCompleted(response: response))
           return response
         }
@@ -55,25 +90,32 @@ public class Agent {
           }
           identifiers.put(key: call.callId, value: true)
         }
-        for JsonValue item : response.output { history.add(item) }
-        for ToolCall call : response.calls {
-          callbacks.emit(event: GenerationEvent.ToolStarted(call: call))
-          String output = ""
-          Boolean succeeded = false
-          try { output = registry.invoke(call: call) succeeded = true }
-          catch Exception error {
-            callbacks.emit(event: GenerationEvent.ToolFailed(failure: ToolFailure(call: call, error: error)))
-            Map<String, JsonValue> failure = Map<>()
-            failure.put(key: "error", value: JsonValue.String(value: error.message))
-            output = writeJson(value: JsonValue.Object(fields: failure))
+        for JsonValue item : response.output { session.append(item: item) }
+        ToolScope? scope = if beginToolScope == null { null } else { beginToolScope() }
+        try {
+          for ToolCall call : response.calls {
+            callbacks.emit(event: GenerationEvent.ToolStarted(call: call))
+            String output = ""
+            Boolean succeeded = false
+            try { output = registry.invoke(call: call) succeeded = true }
+            catch Exception error {
+              callbacks.emit(event: GenerationEvent.ToolFailed(failure: ToolFailure(call: call, error: error)))
+              Map<String, JsonValue> failure = Map<>()
+              failure.put(key: "error", value: JsonValue.String(value: error.message))
+              output = writeJson(value: JsonValue.Object(fields: failure))
+            }
+            if succeeded { callbacks.emit(event: GenerationEvent.ToolCompleted(result: ToolResult(call: call, output: output))) }
+            Map<String, JsonValue> result = Map<>()
+            result.put(key: "type", value: JsonValue.String(value: "function_call_output"))
+            result.put(key: "call_id", value: JsonValue.String(value: call.callId))
+            result.put(key: "output", value: JsonValue.String(value: output))
+            session.append(item: JsonValue.Object(fields: result))
           }
-          if succeeded { callbacks.emit(event: GenerationEvent.ToolCompleted(result: ToolResult(call: call, output: output))) }
-          Map<String, JsonValue> result = Map<>()
-          result.put(key: "type", value: JsonValue.String(value: "function_call_output"))
-          result.put(key: "call_id", value: JsonValue.String(value: call.callId))
-          result.put(key: "output", value: JsonValue.String(value: output))
-          history.add(JsonValue.Object(fields: result))
-        }
+          if scope != null {
+            String? feedback = scope.complete()
+            if feedback != null { session.addContext(text: feedback) }
+          }
+        } finally { if scope != null { scope.close() } }
       }
       throw OpenAiException(code: "OPENAI-TOOL-LIMIT", message: "The run reached its model request limit")
     } catch Exception error {

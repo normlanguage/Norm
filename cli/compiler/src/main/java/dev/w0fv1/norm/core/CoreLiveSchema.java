@@ -83,6 +83,15 @@ public final class CoreLiveSchema {
     return runtime.callableContract(occurrence);
   }
 
+  public Map<String, CoreType> localTypes(String declaration) {
+    Contract contract = contracts.get(declaration);
+    return contract == null ? Map.of() : contract.locals();
+  }
+
+  public String declarationKey(DefinitionOccurrenceId occurrence) {
+    return runtime.identity().key(occurrence);
+  }
+
   public void requireCompatible(CoreLiveSchema candidate) {
     Objects.requireNonNull(candidate);
     if (!entry.equals(candidate.entry))

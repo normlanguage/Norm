@@ -17,6 +17,330 @@ final class OpenAiAgentTest {
   @TempDir Path directory;
 
   @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"annotation", "schema"})
+  void retainsTheAcceptedCatalogUntilARejectedToolIsRepaired(String scenario) throws Exception {
+    Path library =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries/openai");
+    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
+    try (var files = Files.list(library)) {
+      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
+        Files.copy(source, dependency.resolve(source.getFileName()));
+    }
+    var requests = new AtomicInteger();
+    var failure = new AtomicReference<Throwable>();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          try {
+            var body =
+                JsonParser.parseString(
+                        new String(
+                            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            int round = requests.getAndIncrement();
+            assertEquals(
+                round < 2 ? "install" : "added",
+                body.getAsJsonArray("tools")
+                    .get(0)
+                    .getAsJsonObject()
+                    .getAsJsonObject("function")
+                    .get("name")
+                    .getAsString());
+            if (round == 1)
+              assertTrue(body.toString().contains("OPENAI-INVALID-TOOL"), body.toString());
+            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, 0);
+            String data =
+                round < 2
+                    ? """
+          data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"install","function":{"name":"install","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
+
+          data: [DONE]
+
+          """
+                    : """
+          data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":"stop"}]}
+
+          data: [DONE]
+
+          """;
+            exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
+          } catch (Throwable error) {
+            failure.compareAndSet(null, error);
+          } finally {
+            exchange.close();
+          }
+        });
+    server.start();
+    try {
+      Path app = Files.createDirectories(directory.resolve("app"));
+      Files.writeString(
+          app.resolve("module.norm"),
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+      Path entry = app.resolve("main.norm");
+      Files.writeString(
+          entry,
+          """
+        package app
+        import openai.Agent
+        import openai.Client
+        import openai.Tool
+        class Unsupported {}
+        class Catalog {
+          Integer stage = 0
+          @Tool(description: "Install")
+          Integer install() { stage = stage + 1 return stage }
+          %s
+          Integer invalid(%s) { return 0 }
+          @Tool(description: "Added")
+          Integer added() { return stage }
+          List<Function<?>> tools() {
+            if stage == 0 { return [this.install] }
+            if stage == 1 { return [this.invalid] }
+            return [this.added]
+          }
+        }
+        Void main() {
+          var catalog = Catalog()
+          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
+          var agent = Agent(client: client, toolProvider: catalog.tools)
+          agent.run(input: "install and repair")
+          require(condition: catalog.stage == 2, message: "accepted catalog remains callable")
+          printLine("done")
+        }
+        """
+              .formatted(
+                  scenario.equals("schema") ? "@Tool(description: \"Unsupported schema\")" : "",
+                  scenario.equals("schema") ? "Unsupported value" : "",
+                  server.getAddress().getPort()));
+      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+      if (failure.get() != null) throw new AssertionError(failure.get());
+      assertEquals(3, requests.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.api.Test
+  void closesToolScopeAndNotifiesFailureWhenPublicationFails() throws Exception {
+    Path library =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries/openai");
+    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
+    try (var files = Files.list(library)) {
+      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
+        Files.copy(source, dependency.resolve(source.getFileName()));
+    }
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+          exchange.sendResponseHeaders(200, 0);
+          exchange
+              .getResponseBody()
+              .write(
+                  """
+        data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"noop","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
+
+        data: [DONE]
+
+        """
+                      .getBytes(StandardCharsets.UTF_8));
+          exchange.close();
+        });
+    server.start();
+    try {
+      Path app = Files.createDirectories(directory.resolve("app"));
+      Files.writeString(
+          app.resolve("module.norm"),
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+      Path entry = app.resolve("main.norm");
+      Files.writeString(
+          entry,
+          """
+        package app
+        import openai.Agent
+        import openai.Client
+        import openai.Tool
+        import openai.ToolScope
+        import std.core.Exception
+        class Scope implements ToolScope {
+          Boolean closed = false
+          Integer failed = 0
+          public String? complete() { throw Exception(message: "publication failed") }
+          public Void close() { closed = true }
+          ToolScope begin() { return this }
+          @Tool(description: "Do nothing")
+          Void noop() {}
+        }
+        Void main() {
+          var scope = Scope()
+          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
+          var agent = Agent(client: client, tools: [scope.noop], beginToolScope: scope.begin)
+          try {
+            agent.run(input: "run", onFailed: (Exception error) {
+              require(condition: scope.closed && error.message == "publication failed", message: "close before failure notification")
+              scope.failed = scope.failed + 1
+            })
+          } catch Exception error { require(condition: error.message == "publication failed", message: "original exception") }
+          require(condition: scope.closed && scope.failed == 1, message: "scope cleanup")
+          printLine("done")
+        }
+        """
+              .formatted(server.getAddress().getPort()));
+      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.api.Test
+  void refreshesToolsBetweenRoundsAndPreservesAnExplicitSession() throws Exception {
+    Path library =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries/openai");
+    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
+    try (var files = Files.list(library)) {
+      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
+        Files.copy(source, dependency.resolve(source.getFileName()));
+    }
+    var requests = new AtomicInteger();
+    var failure = new AtomicReference<Throwable>();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          try {
+            var body =
+                JsonParser.parseString(
+                        new String(
+                            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            int round = requests.getAndIncrement();
+            assertEquals(
+                round == 0 ? "install" : "added",
+                body.getAsJsonArray("tools")
+                    .get(0)
+                    .getAsJsonObject()
+                    .getAsJsonObject("function")
+                    .get("name")
+                    .getAsString());
+            if (round == 0) assertEquals(1, body.getAsJsonArray("messages").size());
+            if (round == 1) {
+              assertEquals(
+                  "2",
+                  body.getAsJsonArray("messages")
+                      .get(3)
+                      .getAsJsonObject()
+                      .get("content")
+                      .getAsString());
+              assertEquals(
+                  "published",
+                  body.getAsJsonArray("messages")
+                      .get(4)
+                      .getAsJsonObject()
+                      .get("content")
+                      .getAsString());
+            }
+            if (round == 2) {
+              var messages = body.getAsJsonArray("messages");
+              assertEquals(7, messages.size());
+              assertEquals("done", messages.get(5).getAsJsonObject().get("content").getAsString());
+              assertEquals(
+                  "continue", messages.get(6).getAsJsonObject().get("content").getAsString());
+            }
+            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, 0);
+            String data =
+                round == 0
+                    ? """
+          data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"install","arguments":"{}"}},{"index":1,"id":"two","function":{"name":"install","arguments":"{}"}}]},"finish_reason":null}]}
+
+          data: {"id":"r1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+          data: [DONE]
+
+          """
+                    : """
+          data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":null}]}
+
+          data: {"id":"r2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+          data: [DONE]
+
+          """;
+            exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
+          } catch (Throwable error) {
+            failure.set(error);
+          } finally {
+            exchange.close();
+          }
+        });
+    server.start();
+    try {
+      Path app = Files.createDirectories(directory.resolve("app"));
+      Files.writeString(
+          app.resolve("module.norm"),
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+      Path entry = app.resolve("main.norm");
+      Files.writeString(
+          entry,
+          """
+        package app
+        import openai.Agent
+        import openai.AgentSession
+        import openai.Client
+        import openai.Tool
+        import openai.ToolScope
+        class Catalog {
+          Integer count = 0
+          Integer scopes = 0
+          Integer completed = 0
+          Integer closed = 0
+          @Tool(description: "Install a tool")
+          Integer install() { count = count + 1 return count }
+          @Tool(description: "Added tool")
+          Integer added() { return count }
+          List<Function<?>> tools() { return if count == 0 { [this.install] } else { [this.added] } }
+          ToolScope begin() { scopes = scopes + 1 return Scope(catalog: this) }
+        }
+        class Scope implements ToolScope {
+          Catalog catalog
+          public String? complete() { catalog.completed = catalog.completed + 1 return "published" }
+          public Void close() { catalog.closed = catalog.closed + 1 }
+        }
+        Void main() {
+          var catalog = Catalog()
+          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
+          var agent = Agent(client: client, toolProvider: catalog.tools, beginToolScope: catalog.begin)
+          var session = AgentSession()
+          agent.run(input: "install", session: session)
+          require(condition: catalog.count == 2, message: "response tool snapshot")
+          agent.run(input: "continue", session: session)
+          require(condition: catalog.scopes == 1 && catalog.completed == 1 && catalog.closed == 1, message: "whole response scope")
+          printLine("done")
+        }
+        """
+              .formatted(server.getAddress().getPort()));
+      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+      if (failure.get() != null) throw new AssertionError(failure.get());
+      assertEquals(3, requests.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings = {"http", "truncated", "callback"})
   void notifiesFailureOnceAndPropagatesTheOriginalError(String scenario) throws Exception {
     Path library =

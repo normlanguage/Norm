@@ -56,6 +56,42 @@ final class RuntimeCollections {
     return new StatefulDeque<>();
   }
 
+  static <K, V> List<Map.Entry<K, V>> entries(Map<K, V> map) {
+    Map<K, V> source = map instanceof StatefulMap<K, V> stateful ? stateful.state.read() : map;
+    return source.entrySet().stream()
+        .map(AbstractMap.SimpleImmutableEntry::new)
+        .map(entry -> (Map.Entry<K, V>) entry)
+        .toList();
+  }
+
+  static <K, V> void reindex(Map<K, V> map, List<Map.Entry<K, V>> entries, int[] hashes) {
+    var rebuilt = new LinkedHashMap<K, V>();
+    for (var entry : entries(map)) {
+      if (rebuilt.containsKey(entry.getKey()))
+        throw new RuntimeValues.StateMigrationFailure(
+            "State migration produces duplicate map keys");
+      rebuilt.put(entry.getKey(), entry.getValue());
+    }
+    if (java.util.stream.IntStream.range(0, entries.size())
+        .allMatch(index -> entries.get(index).getKey().hashCode() == hashes[index])) return;
+    Map<K, V> target = map instanceof StatefulMap<K, V> stateful ? stateful.state.write() : map;
+    target.clear();
+    target.putAll(rebuilt);
+  }
+
+  static <E> void reindex(Set<E> set, List<E> entries, int[] hashes) {
+    var rebuilt = new LinkedHashSet<E>();
+    for (E entry : set)
+      if (!rebuilt.add(entry))
+        throw new RuntimeValues.StateMigrationFailure(
+            "State migration produces duplicate set keys");
+    if (java.util.stream.IntStream.range(0, entries.size())
+        .allMatch(index -> entries.get(index).hashCode() == hashes[index])) return;
+    Set<E> target = set instanceof StatefulSet<E> stateful ? stateful.state.write() : set;
+    target.clear();
+    target.addAll(rebuilt);
+  }
+
   private static final class StatefulList<E> extends AbstractList<E> {
     private final Storage<List<E>> state;
 
@@ -148,7 +184,7 @@ final class RuntimeCollections {
             new LinkedHashMap<>(),
             LinkedHashMap::new,
             (target, source) -> {
-              target.keySet().retainAll(source.keySet());
+              target.clear();
               target.putAll(source);
             });
 
@@ -258,7 +294,7 @@ final class RuntimeCollections {
             new LinkedHashSet<>(),
             LinkedHashSet::new,
             (target, source) -> {
-              target.retainAll(source);
+              target.clear();
               target.addAll(source);
             });
 

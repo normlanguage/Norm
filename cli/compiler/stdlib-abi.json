@@ -1,5 +1,5 @@
 {
-  "version": 48,
+  "version": 49,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1140,6 +1140,41 @@
       "name": "STATE_MIGRATION_COPY",
       "requiresResultRuntimeType": false,
       "writesState": true
+    },
+    {
+      "name": "RUNTIME_STATUS",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_LATEST",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_PUBLISH",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_BEGIN",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_COMMIT",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_CLOSE",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "FUNCTION_SNAPSHOT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
     }
   ],
   "opaqueValues": [
@@ -1163,6 +1198,13 @@
       "moduleVersion": 1,
       "packageName": "std.runtime",
       "typeName": "MigrationState"
+    },
+    {
+      "name": "UPDATE_BATCH",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.runtime",
+      "typeName": "UpdateBatch"
     }
   ],
   "runtimeShapes": [
@@ -3275,6 +3317,54 @@
         "std.core.__stateMigrationWrite/T"
       ],
       "nullable": false
+    },
+    "std.core.__runtimeStatus/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeStatus/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeLatest/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeLatest/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeLatest/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeLatest/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__runtimePublish/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePublish/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeBegin/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeBegin/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeCommit/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeCommit/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
     }
   },
   "builtinTypes": [
@@ -4134,6 +4224,17 @@
             "documentation": "Reads a runtime annotation on the declaration."
           },
           "intrinsic": "FUNCTION_ANNOTATION"
+        },
+        {
+          "symbol": {
+            "name": "snapshot",
+            "kind": "METHOD",
+            "type": "std.core.Function/Signature",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Binds this function to its owning runtime revision."
+          },
+          "intrinsic": "FUNCTION_SNAPSHOT"
         }
       ],
       "typeMembers": [],
@@ -8711,6 +8812,109 @@
         "documentation": "Managed state migration operation."
       },
       "intrinsic": "STATE_MIGRATION_COPY"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeStatus",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeStatus/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeStatus/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_STATUS"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeLatest",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeLatest/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeLatest/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_LATEST"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePublish",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePublish/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePublish/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_PUBLISH"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeBegin",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeBegin/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeBegin/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_BEGIN"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeCommit",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeCommit/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeCommit/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_COMMIT"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_CLOSE"
     }
   ]
 }

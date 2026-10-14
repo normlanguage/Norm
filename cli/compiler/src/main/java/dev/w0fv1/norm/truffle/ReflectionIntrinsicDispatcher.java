@@ -195,6 +195,24 @@ final class ReflectionIntrinsicDispatcher {
                 .forType(field.ownerType(), field.annotations())
                 .readField(field, first, execution);
           };
+      case FUNCTION_SNAPSHOT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            var function = (RuntimeValues.Closure) receiver;
+            if (execution.liveBindings() != null)
+              return execution.liveBindings().snapshot(function);
+            if (function.sourceDeclaration().isEmpty()) return function;
+            return new RuntimeValues.Closure(
+                new RevisionFunctionRootNode(function.target(), function.annotations().version())
+                    .getCallTarget(),
+                function.sourceDeclaration(),
+                function.unbound(),
+                function.receiver(),
+                function.captures(),
+                function.receiverTypeArguments(),
+                function.reifiedArguments(),
+                function.functionType(),
+                function.annotations());
+          };
       case FUNCTION_NAME ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;

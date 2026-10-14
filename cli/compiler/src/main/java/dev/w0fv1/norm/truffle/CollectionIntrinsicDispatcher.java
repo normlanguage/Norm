@@ -417,7 +417,7 @@ final class CollectionIntrinsicDispatcher {
           };
       case ITERATOR_HAS_NEXT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return ((RuntimeValues.NativeIteratorValue) receiver).iterator.hasNext();
+            return ((RuntimeValues.NativeIteratorValue) receiver).hasNext();
           };
       case ITERATOR_NEXT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {

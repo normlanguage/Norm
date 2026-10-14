@@ -25,7 +25,8 @@ final class LiveBindings implements AutoCloseable {
 
   record Callable(
       com.oracle.truffle.api.RootCallTarget target,
-      dev.w0fv1.norm.core.CoreRuntimeSchema.CallableContract contract) {}
+      dev.w0fv1.norm.core.CoreRuntimeSchema.CallableContract contract,
+      dev.w0fv1.norm.core.DefinitionOccurrenceId occurrence) {}
 
   static final class Version {
     final Map<String, Callable> callables;
@@ -34,6 +35,7 @@ final class LiveBindings implements AutoCloseable {
     final Map<Key, Statement> statements;
     final Map<Key, Initializer> initializers;
     private ExecutionRevision revision;
+    private long generation;
     private ExecutableProgram program;
     private dev.w0fv1.norm.bridge.JavaApplicationBridge.Registration bridge;
     private JavaApplicationDispatch dispatch;
@@ -123,7 +125,8 @@ final class LiveBindings implements AutoCloseable {
         dev.w0fv1.norm.core.DefinitionOccurrenceId occurrence,
         com.oracle.truffle.api.RootCallTarget target) {
       String key = schema.key(occurrence);
-      if (callables.putIfAbsent(key, new Callable(target, schema.callableContract(occurrence)))
+      if (callables.putIfAbsent(
+              key, new Callable(target, schema.callableContract(occurrence), occurrence))
           != null) throw new IllegalStateException("duplicate callable binding");
       return new CallableBinding(key, this).getCallTarget();
     }
@@ -161,6 +164,8 @@ final class LiveBindings implements AutoCloseable {
   }
 
   private static final Object FAILED_MIGRATION = new Object();
+  private static final Object FRAME_VERSION = new Object();
+  private static final Object FRAME_BIRTH_VERSION = new Object();
   private volatile Version version;
   private long generation;
   private final ThreadLocal<Version> pinnedVersion = new ThreadLocal<>();
@@ -174,6 +179,7 @@ final class LiveBindings implements AutoCloseable {
   private final java.util.concurrent.locks.ReentrantReadWriteLock stateLock =
       new java.util.concurrent.locks.ReentrantReadWriteLock();
   private final Set<Continuation> continuations = ConcurrentHashMap.newKeySet();
+  private final Set<RuntimeStateRoots> stateRoots = ConcurrentHashMap.newKeySet();
   private final ThreadLocal<java.util.Deque<Continuation>> activeBlocks =
       ThreadLocal.withInitial(java.util.ArrayDeque::new);
 
@@ -252,6 +258,28 @@ final class LiveBindings implements AutoCloseable {
     }
   }
 
+  RootLease retain(RuntimeStateRoots roots) {
+    stateRoots.add(roots);
+    return new RootLease(roots);
+  }
+
+  List<Object> stateRoots() {
+    return new ArrayList<>(stateRoots);
+  }
+
+  final class RootLease implements AutoCloseable {
+    private final RuntimeStateRoots roots;
+
+    private RootLease(RuntimeStateRoots roots) {
+      this.roots = roots;
+    }
+
+    @Override
+    public void close() {
+      stateRoots.remove(roots);
+    }
+  }
+
   StateWrite stateWrite() {
     stateLock.readLock().lock();
     return new StateWrite();
@@ -300,6 +328,10 @@ final class LiveBindings implements AutoCloseable {
     frame.setAuxiliarySlot(
         frame.getFrameDescriptor().findOrAddAuxiliarySlot(ACTIVATION), activation);
     pending.put(activation, ConcurrentHashMap.newKeySet());
+    frame.setAuxiliarySlot(
+        frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_VERSION), capture());
+    frame.setAuxiliarySlot(
+        frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_BIRTH_VERSION), capture());
   }
 
   void leave(VirtualFrame frame) {
@@ -341,6 +373,7 @@ final class LiveBindings implements AutoCloseable {
     pending.values().forEach(Set::clear);
     version = candidate;
     generation++;
+    candidate.generation = generation;
   }
 
   synchronized void beginExecution(ExecutionState state) {
@@ -390,6 +423,37 @@ final class LiveBindings implements AutoCloseable {
     if (pinned != null) return pinned;
     Version executing = executionVersion.get();
     return executing == null ? version : executing;
+  }
+
+  synchronized long currentRevision() {
+    return capture().generation;
+  }
+
+  RuntimeValues.Closure snapshot(RuntimeValues.Closure function) {
+    if (function.snapshotVersion() != null) return function;
+    Version selected = capture();
+    var declaration = function.sourceDeclaration();
+    AnnotationRuntime annotations = declaration.isEmpty() ? null : function.annotations();
+    if (annotations != null && annotations.version() != null) {
+      Version original = annotations.version();
+      String key = original.schema.declarationKey(function.declaration());
+      Callable before = original.callables.get(key);
+      Callable candidate = selected.callables.get(key);
+      if (before != null && candidate != null && before.contract().equals(candidate.contract())) {
+        declaration = java.util.Optional.of(candidate.occurrence());
+        annotations = selected.annotations();
+      } else selected = original;
+    }
+    return new RuntimeValues.Closure(
+        new RevisionFunctionRootNode(function.target(), selected).getCallTarget(),
+        declaration,
+        function.unbound(),
+        function.receiver(),
+        function.captures(),
+        function.receiverTypeArguments(),
+        function.reifiedArguments(),
+        function.functionType(),
+        annotations);
   }
 
   Scope pin(Version selected) {
@@ -470,6 +534,12 @@ final class LiveBindings implements AutoCloseable {
 
   private boolean prepare(
       VirtualFrame frame, Version candidate, Key region, List<FrameBinding> required) {
+    int versionSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_VERSION);
+    if (frame.getAuxiliarySlot(
+            frame.getFrameDescriptor().findOrAddAuxiliarySlot(FRAME_BIRTH_VERSION))
+        == candidate) return true;
+    if (frame.getAuxiliarySlot(versionSlot) == candidate
+        && required.stream().allMatch(binding -> binding.initialized(frame))) return true;
     int failureSlot = frame.getFrameDescriptor().findOrAddAuxiliarySlot(FAILED_MIGRATION);
     Object cached = frame.getAuxiliarySlot(failureSlot);
     FailedMigrations failures =
@@ -488,10 +558,17 @@ final class LiveBindings implements AutoCloseable {
         var migration =
             RuntimeValues.prepareState(List.of(), ExecutionContextAccess.state(frame))) {
       for (Initializer initializer : ordered.values()) initializer.node().executeVoid(frame);
-      migration.include(required.stream().map(local -> local.read(frame)).toList());
+      var roots = new ArrayList<Object>();
+      for (String identity : candidate.schema.localTypes(region.declaration()).keySet()) {
+        var binding =
+            new FrameBinding(0, com.oracle.truffle.api.frame.FrameSlotKind.Object, identity);
+        if (binding.initialized(frame)) roots.add(binding.read(frame));
+      }
+      migration.include(roots);
       migration.commit();
       transaction.commit();
       if (transition != null) transition.commit();
+      frame.setAuxiliarySlot(versionSlot, candidate);
       committed = true;
       return true;
     } catch (NormGuestException | RuntimeValues.StateMigrationFailure failure) {
@@ -556,7 +633,8 @@ final class LiveBindings implements AutoCloseable {
       Version selected =
           pinned != null ? pinned : expression != null ? expression : bindings.selected();
       Callable candidate = selected.callables.get(key);
-      if (candidate == null || !before.contract().equals(candidate.contract())) {
+      boolean retained = candidate == null || !before.contract().equals(candidate.contract());
+      if (retained) {
         selected = original;
         candidate = before;
       }
@@ -564,9 +642,14 @@ final class LiveBindings implements AutoCloseable {
       Version previousExpression = bindings.expressionVersion.get();
       bindings.executionVersion.set(selected);
       bindings.expressionVersion.remove();
+      if (retained) bindings.pinnedVersion.set(selected);
       try {
         return call.call(candidate.target(), frame.getArguments());
       } finally {
+        if (retained) {
+          if (pinned == null) bindings.pinnedVersion.remove();
+          else bindings.pinnedVersion.set(pinned);
+        }
         if (previousExecution == null) bindings.executionVersion.remove();
         else bindings.executionVersion.set(previousExecution);
         if (previousExpression == null) bindings.expressionVersion.remove();

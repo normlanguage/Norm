@@ -4,6 +4,7 @@ import std.annotation.FunctionTarget
 import std.annotation.ParameterTarget
 import std.annotation.RuntimeRetention
 import std.json.JsonValue
+import std.json.JsonException
 import std.json.functionSchema
 import std.json.invokeJson
 
@@ -16,6 +17,27 @@ public annotation ToolParameter implements ParameterTarget, RuntimeRetention {
   String description
 }
 
+public class ToolCatalog {
+  private ToolRegistry? accepted = null
+  private String? failure = null
+
+  public ToolRegistry refresh(List<Function<?>> tools) {
+    try {
+      var candidate = ToolRegistry(tools: tools)
+      accepted = candidate
+      failure = null
+      return candidate
+    } catch OpenAiException error {
+      ToolRegistry? current = accepted
+      if error.code != "OPENAI-INVALID-TOOL" || current == null { throw error }
+      failure = "Tool catalog rejected: " + error.code + " " + error.message
+      return current
+    }
+  }
+
+  public String? rejection() { return failure }
+}
+
 public class ToolRegistry {
   private Map<String, Function<?>> operations = Map<>()
   private List<ToolDefinition> descriptions = []
@@ -23,14 +45,22 @@ public class ToolRegistry {
   ToolRegistry(List<Function<?>> tools) {
     this.operations = Map<>()
     this.descriptions = []
-    for Function<?> operation : tools {
+    for Function<?> candidate : tools {
+      Function<?> operation = candidate.snapshot()
       Tool? metadata = operation.annotation<Tool>()
       if metadata == null { throw OpenAiException(code: "OPENAI-INVALID-TOOL", message: "Tool functions require @Tool") }
       String name = metadata.name ?? operation.name()
       if name.isBlank || metadata.description.isBlank || operations.containsKey(key: name) {
         throw OpenAiException(code: "OPENAI-INVALID-TOOL", message: "Tool names must be unique and descriptions must not be empty: " + name)
       }
-      JsonValue schema = functionSchema(operation: operation)
+      JsonValue schema = JsonValue.Null
+      try { schema = functionSchema(operation: operation) }
+      catch JsonException error {
+        Boolean contractFailure = error.code == "NORM-JSON-FUNCTION" || error.code == "NORM-JSON-UNSUPPORTED-TYPE"
+          || error.code == "NORM-JSON-DUPLICATE-NAME" || error.code == "NORM-JSON-IGNORED-FIELD" || error.code == "NORM-JSON-NAME"
+        if !contractFailure { throw error }
+        throw OpenAiException(code: "OPENAI-INVALID-TOOL", message: name + ": " + error.code + " " + error.message)
+      }
       Map<String, JsonValue> fields = switch schema {
         case Object(Map<String, JsonValue> fields) { break fields }
         case _ { throw OpenAiException(code: "OPENAI-INVALID-TOOL", message: "Expected an object schema") }

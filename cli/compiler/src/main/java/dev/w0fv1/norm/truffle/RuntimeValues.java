@@ -118,6 +118,13 @@ final class RuntimeValues {
           () -> new IllegalArgumentException("host function has no Norm declaration"));
     }
 
+    LiveBindings.Version snapshotVersion() {
+      return target instanceof com.oracle.truffle.api.RootCallTarget root
+              && root.getRootNode() instanceof RevisionFunctionRootNode snapshot
+          ? snapshot.version()
+          : null;
+    }
+
     Closure(
         CallTarget target,
         DefinitionOccurrenceId declaration,
@@ -292,7 +299,11 @@ final class RuntimeValues {
 
   @TruffleBoundary
   static ObjectValue copyObject(ObjectValue object) {
-    ObjectValue result = new ObjectValue(object.objectInfo, object.type);
+    StateMigration migration = MIGRATION.get();
+    ObjectValue result =
+        new ObjectValue(
+            migration == null ? object.state.currentInfo() : migration.objectInfo(object),
+            object.type);
     object.cells().forEach((key, value) -> result.cells().put(key, copy(value)));
     object.configuration.forEach((key, value) -> result.configuration.put(key, copy(value)));
     return result;
@@ -838,6 +849,7 @@ final class RuntimeValues {
   static final class NativeIteratorValue {
     final CoreType type;
     final Iterator<Object> iterator;
+    private boolean active = true;
 
     NativeIteratorValue(CoreType elementType, Iterator<Object> iterator) {
       type =
@@ -847,6 +859,12 @@ final class RuntimeValues {
               CoreValueCategory.IDENTITY,
               CoreNullability.NON_NULL);
       this.iterator = Objects.requireNonNull(iterator, "iterator");
+    }
+
+    boolean hasNext() {
+      boolean available = iterator.hasNext();
+      if (!available) active = false;
+      return available;
     }
   }
 
@@ -1094,6 +1112,14 @@ final class RuntimeValues {
     @Override
     public int hashCode() {
       return hash(value);
+    }
+
+    boolean requiresSchemaReindex() {
+      return switch (value) {
+        case ObjectValue object -> isValueObject(object);
+        case ContainerValue _, EnumValue _ -> true;
+        default -> false;
+      };
     }
   }
 
@@ -1439,9 +1465,48 @@ final class RuntimeValues {
     void include(Iterable<Object> roots) {
       var retained = new ArrayList<Object>();
       roots.forEach(retained::add);
+      if (execution != null && execution.liveBindings() != null)
+        retained.addAll(execution.liveBindings().stateRoots());
+      var types = new java.util.HashSet<CoreTypeConstructor>();
+      var iterators = new ArrayList<NativeIteratorValue>();
+      var scanned = new java.util.IdentityHashMap<Object, Boolean>();
+      retained.forEach(value -> scanKeyEvolution(value, scanned, types, iterators));
+      for (var iterator : iterators)
+        if (iterator.active && typeUses(iterator.type, types))
+          throw new StateMigrationPending(
+              "State update awaits an active iterator over evolving value keys");
       var checked = new java.util.IdentityHashMap<Object, Boolean>();
       retained.forEach(value -> checkWritableHandles(value, checked));
       retained.forEach(this::visit);
+    }
+
+    private void scanKeyEvolution(
+        Object value,
+        java.util.IdentityHashMap<Object, Boolean> checked,
+        java.util.Set<CoreTypeConstructor> types,
+        List<NativeIteratorValue> iterators) {
+      if (value == null || checked.put(value, Boolean.TRUE) != null) return;
+      if (value instanceof NativeIteratorValue iterator) iterators.add(iterator);
+      if (value instanceof ObjectValue object
+          && isValueObject(object)
+          && object.state.shapeChanges(object.info(execution), object.type)
+          && object.type instanceof CoreType.Declared declared) types.add(declared.constructor());
+      for (Object child : children(value)) scanKeyEvolution(child, checked, types, iterators);
+    }
+
+    private boolean typeUses(CoreType type, java.util.Set<CoreTypeConstructor> constructors) {
+      return switch (type) {
+        case CoreType.Declared declared ->
+            constructors.contains(declared.constructor())
+                || declared.arguments().stream()
+                    .anyMatch(argument -> typeUses(argument, constructors));
+        case CoreType.Reference reference -> typeUses(reference.target(), constructors);
+        case CoreType.Function function ->
+            typeUses(function.returnType(), constructors)
+                || function.parameterTypes().stream()
+                    .anyMatch(argument -> typeUses(argument, constructors));
+        default -> false;
+      };
     }
 
     private void checkWritableHandles(
@@ -1457,7 +1522,23 @@ final class RuntimeValues {
           && opaque.value instanceof AnnotationRuntime.FieldHandle handle) {
         requireWritableHandle(handle.receiver(), handle.field().key(), handle.field().fieldType());
       }
+      if (value instanceof Closure closure && closure.snapshotVersion() != null) {
+        var retained = new java.util.IdentityHashMap<Object, Boolean>();
+        requireSnapshotGraphStable(closure.receiver(), retained);
+        for (Object capture : closure.captures()) requireSnapshotGraphStable(capture, retained);
+      }
       for (Object child : children(value)) checkWritableHandles(child, checked);
+    }
+
+    private void requireSnapshotGraphStable(
+        Object value, java.util.IdentityHashMap<Object, Boolean> checked) {
+      if (value == null || checked.put(value, Boolean.TRUE) != null) return;
+      if (value instanceof ObjectValue object
+          && isValueObject(object)
+          && object.state.shapeChanges(object.info(execution), object.type))
+        throw new StateMigrationPending(
+            "State update awaits a retained function snapshot with value keys");
+      for (Object child : children(value)) requireSnapshotGraphStable(child, checked);
     }
 
     private void requireWritableHandle(ObjectValue object, FieldKey key, CoreType type) {
@@ -1470,13 +1551,32 @@ final class RuntimeValues {
 
     private void visit(Object value) {
       if (value == null || visited.put(value, Boolean.TRUE) != null) return;
+      var mapEntries =
+          value instanceof MapValue map ? RuntimeCollections.entries(map.values) : null;
+      var setEntries = value instanceof SetValue set ? new ArrayList<>(set.values) : null;
+      if (mapEntries != null
+          && mapEntries.stream().noneMatch(entry -> entry.getKey().requiresSchemaReindex()))
+        mapEntries = null;
+      if (setEntries != null && setEntries.stream().noneMatch(RuntimeKey::requiresSchemaReindex))
+        setEntries = null;
+      int[] mapHashes =
+          mapEntries == null
+              ? null
+              : mapEntries.stream().mapToInt(entry -> entry.getKey().hashCode()).toArray();
+      int[] setHashes =
+          setEntries == null ? null : setEntries.stream().mapToInt(Object::hashCode).toArray();
       if (value instanceof ObjectValue object) prepare(object, object.info(execution));
       for (Object child : children(value)) visit(child);
+      if (value instanceof MapValue map && mapEntries != null)
+        RuntimeCollections.reindex(map.values, mapEntries, mapHashes);
+      if (value instanceof SetValue set && setEntries != null)
+        RuntimeCollections.reindex(set.values, setEntries, setHashes);
     }
 
     private Iterable<Object> children(Object value) {
       var children = new ArrayList<Object>();
       switch (value) {
+        case RuntimeStateRoots roots -> children.addAll(roots.retainedValues());
         case ObjectValue object -> {
           children.addAll(object.cells().values());
           children.addAll(storage(object.configuration).values());
@@ -1499,8 +1599,10 @@ final class RuntimeValues {
         case ArrayValue array -> children.addAll(array.values);
         case ListValue list -> children.addAll(list.values);
         case MapValue map -> {
-          map.values.keySet().forEach(key -> children.add(key.value));
-          children.addAll(map.values.values());
+          for (var entry : RuntimeCollections.entries(map.values)) {
+            children.add(entry.getKey().value);
+            children.add(entry.getValue());
+          }
         }
         case SetValue set -> set.values.forEach(key -> children.add(key.value));
         case StackValue stack -> children.addAll(stack.values);

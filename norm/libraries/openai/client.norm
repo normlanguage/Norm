@@ -541,7 +541,8 @@ private class ChatStream {
             arguments: previous.arguments + (definition.optionalString(name: "arguments") ?? "")))
         }
       }
-      finish = choice.optionalString(name: "finish_reason")
+      String? reason = choice.optionalString(name: "finish_reason")
+      if reason != null && !reason.isEmpty() { finish = reason }
       if finish != null && messageStarted && callbacks != null {
         callbacks.emit(event: GenerationEvent.MessageCompleted(message: Message(id: id, text: text, refusal: if refusal.isEmpty() { null } else { refusal })))
       }

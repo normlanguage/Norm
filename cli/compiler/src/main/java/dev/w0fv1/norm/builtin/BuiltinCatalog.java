@@ -337,12 +337,16 @@ public final class BuiltinCatalog {
       TypeDefinition definition, SemanticType instance) {
     if (definition == null) return Map.of();
     Map<String, SemanticType> result = new LinkedHashMap<>();
+    List<SemanticType> arguments =
+        definition.runtimeShape() == RuntimeShape.FUNCTION
+            ? List.of(instance)
+            : instance.arguments();
     for (int index = 0;
-        index < Math.min(definition.typeParameters().size(), instance.arguments().size());
+        index < Math.min(definition.typeParameters().size(), arguments.size());
         index++) {
       result.put(
           "std.core." + definition.symbol().name() + "/" + definition.typeParameters().get(index),
-          instance.arguments().get(index));
+          arguments.get(index));
     }
     return Map.copyOf(result);
   }

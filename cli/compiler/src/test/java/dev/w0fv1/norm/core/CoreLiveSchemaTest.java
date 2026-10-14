@@ -40,7 +40,7 @@ final class CoreLiveSchemaTest {
   }
 
   @Test
-  void requiresCollectionKeyMigrationForChangedValueFieldTypes() {
+  void permitsExplicitValueFieldMigrationWithRuntimeCollectionReindexing() {
     var first = compile("value Key { Integer count = 1 } Void main() { var key = Key() }");
     var second = compile("value Key { String count = \"one\" } Void main() { var key = Key() }");
     var before = CoreRuntimeSchema.create(first);
@@ -49,13 +49,12 @@ final class CoreLiveSchemaTest {
         before
             .identity()
             .id(first.namespace().occurrence("", "Key").orElseThrow().representative());
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> before.requireCompatible(after, java.util.Set.of(id)));
+    assertThrows(IllegalArgumentException.class, () -> before.requireCompatible(after));
+    assertDoesNotThrow(() -> before.requireCompatible(after, java.util.Set.of(id)));
   }
 
   @Test
-  void migratesFieldInitializerContractsOnlyWithTheirOwningType() {
+  void migratesStoredFieldsAndVersionsCallableContractsIndependently() {
     var first =
         compile(
             "class State { Integer count = 1 } Integer value() { 1 } Void main() { var state = State() }");
@@ -74,9 +73,7 @@ final class CoreLiveSchemaTest {
         CoreRuntimeSchema.create(
             compile(
                 "class State { String count = \"one\" } String value() { \"one\" } Void main() { var state = State() }"));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> before.requireCompatible(changedFunction, java.util.Set.of(id)));
+    assertDoesNotThrow(() -> before.requireCompatible(changedFunction, java.util.Set.of(id)));
   }
 
   @Test

@@ -11,6 +11,8 @@ Start with the installed `norm -h` for CLI usage. Each command has `norm <comman
 
 Use language and APIs supported by the current toolchain. See [Status](/status) for capability maturity and [Agent Tooling Design](/design/agent-tooling) for principles and plans. A capability in a source checkout does not necessarily exist in an official release.
 
+See the executable [self-extending Agent](https://github.com/normlanguage/Norm/blob/main/norm/examples/agent/README.md) for continuous source evolution. It uses the [OpenAI module](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai), deriving tools from Norm functions and annotations.
+
 ## Learning and querying
 
 [Semantic Query](/tooling/semantic-query) provides project overviews, declaration search, strong reference selection, and context.

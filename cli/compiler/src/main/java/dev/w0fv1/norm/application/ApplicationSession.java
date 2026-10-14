@@ -2,6 +2,7 @@ package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionRevision;
+import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import dev.w0fv1.norm.project.ProjectInputSnapshot;
@@ -34,7 +35,8 @@ public final class ApplicationSession implements AutoCloseable {
       ProjectInputSnapshot inputs,
       AtomicBoolean cancellation,
       Consumer<String> progress,
-      Consumer<String> diagnostics)
+      Consumer<String> diagnostics,
+      ApplicationUpdateChannel channel)
       throws IOException {
     this.compiler = compiler;
     this.compilation = compilation;
@@ -55,6 +57,7 @@ public final class ApplicationSession implements AutoCloseable {
     }
     try {
       updates = new LiveApplicationSession(inputs, execution, compiler, progress, diagnostics);
+      channel.bind(updates);
     } catch (IOException | RuntimeException | Error exception) {
       execution.close();
       throw exception;
@@ -96,37 +99,22 @@ public final class ApplicationSession implements AutoCloseable {
     return compilation;
   }
 
-  public Batch beginBatch() {
-    if (updates == null) throw new IllegalStateException("application compilation failed");
-    return new Batch(updates.beginBatch());
+  public java.util.Optional<ExecutionUpdateResult> latestUpdate() {
+    return updates == null ? java.util.Optional.empty() : updates.latest();
   }
 
-  public CompletableFuture<ApplicationUpdateResult> requestUpdate() {
+  public dev.w0fv1.norm.execution.ExecutionUpdates.Batch beginBatch() {
+    if (updates == null) throw new IllegalStateException("application compilation failed");
+    return updates.beginBatch();
+  }
+
+  public CompletableFuture<ExecutionUpdateResult> requestUpdate() {
     if (updates == null) throw new IllegalStateException("application compilation failed");
     return updates.requestUpdate();
   }
 
   public void cancel() {
     cancellation.set(true);
-  }
-
-  public final class Batch implements AutoCloseable {
-    private final long identity;
-    private final AtomicBoolean completed = new AtomicBoolean();
-
-    private Batch(long identity) {
-      this.identity = identity;
-    }
-
-    public CompletableFuture<ApplicationUpdateResult> commit() {
-      if (!completed.compareAndSet(false, true)) throw new IllegalStateException("batch is closed");
-      return updates.commitBatch(identity);
-    }
-
-    @Override
-    public void close() {
-      if (completed.compareAndSet(false, true)) updates.closeBatch(identity);
-    }
   }
 
   @Override
