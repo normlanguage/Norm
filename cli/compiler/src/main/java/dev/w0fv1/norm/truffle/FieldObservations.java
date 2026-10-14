@@ -61,15 +61,15 @@ final class FieldObservations {
       Object previous,
       Object current) {
     var site = new Site(field, view);
+    Object before = RuntimeValues.copy(previous);
+    Object after = RuntimeValues.copy(current);
     RuntimeException failure = null;
     for (var subscription : List.copyOf(subscriptions)) {
       if (!subscription.accepts(site)) continue;
       try {
         subscription.changed.accept(
             new Change(
-                subscription.index(field),
-                RuntimeValues.copy(previous),
-                RuntimeValues.copy(current)));
+                subscription.index(field), RuntimeValues.copy(before), RuntimeValues.copy(after)));
       } catch (RuntimeException exception) {
         if (failure == null) failure = exception;
         else if (failure != exception) failure.addSuppressed(exception);
