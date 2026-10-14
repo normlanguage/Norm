@@ -4,9 +4,9 @@ import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.RootNode;
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
+import dev.w0fv1.norm.bridge.JavaApplicationObject;
 import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.core.CoreDefinition;
-import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
@@ -18,11 +18,12 @@ import dev.w0fv1.norm.execution.JavaApplicationRuntime;
 import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import dev.w0fv1.norm.jvm.JavaFunctionShape;
 import java.lang.reflect.Field;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.apache.commons.collections4.map.AbstractReferenceMap.ReferenceStrength;
+import org.apache.commons.collections4.map.ReferenceIdentityMap;
 import org.objenesis.ObjenesisStd;
 
 final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
@@ -31,18 +32,14 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private final Map<DefinitionId, CallTarget> targets;
   private final GuestValueFactory values;
   private final ExecutionState execution;
+  private final LiveBindings.Version owner;
+  private final AnnotationRuntime annotations;
   private final ClassLoader applicationLoader;
   private final java.util.Set<String> applicationTypes;
   private final Map<String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal>
       applicationEnums;
-  private final IdentityHashMap<Object, RuntimeValues.ObjectValue> guests = new IdentityHashMap<>();
-  private final IdentityHashMap<Object, Object> transportedGuests = new IdentityHashMap<>();
-  private final IdentityHashMap<RuntimeValues.ObjectValue, Object> proxies =
-      new IdentityHashMap<>();
-  private final IdentityHashMap<RuntimeValues.Closure, Object> functionProxies =
-      new IdentityHashMap<>();
-  private final IdentityHashMap<Object, Map<CoreType, RuntimeValues.Closure>> functions =
-      new IdentityHashMap<>();
+  private final Map<Object, Object> transportedGuests =
+      new ReferenceIdentityMap<>(ReferenceStrength.WEAK, ReferenceStrength.WEAK);
   private final ObjenesisStd objenesis = new ObjenesisStd();
   private final Map<String, JavaDirectCall> hostCalls;
 
@@ -52,6 +49,18 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       GuestValueFactory values,
       ExecutionState execution,
       JavaApplicationRuntime runtime) {
+    this(program, targets, values, execution, runtime, null);
+  }
+
+  JavaApplicationDispatch(
+      RuntimeProgram program,
+      Map<DefinitionId, CallTarget> targets,
+      GuestValueFactory values,
+      ExecutionState execution,
+      JavaApplicationRuntime runtime,
+      LiveBindings.Version owner) {
+    this.owner = owner;
+    annotations = owner == null ? execution.annotationExecution().runtime() : owner.annotations();
     this.program = Objects.requireNonNull(program, "program");
     this.typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(program.structures());
     this.targets = Map.copyOf(targets);
@@ -79,60 +88,86 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     this.applicationEnums = Map.copyOf(enums);
   }
 
-  @Override
-  public void allocate(String definition, Object receiver) {
-    execution
+  private Object dispatch(java.util.function.Supplier<Object> operation) {
+    return execution
         .callbacks()
         .invoke(
             () -> {
-              DefinitionId id = DefinitionId.parse(definition);
-              CoreDefinition declaration = program.structure(id).orElseThrow();
-              if (!(declaration instanceof CoreDefinition.Aggregate aggregate)) {
-                throw new IllegalArgumentException(
-                    "Java application allocation is not an aggregate");
+              var thread = Thread.currentThread();
+              var previousLoader = thread.getContextClassLoader();
+              thread.setContextClassLoader(applicationLoader);
+              try {
+                if (owner == null) return operation.get();
+                dev.w0fv1.norm.execution.ExecutionRevision retained;
+                synchronized (execution.liveBindings()) {
+                  var revision = owner.revision();
+                  retained = revision == null ? null : revision.retain();
+                }
+                try (retained;
+                    var scope = execution.liveBindings().pin(owner)) {
+                  return operation.get();
+                }
+              } finally {
+                thread.setContextClassLoader(previousLoader);
               }
-              CoreType owner =
-                  new CoreType.Declared(
-                      new CoreTypeConstructor.User(new DefinitionReference.External(id)),
-                      List.of(),
-                      aggregate.valueCategory(),
-                      CoreNullability.NON_NULL);
-              RuntimeValues.ObjectValue guest = values.allocate(owner);
-              attach(receiver, guest);
-              return null;
             });
   }
 
   @Override
+  public void allocate(String definition, Object receiver) {
+    dispatch(
+        () -> {
+          DefinitionId id = DefinitionId.parse(definition);
+          CoreDefinition declaration = program.structure(id).orElseThrow();
+          if (!(declaration instanceof CoreDefinition.Aggregate aggregate)) {
+            throw new IllegalArgumentException("Java application allocation is not an aggregate");
+          }
+          CoreType owner =
+              new CoreType.Declared(
+                  new CoreTypeConstructor.User(new DefinitionReference.External(id)),
+                  List.of(),
+                  aggregate.valueCategory(),
+                  CoreNullability.NON_NULL);
+          RuntimeValues.ObjectValue guest = values.allocate(program.type(owner));
+          attach(receiver, guest);
+          return null;
+        });
+  }
+
+  @Override
   public void construct(String callable, Object receiver, Object[] arguments) {
-    execution
-        .callbacks()
-        .invoke(
-            () -> {
-              DefinitionId id = DefinitionId.parse(callable);
-              RuntimeProgram.Callable constructor = callable(id);
-              if (constructor.receiverType().isEmpty()) {
-                throw new IllegalArgumentException("Java application constructor is not a method");
-              }
-              requireJavaCallable(constructor, arguments);
-              if (constructor.receiverTypeParameterCount() != 0) {
-                throw new IllegalArgumentException(
-                    "Java constructors require concrete receiver types");
-              }
-              CoreType owner =
-                  CoreTypes.absolute(constructor.receiverType().orElseThrow(), id, program);
-              RuntimeValues.ObjectValue guest = values.allocate(owner);
-              invokeGuest(id, constructor, guest, arguments);
-              attach(receiver, guest);
-              synchronizeToHost(guest, receiver);
-              return null;
-            });
+    dispatch(
+        () -> {
+          DefinitionId id = DefinitionId.parse(callable);
+          RuntimeProgram.Callable constructor = callable(id);
+          if (constructor.receiverType().isEmpty()) {
+            throw new IllegalArgumentException("Java application constructor is not a method");
+          }
+          var parameters = annotations.constructorParameters(id);
+          if (!parameters.acceptsProvidedPrefix(arguments.length)) {
+            throw new IllegalArgumentException("Java application argument count does not match");
+          }
+          if (constructor.captureCount() != 0 || constructor.typeParameterCount() != 0) {
+            throw new IllegalArgumentException(
+                "generic or captured Java application callables are not supported");
+          }
+          if (constructor.receiverTypeParameterCount() != 0) {
+            throw new IllegalArgumentException("Java constructors require concrete receiver types");
+          }
+          CoreType owner =
+              CoreTypes.absolute(constructor.receiverType().orElseThrow(), id, program);
+          RuntimeValues.ObjectValue guest = values.allocate(owner);
+          invokeGuest(id, constructor, guest, arguments, true);
+          attach(receiver, guest);
+          synchronizeToHost(guest, receiver);
+          return null;
+        });
   }
 
   @Override
   public Object invoke(String callable, Object receiver, Object[] arguments) {
     try {
-      return execution.callbacks().invoke(() -> invokeOnOwner(callable, receiver, arguments));
+      return dispatch(() -> invokeOnOwner(callable, receiver, arguments));
     } catch (NormThrownException failure) {
       Object materialized = values.javaArgument(failure.value);
       if (materialized instanceof RuntimeException runtime) throw runtime;
@@ -147,69 +182,84 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       Object[] arguments,
       Object receiverType,
       Object[] methodTypes) {
-    return execution
-        .callbacks()
-        .invoke(
-            () ->
-                invokeHostMethod(
-                    callable,
-                    receiver,
-                    arguments,
-                    (CoreType) receiverType,
-                    java.util.Arrays.stream(methodTypes).map(CoreType.class::cast).toList()));
+    return dispatch(
+        () ->
+            invokeHostMethod(
+                callable,
+                receiver,
+                arguments,
+                (CoreType) receiverType,
+                java.util.Arrays.stream(methodTypes).map(CoreType.class::cast).toList()));
   }
 
   @Override
   public Object toJava(Object value) {
-    return execution.callbacks().invoke(() -> javaResult(value));
+    return dispatch(() -> javaResult(value));
   }
 
   @Override
   public Object fromJava(Object value) {
-    return execution
-        .callbacks()
-        .invoke(
-            () -> {
-              Object transported = transportedGuests.get(value);
-              if (transported != null) return transported;
-              if (value instanceof Enum<?> enumeration) {
-                var nominal = applicationEnums.get(enumeration.getDeclaringClass().getName());
-                if (nominal != null) {
-                  Object restored =
-                      JavaValueAdapter.jarBindingValue(
-                          CoreType.ANY,
-                          new dev.w0fv1.norm.execution.JarBindingResult.EnumReference(
-                              new dev.w0fv1.norm.execution.JarBindingEnumValue(
-                                  nominal, enumeration.name())),
-                          execution.annotationExecution().runtime(),
-                          execution,
-                          null);
-                  transportedGuests.put(value, restored);
-                  return restored;
-                }
-              }
-              RuntimeValues.ObjectValue guest = guests.get(value);
-              if (guest != null) {
-                synchronizeFromHost(value, guest);
-                guest.dispatchToHost = hostDispatchRequired(guest, value);
-              }
-              return guest;
-            });
+    return dispatch(
+        () -> {
+          if (value instanceof RuntimeValues.ObjectValue
+              || value instanceof RuntimeValues.EnumValue
+              || value instanceof RuntimeValues.Closure) return value;
+          if (value instanceof JavaApplicationObject sidecar
+              && (sidecar.$normState() instanceof RuntimeValues.Closure
+                  || sidecar.$normState() instanceof RuntimeValues.EnumValue))
+            return sidecar.$normState();
+          Object transported = transportedGuests.get(value);
+          if (transported != null) return transported;
+          if (value instanceof Enum<?> enumeration) {
+            var nominal = applicationEnums.get(enumeration.getDeclaringClass().getName());
+            if (nominal != null) {
+              Object restored =
+                  JavaValueAdapter.jarBindingValue(
+                      CoreType.ANY,
+                      new dev.w0fv1.norm.execution.JarBindingResult.EnumReference(
+                          new dev.w0fv1.norm.execution.JarBindingEnumValue(
+                              nominal, enumeration.name())),
+                      annotations,
+                      execution,
+                      null);
+              ((JavaApplicationObject) value).$normState(restored);
+              return restored;
+            }
+          }
+          RuntimeValues.ObjectValue guest =
+              value instanceof JavaApplicationObject state
+                      && state.$normState() instanceof RuntimeValues.ObjectValue object
+                  ? object
+                  : null;
+          if (guest != null) {
+            synchronizeFromHost(value, guest);
+          }
+          return guest;
+        });
   }
 
   @Override
   public void writeField(Object receiver, String name, Object value) {
-    RuntimeValues.ObjectValue guest = guests.get(receiver);
-    if (guest == null) {
-      throw new IllegalStateException("Java application receiver has no Norm object");
-    }
-    Field field = publicField(receiver.getClass(), name);
-    if (field == null) return;
-    try {
-      field.set(receiver, javaResult(value));
-    } catch (IllegalAccessException exception) {
-      throw new IllegalStateException("Norm application field cannot be written", exception);
-    }
+    dispatch(
+        () -> {
+          RuntimeValues.ObjectValue guest =
+              receiver instanceof JavaApplicationObject state
+                      && state.$normState() instanceof RuntimeValues.ObjectValue object
+                  ? object
+                  : null;
+          if (guest == null)
+            throw new IllegalStateException("Java application receiver has no Norm object");
+          Field field = publicField(receiver.getClass(), name);
+          if (field != null) {
+            try {
+              field.set(receiver, javaResult(value));
+            } catch (IllegalAccessException exception) {
+              throw new IllegalStateException(
+                  "Norm application field cannot be written", exception);
+            }
+          }
+          return null;
+        });
   }
 
   private Object invokeHostMethod(
@@ -280,20 +330,25 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     requireJavaCallable(declaration, arguments);
     RuntimeValues.ObjectValue guest = null;
     if (declaration.hasReceiver()) {
-      guest = guests.get(receiver);
+      guest =
+          receiver instanceof JavaApplicationObject state
+                  && state.$normState() instanceof RuntimeValues.ObjectValue object
+              ? object
+              : null;
       if (guest == null) {
         throw new IllegalStateException("Java application receiver has no Norm object");
       }
       synchronizeFromHost(receiver, guest);
     }
-    return javaResult(invokeGuest(id, declaration, guest, arguments));
+    return javaResult(invokeGuest(id, declaration, guest, arguments, false));
   }
 
   private Object invokeGuest(
       DefinitionId id,
       RuntimeProgram.Callable declaration,
       RuntimeValues.ObjectValue guest,
-      Object[] arguments) {
+      Object[] arguments,
+      boolean constructor) {
     List<CoreType> receiverArguments =
         guest == null
             ? List.of()
@@ -315,7 +370,18 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     for (CoreType argument : receiverArguments) call[offset++] = argument;
     CallTarget target = targets.get(id);
     if (target == null) throw new IllegalStateException("Norm application callable is absent");
-    return target.call(call);
+    try (var scope = execution.liveBindings() == null ? null : execution.liveBindings().unpin()) {
+      if (constructor)
+        return target.call(
+            execution,
+            guest,
+            ConstructionArguments.supplied(
+                declaration.parameterTypes().size(),
+                java.util.stream.IntStream.range(0, parameters.length).toArray(),
+                parameters,
+                receiverArguments.toArray()));
+      return target.call(call);
+    }
   }
 
   private List<CoreType> receiverTypeArguments(
@@ -335,20 +401,19 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       return list.values.stream().map(this::javaResult).toList();
     }
     if (value instanceof RuntimeValues.Closure closure) {
-      Object existing = functionProxies.get(closure);
-      if (existing != null) return existing;
       var function = (CoreType.Function) closure.functionType();
       var shape =
           JavaFunctionShape.of(
                   function.parameterTypes().size(), function.returnType().equals(CoreType.VOID))
               .orElseThrow(
                   () -> new IllegalArgumentException("Java function arity is unsupported"));
-      Object proxy =
-          shape.adapt(
-              arguments ->
-                  execution
-                      .callbacks()
-                      .invoke(
+      return closure.hostAdapter(
+          shape.interfaceType(),
+          () ->
+              shape.adapt(
+                  closure,
+                  arguments ->
+                      dispatch(
                           () -> {
                             try {
                               Object[] parameters = new Object[arguments.length];
@@ -357,19 +422,20 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
                                     javaValue(
                                         function.parameterTypes().get(index), arguments[index]);
                               }
-                              return javaResult(
-                                  RuntimeInvocation.invoke(execution, closure, parameters));
+                              Object result;
+                              try (var scope =
+                                  execution.liveBindings() == null
+                                      ? null
+                                      : execution.liveBindings().unpin()) {
+                                result = RuntimeInvocation.invoke(execution, closure, parameters);
+                              }
+                              return javaResult(result);
                             } catch (NormThrownException failure) {
                               Object materialized = values.javaArgument(failure.value);
                               if (materialized instanceof RuntimeException runtime) throw runtime;
                               throw failure;
                             }
-                          }));
-      functionProxies.put(closure, proxy);
-      functions
-          .computeIfAbsent(proxy, ignored -> new java.util.HashMap<>())
-          .put(closure.functionType(), closure);
-      return proxy;
+                          })));
     }
     if (value instanceof RuntimeValues.EnumValue item) {
       CoreDefinition definition = program.structure(item.definition()).orElseThrow();
@@ -381,7 +447,6 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       String binaryName = JavaApplicationTypeName.binaryName(enumeration.nominalType());
       if (!applicationTypes.contains(binaryName)) {
-        transportedGuests.put(item, item);
         return item;
       }
       try {
@@ -391,7 +456,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
           throw new IllegalStateException("Projected enum type is not a Java enum");
         for (Object constant : constants) {
           if (((Enum<?>) constant).name().equals(item.variantKey())) {
-            transportedGuests.put(constant, item);
+            ((JavaApplicationObject) constant).$normState(item);
             return constant;
           }
         }
@@ -401,14 +466,13 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
     }
     if (value instanceof RuntimeValues.ObjectValue object) {
-      Object proxy = proxies.get(object);
+      Object proxy = object.hostValue;
       if (proxy == null) {
         CoreDefinition.Aggregate aggregate =
             (CoreDefinition.Aggregate)
                 program.structure(object.objectInfo.definition()).orElseThrow();
         if (!applicationTypes.contains(
             JavaApplicationTypeName.binaryName(aggregate.nominalType()))) {
-          transportedGuests.put(object, object);
           return object;
         }
         proxy = materialize(object);
@@ -440,10 +504,13 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private void attach(Object receiver, RuntimeValues.ObjectValue guest) {
-    RuntimeValues.ObjectValue replaced = guests.put(receiver, guest);
-    if (replaced != null && replaced != guest) proxies.remove(replaced);
-    proxies.putIfAbsent(guest, receiver);
-    if (guest.hostValue == null) guest.attachHost(receiver);
+    if (!(receiver instanceof JavaApplicationObject sidecar))
+      throw new IllegalStateException("Generated Java application object has no runtime state");
+    sidecar.$normState(guest);
+    if (guest.hostValue == null) {
+      guest.attachHost(receiver);
+      guest.dispatchToHost = hostDispatchRequired(guest, receiver);
+    }
   }
 
   private void synchronizeFromHost(Object receiver, RuntimeValues.ObjectValue guest) {
@@ -452,9 +519,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       Field field = publicField(receiver.getClass(), plan.name());
       if (field == null) continue;
       try {
-        Object previous = guest.fields[plan.index()];
-        guest.fields[plan.index()] = javaValue(fieldType(plan), field.get(receiver));
-        guest.fieldChanged(plan.index(), previous);
+        Object previous = guest.rawField(plan.key());
+        guest.writeRawField(plan.key(), javaValue(plan.type(), field.get(receiver)));
+        guest.fieldChanged(guest.fieldIndex(plan.key()), previous);
       } catch (IllegalAccessException exception) {
         throw new IllegalStateException("Norm application field cannot be read", exception);
       }
@@ -467,24 +534,11 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       Field field = publicField(receiver.getClass(), plan.name());
       if (field == null) continue;
       try {
-        field.set(receiver, javaResult(guest.fields[plan.index()]));
+        field.set(receiver, javaResult(guest.rawField(plan.key())));
       } catch (IllegalAccessException exception) {
         throw new IllegalStateException("Norm application field cannot be written", exception);
       }
     }
-  }
-
-  private CoreType fieldType(RuntimeValues.FieldPlan plan) {
-    CoreDefinition definition = program.structure(plan.owner().representative()).orElseThrow();
-    if (!(definition instanceof CoreDefinition.Aggregate aggregate)) {
-      throw new IllegalStateException("Norm application field owner is not an aggregate");
-    }
-    CoreField field =
-        aggregate.fields().stream()
-            .filter(candidate -> candidate.ordinal() == plan.index())
-            .findFirst()
-            .orElseThrow(() -> new IllegalStateException("Norm application field is absent"));
-    return CoreTypes.absolute(field.type(), plan.owner().representative(), program);
   }
 
   private Object javaValue(CoreType expected, Object value) {
@@ -494,9 +548,16 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       return RuntimeValues.NullValue.INSTANCE;
     }
-    Object opaque = transportedGuests.get(value);
-    if (opaque != null) return opaque;
-    if (value instanceof RuntimeValues.EnumValue) return value;
+    Object opaque =
+        value instanceof JavaApplicationObject sidecar
+            ? sidecar.$normState()
+            : transportedGuests.get(value);
+    if (opaque != null
+        && !(opaque instanceof RuntimeValues.ObjectValue)
+        && (!(opaque instanceof RuntimeValues.Closure closure)
+            || closure.functionType().equals(expected))) return opaque;
+    if (value instanceof RuntimeValues.EnumValue || value instanceof RuntimeValues.ObjectValue)
+      return value;
     if (expected instanceof CoreType.Declared declared
         && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
         && builtin.id().value().equals("std.core.List")) {
@@ -515,8 +576,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               .map(item -> javaValue(declared.arguments().getFirst(), item))
               .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)));
     }
-    RuntimeValues.Closure function = functions.getOrDefault(value, Map.of()).get(expected);
-    if (function != null) return function;
+    if (value instanceof JavaApplicationObject sidecar
+        && sidecar.$normState() instanceof RuntimeValues.Closure function) return function;
     if (expected instanceof CoreType.Function signature) {
       boolean returnsVoid = signature.returnType().equals(CoreType.VOID);
       var shape =
@@ -554,17 +615,19 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               new Object[0],
               new Object[0],
               new Object[0],
-              signature);
-      functions
-          .computeIfAbsent(value, ignored -> new java.util.HashMap<>())
-          .put(signature, closure);
-      functionProxies.put(closure, value);
+              signature,
+              null);
+      transportedGuests.put(value, closure);
+      closure.hostAdapter(shape.interfaceType(), () -> value);
       return closure;
     }
-    RuntimeValues.ObjectValue guest = guests.get(value);
+    RuntimeValues.ObjectValue guest =
+        value instanceof JavaApplicationObject state
+                && state.$normState() instanceof RuntimeValues.ObjectValue object
+            ? object
+            : null;
     if (guest != null) {
       synchronizeFromHost(value, guest);
-      guest.dispatchToHost = hostDispatchRequired(guest, value);
       return guest;
     }
     if (value instanceof AutoCloseable
@@ -576,7 +639,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
           JavaValueAdapter.jarBindingValue(
               expected,
               execution.context().jarBindingRuntime().referenceResult(value),
-              execution.annotationExecution().runtime(),
+              annotations,
               execution,
               null);
       transportedGuests.put(value, guestValue);

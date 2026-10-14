@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-final class CoreDefaultArgumentVerifier {
-  private CoreDefaultArgumentVerifier() {}
+final class CoreDefaultValueVerifier {
+  private CoreDefaultValueVerifier() {}
 
   static void verify(CoreProgram program, CoreAuthoringMap authoring, CoreBinding binding) {
     var parameters =
@@ -42,13 +42,27 @@ final class CoreDefaultArgumentVerifier {
               .orElseThrow(
                   () -> new IllegalArgumentException("parameter default occurrence is absent"));
       var target = occurrence.id().representative();
-      var definition = program.definition(target).orElseThrow();
-      if (occurrence.role() != CoreDefinitionRole.DEFAULT_ARGUMENT
-          || !(definition instanceof CoreDefinition.Callable factory)
-          || factory.hasReceiver()
-          || !factory.captureTypes().isEmpty()
-          || !factory.interceptors().isEmpty()
-          || factory.parameters().stream().anyMatch(value -> !value.interceptors().isEmpty())
+      var factory = factory(program, target);
+      if (declaration instanceof CoreDefinition.Aggregate aggregate
+          && factory.parameters().size() == 1) {
+        var field =
+            aggregate.fields().stream()
+                .filter(candidate -> candidate.name().equals(parameter.label()))
+                .findFirst()
+                .orElseThrow(
+                    () -> new IllegalArgumentException("constructor field default has no field"));
+        if (occurrence.role() != CoreDefinitionRole.DEFAULT_VALUE
+            || field.initializer().isEmpty()
+            || !authoring
+                .target(binding.occurrence(), field.initializer().orElseThrow().nodeIndex())
+                .equals(resolved.occurrence())
+            || !parameter.type().equals(field.type())) {
+          throw new IllegalArgumentException(
+              "constructor parameter default must reference its field initializer");
+        }
+        continue;
+      }
+      if (occurrence.role() != CoreDefinitionRole.DEFAULT_VALUE
           || factory.parameters().size() != (receiver.isPresent() ? 1 : 0)
           || !typeParameters.equals(typeParameters(program, target))
           || !CoreTypes.absolute(parameter.type(), binding.definition(), program)
@@ -63,6 +77,40 @@ final class CoreDefaultArgumentVerifier {
             "parameter default implementation does not match its declaration");
       }
     }
+  }
+
+  static void verifyFieldInitializer(
+      CoreProgram program, CoreVerificationTypes types, DefinitionId owner, CoreField field) {
+    if (field.initializer().isEmpty()) return;
+    var target =
+        program.resolve(owner, (DefinitionReference) field.initializer().orElseThrow().target());
+    var factory = factory(program, target);
+    var aggregate = (CoreDefinition.Aggregate) program.definition(owner).orElseThrow();
+    if (factory.parameters().size() != 1
+        || !typeParameters(program, owner).equals(typeParameters(program, target))
+        || !CoreTypes.absolute(field.type(), owner, program)
+            .equals(CoreTypes.absolute(factory.returnType(), target, program))
+        || !types.isReceiverOf(
+            target,
+            factory.parameters().getFirst().type(),
+            owner,
+            aggregate.typeParameters().size())) {
+      throw new IllegalArgumentException(
+          "field initializer does not match its declaration: " + field.name());
+    }
+  }
+
+  private static CoreDefinition.Callable factory(CoreProgram program, DefinitionId target) {
+    var definition = program.definition(target).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable factory)
+        || factory.hasReceiver()
+        || !factory.captureTypes().isEmpty()
+        || !factory.interceptors().isEmpty()
+        || factory.parameters().stream().anyMatch(value -> !value.interceptors().isEmpty())) {
+      throw new IllegalArgumentException(
+          "default value must target an unintercepted static callable");
+    }
+    return factory;
   }
 
   private static List<CoreTypeParameter> typeParameters(CoreProgram program, DefinitionId owner) {

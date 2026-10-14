@@ -1,15 +1,13 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationRunResult;
 import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
-import dev.w0fv1.norm.project.ProjectEnvironment;
-import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -67,7 +65,7 @@ final class RunCommand implements Command {
             .arguments(applicationArguments)
             .platform(JdkSystemPlatform.standard())
             .build();
-    CompilationResult result;
+    ApplicationRunResult result;
     String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
     java.util.function.Consumer<String> progress =
         debug && (applicationBundle == null || applicationBundle.isBlank())
@@ -84,29 +82,19 @@ final class RunCommand implements Command {
         dev.w0fv1.norm.runtime.PreparedApplication.read(bundle).execute(bundle, context);
         return context.exitCode();
       }
-      progress.accept("Checking prepared application");
       var cache =
           new dev.w0fv1.norm.application.PreparedApplicationCache(
               Path.of(System.getProperty("user.home"), ".norm", "cache", "applications"));
-      var prepared = cache.read(entry);
-      if (prepared.content().isPresent()) {
-        progress.accept("Reused prepared application");
-        var content = prepared.content().orElseThrow();
-        try (var workspace = cache.prepare(content)) {
-          var application = content.application();
-          progress.accept("Starting application");
-          application.execute(
-              workspace.path(),
-              context.withApplicationDirectory(entry.toAbsolutePath().normalize().getParent()));
-        }
-        return context.exitCode();
-      }
-      progress.accept("Initializing compiler");
-      NormRuntime backend = new NormRuntime();
-      try (var environment = ProjectEnvironment.persistent(backend);
-          var launcher = ApplicationRunner.persistent(environment, progress)) {
-        result = launcher.run(entry, context, progress, cache, prepared.modules());
-      }
+      result =
+          ApplicationRunner.runSource(
+              entry,
+              context,
+              progress,
+              message -> {
+                err.println(message);
+                err.flush();
+              },
+              cache);
     } catch (IOException exception) {
       err.printf(
           "error[NORM-CLI-0004]: cannot load source file '%s': %s%n",

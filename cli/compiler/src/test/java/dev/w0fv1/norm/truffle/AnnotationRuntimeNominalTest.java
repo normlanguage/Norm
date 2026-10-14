@@ -28,7 +28,7 @@ final class AnnotationRuntimeNominalTest {
             .orElseThrow()
             .artifact();
     var runtime = new AnnotationRuntime(artifact);
-    var definitions = artifact.program().definitions();
+    var definitions = dev.w0fv1.norm.core.CoreRuntimeIdentity.create(artifact).definitions();
     var item = nominal(definitions, "Item");
     var first = nominal(definitions, "First");
     var second = nominal(definitions, "Second");

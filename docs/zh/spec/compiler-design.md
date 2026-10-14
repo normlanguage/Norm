@@ -69,6 +69,7 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 | 身份 | 所属世界 | 作用 |
 | --- | --- | --- |
 | `DocumentId` / `SymbolId` | authoring | 文档修订、诊断和编辑器操作 |
+| `CoreContentId` | relocatable Core | 已规范化声明槽位的定义内容，具体引用保持固定 |
 | `DefinitionId` | semantic Core | 不可变定义及其固定依赖 |
 | `PublicAbiId` | namespace | 导出的名字、可见性和公开签名 |
 | `CoreCodeId` / `MetadataId` | executable | Core 代码与运行期 companion metadata |
@@ -86,13 +87,19 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 
 ## Canonical Core
 
+跨版本运行绑定消费 `CoreDefinitionOrigin.declarationIdentity`，由 `CoreBuilder` 从既有声明身份投影；内容身份与作者态身份分工不变。执行会话契约见 [LiveExecution](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/LiveExecution.java)，Truffle 的统一节点版本选择见 [LiveBindings](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/LiveBindings.java)。使用方式与更新边界见[保存后更新运行中的代码](/zh/tooling#保存后更新运行中的代码)。
+
+可重定位输入由 [CoreCompilationInput.Source](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreCompilationInput.java) 统一持有 [CoreDefinitionContent](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreDefinitionContent.java) 与 [CoreLinkage](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreLinkage.java)。内容身份不包含待绑定声明的编译单元索引；已经解析的外部与递归引用仍属于内容。槽位、重复目标和重链接约束见 [CoreDefinitionContentTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreDefinitionContentTest.java)。内容身份不等于完整程序身份，也不能作为已绑定 Truffle 调用目标的唯一缓存键。
+
+持久化与发布单元的声明表归属 [CoreBuildHistory](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CoreBuildHistory.java)，代码与公开绑定共用该表；验证见 [CoreBuildHistoryTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/CoreBuildHistoryTest.java)。内容、绑定及旧新制品隔离的验收见 [CoreContentLinkageTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/CoreContentLinkageTest.java)，序列化由 [PortableObjectCodec](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/store/PortableObjectCodec.java) 重建并校验内容。
+
 `CoreBuilder` 通过 [CoreCompilationInput](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreCompilationInput.java) 统一接收待转换声明和已编译定义。源码声明从 resolved representation 转成强类型 `CoreDefinition`，复用声明保留内容组并重新绑定当前作者态信息。callable、aggregate、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
 Bound 到 Core 的转换由 `BoundCoreBodyConverter` 对 sealed hierarchy 进行穷尽匹配，新增节点必须同时完成转换才能通过编译；Core traversal fixture 约束 codec、walker 与 rewriter 的覆盖。
 
 规范化 refinement 同时使用带位置的出边和入边结构，并跳过已证明属于同一 automorphism 的搜索分支。搜索预算保留为对抗性图的资源边界；component 大小、refinement、搜索、memo 和 automorphism 剪枝统一进入 `CoreBuildReport`。
 
-默认表达式由 [DefaultArgumentDeclarations](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/DefaultArgumentDeclarations.java) 索引，Binder 在声明自身的类型与接收者上下文中生成独立 Core callable。调用方通过显式实参调用该实现；`Let` 保证接收者只求值一次。引用结果必须证明指向长期存活的存储，借入的参数引用与临时局部地址不能逃逸；验证入口为 [CoreLetTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreLetTest.java)。默认值执行及持久复用见 [DefaultArgumentExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/DefaultArgumentExecutionTest.java) 与 [DefaultArgumentReuseTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/DefaultArgumentReuseTest.java)。参数的默认实现链接、公开签名与执行链接的身份边界、持久复用后的 occurrence 重定位见 [DefaultArgumentContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/DefaultArgumentContractTest.java)；声明契约由 [CoreBindingShape](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreBindingShape.java) 统一映射。归档声明导入的边界见[启动性能](/zh/design/startup-performance)。
+默认值与字段初始化入口见 [DefaultValueDeclarations](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/DefaultValueDeclarations.java)、[CoreFieldInitializer](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreFieldInitializer.java) 和 [CoreConstructorParameters](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreConstructorParameters.java)。验证入口为 [FieldInitializerCompilationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/FieldInitializerCompilationTest.java)、[LiveConstructionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveConstructionExecutionTest.java)、[DefaultArgumentExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/DefaultArgumentExecutionTest.java)、[DefaultArgumentReuseTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/DefaultArgumentReuseTest.java)、[DefaultArgumentContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/DefaultArgumentContractTest.java) 和 [CoreLetTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreLetTest.java)。归档声明导入的边界见[启动性能](/zh/design/startup-performance)。
 
 `CoreCodec` 是 canonical bytes 的唯一编码入口。身份版本由 [CoreIdentityVersion](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreIdentityVersion.java) 定义；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 

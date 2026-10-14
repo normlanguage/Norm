@@ -20,8 +20,8 @@ final class NormThrownException extends NormGuestException {
   }
 
   private static String message(RuntimeValues.ObjectValue value) {
-    if (value.fields.length > ExceptionAbi.MESSAGE_FIELD_ORDINAL
-        && value.fields[ExceptionAbi.MESSAGE_FIELD_ORDINAL] instanceof String message) {
+    if (value.stateCells().size() > ExceptionAbi.MESSAGE_FIELD_ORDINAL
+        && value.rawField(ExceptionAbi.MESSAGE_FIELD_ORDINAL) instanceof String message) {
       return message;
     }
     return value.objectInfo.name();

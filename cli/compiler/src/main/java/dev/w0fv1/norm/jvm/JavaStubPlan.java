@@ -91,6 +91,7 @@ record JavaStubPlan(List<Type> types) {
       String returnType,
       Optional<String> returnCast,
       List<Parameter> parameters,
+      Optional<dev.w0fv1.norm.core.CoreConstructorParameters> construction,
       List<Annotation> annotations,
       String definitionLiteral,
       String implementationLiteral) {
@@ -101,6 +102,12 @@ record JavaStubPlan(List<Type> types) {
       Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(returnCast, "returnCast");
       parameters = List.copyOf(parameters);
+      Objects.requireNonNull(construction, "construction");
+      if (construction.isPresent()
+          && (kind != CallableKind.CONSTRUCTOR
+              || construction.orElseThrow().count() != parameters.size()))
+        throw new IllegalArgumentException(
+            "Java construction parameters do not match their callable");
       annotations = List.copyOf(annotations);
       Objects.requireNonNull(definitionLiteral, "definitionLiteral");
       Objects.requireNonNull(implementationLiteral, "implementationLiteral");

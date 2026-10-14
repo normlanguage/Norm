@@ -13,27 +13,38 @@ record ExecutableProgram(
     AnnotationRuntime annotations,
     GuestValueFactory values,
     RuntimeProgram program,
-    Map<DefinitionId, CallTarget> targets) {
+    Map<DefinitionId, CallTarget> bridgeTargets) {
   ExecutionState execution(ExecutionContext context) {
+    return execution(context, null);
+  }
+
+  ExecutionState execution(ExecutionContext context, LiveBindings bindings) {
     return new ExecutionState(
         context,
         annotations.execution(),
         values,
         new ResourceScope(),
         new GuestCallbackScheduler(),
-        new ExecutionContexts());
+        new ExecutionContexts(),
+        bindings);
   }
 
   Object execute(ExecutionContext context) {
-    ExecutionState state = execution(context);
+    return execute(context, null);
+  }
+
+  Object execute(ExecutionContext context, LiveBindings bindings) {
+    ExecutionState state = execution(context, bindings);
     JavaApplicationBridge.Registration bridge = null;
     Throwable failure = null;
     try {
+      if (bindings != null) bindings.beginExecution(state);
       if (context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
-        bridge =
-            JavaApplicationBridge.install(
-                runtime.applicationClassLoader(),
-                new JavaApplicationDispatch(program, targets, values, state, runtime));
+        if (bindings == null)
+          bridge =
+              JavaApplicationBridge.install(
+                  runtime.applicationClassLoaders(),
+                  new JavaApplicationDispatch(program, bridgeTargets, values, state, runtime));
         if (context.javaApplicationEntrypoint().isPresent()) {
           context
               .javaApplicationEntrypoint()
@@ -51,6 +62,7 @@ record ExecutableProgram(
         state.close(failure);
       } finally {
         if (bridge != null) bridge.close();
+        if (bindings != null) bindings.endExecution();
       }
     }
   }

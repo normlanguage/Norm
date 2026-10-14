@@ -42,8 +42,8 @@ final class IterationLoopNode<C> extends Node {
     try {
       loop.execute(frame);
     } finally {
-      frame.clear(iteratorBinding.slot());
-      indexBinding.ifPresent(binding -> frame.clear(binding.slot()));
+      iteratorBinding.clear(frame);
+      indexBinding.ifPresent(binding -> binding.clear(frame));
     }
   }
 

@@ -79,7 +79,7 @@ public final class JavaAnnotationProcessorPipeline {
     if (stubs.isEmpty()) {
       try {
         delete(output);
-        resources.copyTo(output.resolve("classes"));
+        resources.copyTo(Files.createDirectories(output.resolve("classes")));
       } catch (IOException exception) {
         throw new JavaAnnotationProcessingException(
             "cannot prepare Java annotation output " + output, exception);

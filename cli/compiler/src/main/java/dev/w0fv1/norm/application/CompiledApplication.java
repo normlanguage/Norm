@@ -20,9 +20,10 @@ public final class CompiledApplication implements AutoCloseable {
   private final CompilationResult result;
   private final JavaAnnotationProcessingOutput annotationOutput;
   private final JarBindingClasspath.Lease javaClasspath;
-  private final TemporaryDirectory workspace;
+  private final dev.w0fv1.norm.execution.RevisionResources.Lease assets;
   private final List<ResolvedJarBinding> javaBindings;
   private boolean closed;
+  private boolean transferred;
 
   public CompiledApplication(
       ApplicationInput input,
@@ -37,7 +38,9 @@ public final class CompiledApplication implements AutoCloseable {
       throw new IllegalArgumentException("application compilation must succeed");
     this.annotationOutput = Objects.requireNonNull(annotationOutput, "annotationOutput");
     this.javaClasspath = Objects.requireNonNull(javaClasspath, "javaClasspath");
-    this.workspace = Objects.requireNonNull(workspace, "workspace");
+    assets =
+        dev.w0fv1.norm.execution.RevisionResources.own(
+            new Assets(javaClasspath, Objects.requireNonNull(workspace, "workspace")));
     this.javaBindings = List.copyOf(javaBindings);
   }
 
@@ -71,13 +74,29 @@ public final class CompiledApplication implements AutoCloseable {
 
   public CoreExecutionPlan executionPlan() {
     return CoreExecutionPlan.forArtifact(
-        result.output().orElseThrow().artifact(), methods().entryPoints());
+        result.output().orElseThrow().artifact(),
+        methods().sourceEntryPoints(result.output().orElseThrow().artifact()));
   }
 
   public JvmJarBindingRuntime openRuntime() throws IOException {
     if (closed) throw new IllegalStateException("application is closed");
     return new JvmJarBindingRuntime(
-        javaBindings, javaClasspath(), List.of(annotationOutput.classes()));
+        javaBindings, javaClasspath(), List.of(annotationOutput.classes()), assets);
+  }
+
+  JvmJarBindingRuntime openRuntime(
+      dev.w0fv1.norm.execution.RevisionResources.Lease resources,
+      JvmJarBindingRuntime.Realm realm) {
+    if (closed) throw new IllegalStateException("application is closed");
+    return new JvmJarBindingRuntime(
+        javaBindings, javaClasspath(), List.of(annotationOutput.classes()), resources, realm);
+  }
+
+  dev.w0fv1.norm.execution.RevisionResources.Lease detachAssets() {
+    if (closed || transferred)
+      throw new IllegalStateException("application resources are unavailable");
+    transferred = true;
+    return assets;
   }
 
   public ExecutionContext context(ExecutionContext context) {
@@ -93,10 +112,18 @@ public final class CompiledApplication implements AutoCloseable {
   public void close() {
     if (closed) return;
     closed = true;
-    try (javaClasspath) {
-      workspace.close();
-    } catch (IOException exception) {
-      throw new java.io.UncheckedIOException("Cannot release compilation classpath", exception);
+    if (!transferred) assets.close();
+  }
+
+  private record Assets(JarBindingClasspath.Lease classpath, TemporaryDirectory workspace)
+      implements AutoCloseable {
+    @Override
+    public void close() {
+      try (classpath) {
+        workspace.close();
+      } catch (IOException exception) {
+        throw new java.io.UncheckedIOException("Cannot release compilation classpath", exception);
+      }
     }
   }
 }

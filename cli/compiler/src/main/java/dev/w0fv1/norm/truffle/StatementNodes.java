@@ -184,7 +184,7 @@ final class StatementNodes {
       try {
         body.executeVoid(frame);
       } finally {
-        frame.clear(binding.slot());
+        binding.clear(frame);
       }
     }
   }
@@ -344,15 +344,14 @@ final class StatementNodes {
   static final class WriteField extends StatementNode {
     @Child private ExpressionNode receiver;
     @Child private ExpressionNode value;
-    private final int field;
+    private final RuntimeValues.FieldKey field;
     @Child private FieldWriteNode writer;
 
-    WriteField(
-        ExpressionNode receiver, int field, ExpressionNode value, AnnotationRuntime annotations) {
+    WriteField(ExpressionNode receiver, RuntimeValues.FieldKey field, ExpressionNode value) {
       this.receiver = receiver;
       this.field = field;
       this.value = value;
-      writer = new FieldWriteNode(annotations);
+      writer = new FieldWriteNode();
     }
 
     @Override
@@ -367,10 +366,10 @@ final class StatementNodes {
     @Child private ExpressionNode value;
     @Child private FieldWriteNode writer;
 
-    WriteReference(ExpressionNode reference, ExpressionNode value, AnnotationRuntime annotations) {
+    WriteReference(ExpressionNode reference, ExpressionNode value) {
       this.reference = reference;
       this.value = value;
-      writer = new FieldWriteNode(annotations);
+      writer = new FieldWriteNode();
     }
 
     @Override

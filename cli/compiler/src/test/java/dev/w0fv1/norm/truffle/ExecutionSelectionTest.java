@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
+import dev.w0fv1.norm.core.CoreRuntimeIdentity;
 import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.ExecutionContext;
@@ -23,6 +24,7 @@ final class ExecutionSelectionTest {
     var compiled = NormTestKit.compile(source);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
+    var identity = CoreRuntimeIdentity.create(artifact);
     var executable = new TruffleExecutionBackend().compile(null, artifact);
     var record =
         artifact.program().definitions().stream()
@@ -36,7 +38,7 @@ final class ExecutionSelectionTest {
     assertFalse(aggregate.constructors().isEmpty());
     for (var constructor : aggregate.constructors()) {
       var id = artifact.program().resolve(record.id(), (DefinitionReference) constructor);
-      assertTrue(executable.targets().containsKey(id));
+      assertTrue(executable.bridgeTargets().containsKey(identity.slot(id)));
     }
     executable.execute(
         ExecutionContext.of(
@@ -55,6 +57,7 @@ final class ExecutionSelectionTest {
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
+    var identity = CoreRuntimeIdentity.create(artifact);
     var record =
         artifact.program().definitions().stream()
             .filter(
@@ -67,7 +70,7 @@ final class ExecutionSelectionTest {
     var executable = new TruffleExecutionBackend().compile(null, artifact);
     for (var constructor : aggregate.constructors()) {
       var id = artifact.program().resolve(record.id(), (DefinitionReference) constructor);
-      assertFalse(executable.targets().containsKey(id));
+      assertFalse(executable.bridgeTargets().containsKey(identity.slot(id)));
       assertTrue(executable.program().callable(id).isPresent());
     }
     var output = new java.io.StringWriter();
@@ -89,6 +92,7 @@ final class ExecutionSelectionTest {
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
+    var identity = CoreRuntimeIdentity.create(artifact);
     var dormant =
         artifact.namespace().bindings().stream()
             .filter(binding -> binding.name().equals("dormant"))
@@ -96,14 +100,20 @@ final class ExecutionSelectionTest {
             .orElseThrow()
             .definition();
     var executable = new TruffleExecutionBackend().compile(null, artifact);
-    assertFalse(executable.targets().containsKey(dormant));
+    assertFalse(executable.bridgeTargets().containsKey(identity.slot(dormant)));
     assertTrue(executable.program().callable(dormant).isPresent());
     var owner =
         CoreTypes.absolute(
             executable.program().callable(dormant).orElseThrow().receiverType().orElseThrow(),
             dormant,
             executable.program());
-    assertFalse(executable.values().allocate(owner).objectInfo.dispatch().containsKey(dormant));
+    assertFalse(
+        executable
+            .values()
+            .allocate(owner)
+            .objectInfo
+            .dispatch()
+            .containsKey(identity.slot(dormant)));
     var output = new java.io.StringWriter();
     executable.execute(
         ExecutionContext.of(new java.io.PrintWriter(output), JdkSystemPlatform.standard()));
@@ -121,6 +131,7 @@ final class ExecutionSelectionTest {
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
+    var identity = CoreRuntimeIdentity.create(artifact);
     var dormant =
         artifact.namespace().bindings().stream()
             .filter(binding -> binding.name().equals("dormant"))
@@ -135,8 +146,8 @@ final class ExecutionSelectionTest {
             .definition();
     var backend = new TruffleExecutionBackend();
     var executable = backend.compile(null, artifact);
-    assertFalse(executable.targets().containsKey(dormant));
-    assertTrue(executable.targets().containsKey(used));
+    assertFalse(executable.bridgeTargets().containsKey(identity.slot(dormant)));
+    assertTrue(executable.bridgeTargets().containsKey(identity.slot(used)));
     assertTrue(executable.program().callable(dormant).isPresent());
     var output = new java.io.StringWriter();
     executable.execute(
@@ -144,7 +155,7 @@ final class ExecutionSelectionTest {
     assertEquals("ready" + System.lineSeparator(), output.toString());
     var external = CoreExecutionPlan.forArtifact(artifact, java.util.Set.of(dormant));
     var withExternalEntry = backend.compile(null, artifact, external);
-    assertTrue(withExternalEntry.targets().containsKey(dormant));
+    assertTrue(withExternalEntry.bridgeTargets().containsKey(identity.slot(dormant)));
     assertEquals(2, backend.cachedArtifacts());
     assertSame(executable, backend.compile(null, artifact));
     assertThrows(UnsupportedOperationException.class, external.callables()::clear);

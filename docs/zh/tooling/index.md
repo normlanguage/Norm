@@ -25,6 +25,16 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 
 `norm main.norm` 默认不显示启动准备日志。使用 `norm main.norm --debug` 或 `norm run --debug main.norm`，将启动阶段、累计耗时和实际 Maven 下载写入 stderr；错误诊断始终显示，应用输出不受此选项影响。进度入口见 [RunCommand](../../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java)，本地依赖的联网边界验证见 [JarResolverTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java)。
 
+## 保存后更新运行中的代码
+
+`norm run main.norm` 与 `norm main.norm` 在 JVM 源码运行期间监听项目输入。保存代码后在执行边界采用新版本并保留运行状态，程序退出时监听随之结束。准备制品缓存复用同一运行入口。
+
+编译失败时继续执行运行中的版本。无法唯一对应的活动区域保留旧版并报告待更新状态。破坏型状态变化需要迁移，当前没有公开的显式状态转换器 API。发布制品直接加载准备好的程序。注解引用具有相同规范内容的全局函数时，无法唯一确定声明会被拒绝；参见 [AnnotationRuntime](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/AnnotationRuntime.java)。
+
+公开的更新与批量生命周期见 [ApplicationSession](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationSession.java) 和 [ApplicationUpdateResult](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationUpdateResult.java)，状态兼容规则以 [CoreRuntimeSchema](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreRuntimeSchema.java) 为准。验证入口为 [LiveExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveExecutionTest.java)、[LiveStructureExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveStructureExecutionTest.java)、[LiveMigrationBoundaryTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveMigrationBoundaryTest.java)、[LiveRuntimeTypesExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveRuntimeTypesExecutionTest.java) 和 [SelfUpdatingApplicationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/cli/controller/SelfUpdatingApplicationTest.java)。
+
+运行时身份与 Java 依赖组件入口为 [CoreRuntimeIdentity](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreRuntimeIdentity.java)、[JavaRealmPool](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaRealmPool.java) 和 [ApplicationRuntimeRevisionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/application/ApplicationRuntimeRevisionTest.java)。事务验证入口为 [LiveContainerMigrationExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveContainerMigrationExecutionTest.java) 和 [LiveConstructionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveConstructionExecutionTest.java)。事务范围仅为 Norm 状态，外部 I/O 不回滚。
+
 ## VS Code
 
 AI Agent 的规范、查询和验证导航见 [Agent 开发入口](/zh/tooling/agent)。

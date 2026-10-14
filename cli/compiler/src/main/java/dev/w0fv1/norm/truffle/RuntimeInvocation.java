@@ -30,6 +30,31 @@ final class RuntimeInvocation {
     }
     int receiverCount = receiver == null ? 0 : 1;
     int ownerTypeArgumentCount = receiverTypeArguments.length;
+    var constructor =
+        closure
+            .sourceDeclaration()
+            .flatMap(occurrence -> closure.annotations().constructorParameters(occurrence));
+    if (constructor.isPresent()) {
+      var types = new Object[ownerTypeArgumentCount + closure.reifiedArguments().length];
+      System.arraycopy(receiverTypeArguments, 0, types, 0, ownerTypeArgumentCount);
+      System.arraycopy(
+          closure.reifiedArguments(),
+          0,
+          types,
+          ownerTypeArgumentCount,
+          closure.reifiedArguments().length);
+      return new PreparedInvocation(
+          target,
+          new Object[] {
+            execution,
+            receiver,
+            ConstructionArguments.supplied(
+                constructor.orElseThrow().count(),
+                java.util.stream.IntStream.range(0, callableArguments.length).toArray(),
+                callableArguments,
+                types)
+          });
+    }
     Object[] complete =
         new Object
             [1

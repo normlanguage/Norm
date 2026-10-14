@@ -18,6 +18,7 @@ import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreProgram;
+import dev.w0fv1.norm.core.CoreRuntimeIdentity;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypeParameter;
@@ -1377,6 +1378,7 @@ final class JavaStubPlanner {
             .map(type -> generatedParent(type, artifact, javaTypes, generatedTypes))
             .flatMap(Optional::stream)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    var identity = CoreRuntimeIdentity.create(artifact);
     return new JavaStubPlan(
         types.values().stream()
             .sorted(Comparator.comparing(type -> type.key.binaryName()))
@@ -1385,6 +1387,7 @@ final class JavaStubPlanner {
                     typePlan(
                         type,
                         artifact,
+                        identity,
                         javaTypes,
                         availableTypes,
                         generatedTypes,
@@ -1395,6 +1398,7 @@ final class JavaStubPlanner {
   private static JavaStubPlan.Type typePlan(
       TypeStub type,
       CoreArtifact artifact,
+      CoreRuntimeIdentity identity,
       Map<JarBindingClassReference.Nominal, String> javaTypes,
       Set<String> availableTypes,
       Set<String> generatedTypes,
@@ -1554,12 +1558,26 @@ final class JavaStubPlanner {
     List<JavaStubPlan.Callable> callables =
         annotation
             ? List.of()
-            : type.callables.values().stream()
+            : type.callables.entrySet().stream()
                 .sorted(
-                    Comparator.comparingInt(
-                        callable ->
-                            callable.implicitConstructor && callable.parameters.isEmpty() ? 0 : 1))
-                .map(callable -> callablePlan(type, callable, artifact, javaTypes, availableTypes))
+                    Comparator.<Map.Entry<DefinitionOccurrenceId, CallableStub>>comparingInt(
+                            entry ->
+                                entry.getValue().implicitConstructor
+                                        && entry.getValue().parameters.isEmpty()
+                                    ? 0
+                                    : 1)
+                        .thenComparing(entry -> entry.getValue().name)
+                        .thenComparing(entry -> identity.slot(entry.getKey())))
+                .map(
+                    entry ->
+                        callablePlan(
+                            type,
+                            entry.getValue(),
+                            entry.getKey(),
+                            artifact,
+                            identity,
+                            javaTypes,
+                            availableTypes))
                 .toList();
     boolean hasZeroArgumentConstructor =
         type.callables.values().stream()
@@ -1572,7 +1590,7 @@ final class JavaStubPlanner {
                 && kind == JavaStubPlan.TypeKind.CLASS
                 && hasExplicitConstructor
                 && !hasZeroArgumentConstructor
-            ? Optional.of(stringLiteral(type.binding.definition().toString()))
+            ? Optional.of(stringLiteral(identity.id(type.binding.definition()).toString()))
             : Optional.empty();
     return new JavaStubPlan.Type(
         type.key.binaryName(),
@@ -1601,7 +1619,9 @@ final class JavaStubPlanner {
   private static JavaStubPlan.Callable callablePlan(
       TypeStub owner,
       CallableStub callable,
+      DefinitionOccurrenceId occurrence,
       CoreArtifact artifact,
+      CoreRuntimeIdentity identity,
       Map<JarBindingClassReference.Nominal, String> javaTypes,
       Set<String> generatedTypes) {
     boolean interfaceMethod =
@@ -1659,9 +1679,15 @@ final class JavaStubPlanner {
         nullableType(callable.returnType, projected),
         cast,
         parameters,
+        callable.constructor
+            ? Optional.of(
+                dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(
+                    (CoreDefinition.Callable)
+                        artifact.program().definition(callable.invocation).orElseThrow()))
+            : Optional.empty(),
         annotations(callable.annotations),
-        stringLiteral(callable.owner.toString()),
-        stringLiteral(callable.invocation.toString()));
+        stringLiteral(identity.slot(occurrence).toString()),
+        stringLiteral(identity.slot(occurrence).toString()));
   }
 
   private static List<JavaStubPlan.TypeParameter> typeParameters(

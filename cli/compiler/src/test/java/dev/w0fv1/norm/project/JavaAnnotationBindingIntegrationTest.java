@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreRuntimeIdentity;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.ExecutionContext;
@@ -388,6 +389,7 @@ final class JavaAnnotationBindingIntegrationTest {
             JavaApplicationMethodIndex.analyze(
                 annotationOutput.classes(), annotationOutput.stubs());
         var artifact = compiled.result().output().orElseThrow().artifact();
+        var identity = CoreRuntimeIdentity.create(artifact);
         var constructors = new java.util.HashSet<DefinitionId>();
         for (var record : artifact.program().definitions()) {
           if (record.definition() instanceof CoreDefinition.Aggregate aggregate
@@ -397,9 +399,10 @@ final class JavaAnnotationBindingIntegrationTest {
                 .forEach(
                     reference ->
                         constructors.add(
-                            artifact
-                                .program()
-                                .resolve(record.id(), (DefinitionReference) reference)));
+                            identity.slot(
+                                artifact
+                                    .program()
+                                    .resolve(record.id(), (DefinitionReference) reference))));
           }
         }
         assertEquals(3, constructors.size());
@@ -407,7 +410,8 @@ final class JavaAnnotationBindingIntegrationTest {
         assertTrue(java.util.Collections.disjoint(index.instanceMethods().keySet(), constructors));
         for (var id : index.entryPoints()) {
           assertTrue(
-              artifact.program().definition(id).orElseThrow() instanceof CoreDefinition.Callable);
+              artifact.program().definition(identity.sourceMember(id)).orElseThrow()
+                  instanceof CoreDefinition.Callable);
         }
         var capturedSupport =
             compiled.application().orElseThrow().javaClasspath().artifacts().stream()

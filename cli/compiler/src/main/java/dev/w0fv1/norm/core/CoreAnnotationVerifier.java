@@ -49,12 +49,16 @@ final class CoreAnnotationVerifier {
         }
       }
       if (!(definition instanceof CoreDefinition.Callable callable)) continue;
+      var callableTarget =
+          occurrence.role() == CoreDefinitionRole.CONSTRUCTOR
+              ? AnnotationTarget.CONSTRUCTOR
+              : AnnotationTarget.FUNCTION;
       for (CoreInterceptor interceptor : callable.interceptors()) {
         matchInterceptor(
             program,
             occurrence.id(),
-            AnnotationTarget.FUNCTION,
-            new DefinitionKey(AnnotationTarget.FUNCTION, occurrence.id()),
+            callableTarget,
+            new DefinitionKey(callableTarget, occurrence.id()),
             interceptor,
             applications,
             matched);
@@ -257,7 +261,8 @@ final class CoreAnnotationVerifier {
         (CoreDefinition.Aggregate) program.definition(annotationId).orElseThrow();
     DefinitionId protocol =
         switch (application.target().kind()) {
-          case FUNCTION -> functionInterceptor == null ? null : functionInterceptor.interfaceId();
+          case FUNCTION, CONSTRUCTOR ->
+              functionInterceptor == null ? null : functionInterceptor.interfaceId();
           case PARAMETER ->
               parameterInterceptor == null ? null : parameterInterceptor.interfaceId();
           case FIELD -> fieldInterceptor == null ? null : fieldInterceptor.interfaceId();

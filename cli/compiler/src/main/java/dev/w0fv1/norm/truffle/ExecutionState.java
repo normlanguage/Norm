@@ -12,7 +12,8 @@ record ExecutionState(
     GuestValueFactory values,
     ResourceScope resources,
     GuestCallbackScheduler callbacks,
-    ExecutionContexts contexts) {
+    ExecutionContexts contexts,
+    LiveBindings liveBindings) {
   ExecutionState {
     Objects.requireNonNull(context, "context");
     Objects.requireNonNull(annotationExecution, "annotationExecution");
@@ -20,6 +21,16 @@ record ExecutionState(
     Objects.requireNonNull(resources, "resources");
     Objects.requireNonNull(callbacks, "callbacks");
     Objects.requireNonNull(contexts, "contexts");
+  }
+
+  AnnotationRuntime runtime() {
+    return liveBindings == null ? annotationExecution.runtime() : liveBindings.runtime();
+  }
+
+  ClassLoader applicationClassLoader() {
+    var selected = liveBindings == null ? context : liveBindings.context(context);
+    return ((dev.w0fv1.norm.execution.JavaApplicationRuntime) selected.jarBindingRuntime())
+        .applicationClassLoader();
   }
 
   void runCallbacksUntil(BooleanSupplier completed, Node location) {

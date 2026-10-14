@@ -15,7 +15,7 @@ abstract class CoreWalker {
     callable.locals().stream()
         .filter(local -> !captureLocals.contains(local.index()))
         .forEach(local -> walkType(local.type()));
-    walkBlock(callable.body());
+    walkBlock(callable.body(), BlockRole.ROOT);
   }
 
   final void walkDeclaration(CoreDefinition definition) {
@@ -43,6 +43,14 @@ abstract class CoreWalker {
                 field -> {
                   walkType(field.type());
                   walkInterceptors(field.interceptors());
+                  field
+                      .initializer()
+                      .ifPresent(
+                          initializer ->
+                              visitReferenceDependency(
+                                  initializer.nodeIndex(),
+                                  CoreDependency.Kind.CALL,
+                                  initializer.target()));
                 });
         declaration
             .dispatch()
@@ -137,6 +145,31 @@ abstract class CoreWalker {
 
   protected void visitExpression(CoreExpression expression) {}
 
+  protected enum BlockRole {
+    ROOT,
+    THEN,
+    ELSE,
+    LOOP,
+    TRY,
+    CATCH,
+    FINALLY,
+    CASE
+  }
+
+  protected void visitBlock(CoreBlock block, BlockRole role) {}
+
+  protected void leaveBlock(CoreBlock block) {}
+
+  protected void visitStatement(CoreStatement statement) {}
+
+  protected void leaveStatement(CoreStatement statement) {}
+
+  protected void leaveExpression(CoreExpression expression) {}
+
+  protected void visitCollectionElement(CoreCollectionElement element) {}
+
+  protected void visitPattern(CorePattern pattern) {}
+
   protected void visitIntrinsic(IntrinsicId intrinsic) {}
 
   private void walkType(CoreType type) {
@@ -152,11 +185,14 @@ abstract class CoreWalker {
     walkType(type.template());
   }
 
-  private void walkBlock(CoreBlock block) {
+  private void walkBlock(CoreBlock block, BlockRole role) {
+    visitBlock(block, role);
     block.statements().forEach(this::walkStatement);
+    leaveBlock(block);
   }
 
   private void walkStatement(CoreStatement statement) {
+    visitStatement(statement);
     switch (statement) {
       case CoreStatement.LocalDeclaration local -> walkExpression(local.initializer());
       case CoreStatement.LocalAssignment assignment -> walkExpression(assignment.value());
@@ -178,25 +214,25 @@ abstract class CoreWalker {
       case CoreStatement.ExpressionStatement expression -> walkExpression(expression.expression());
       case CoreStatement.IfStatement conditional -> {
         walkExpression(conditional.condition());
-        walkBlock(conditional.thenBlock());
-        walkBlock(conditional.elseBlock());
+        walkBlock(conditional.thenBlock(), BlockRole.THEN);
+        walkBlock(conditional.elseBlock(), BlockRole.ELSE);
       }
       case CoreStatement.ConditionalForStatement loop -> {
         walkExpression(loop.condition());
-        walkBlock(loop.body());
+        walkBlock(loop.body(), BlockRole.LOOP);
       }
       case CoreStatement.ForStatement loop -> {
         walkExpression(loop.iterable());
         walkIteration(loop.iteration());
-        walkBlock(loop.body());
+        walkBlock(loop.body(), BlockRole.LOOP);
       }
       case CoreStatement.TryStatement tried -> {
-        walkBlock(tried.body());
+        walkBlock(tried.body(), BlockRole.TRY);
         for (CoreCatchClause clause : tried.catches()) {
           walkType(clause.type());
-          walkBlock(clause.body());
+          walkBlock(clause.body(), BlockRole.CATCH);
         }
-        tried.finallyBlock().ifPresent(this::walkBlock);
+        tried.finallyBlock().ifPresent(block -> walkBlock(block, BlockRole.FINALLY));
       }
       case CoreStatement.ThrowStatement thrown -> walkExpression(thrown.exception());
       case CoreStatement.ReturnStatement returned ->
@@ -205,6 +241,7 @@ abstract class CoreWalker {
       case CoreStatement.BreakStatement ignored -> {}
       case CoreStatement.ContinueStatement ignored -> {}
     }
+    leaveStatement(statement);
   }
 
   private void walkExpression(CoreExpression expression) {
@@ -219,6 +256,7 @@ abstract class CoreWalker {
         walkRuntimeType(collection.runtimeType());
       }
       case CoreExpression.LocalRead ignored -> {}
+      case CoreExpression.ParameterProvided ignored -> {}
       case CoreExpression.Let let -> {
         walkExpression(let.initializer());
         walkExpression(let.body());
@@ -298,14 +336,16 @@ abstract class CoreWalker {
         intrinsic.runtimeDependencies().forEach(this::walkType);
       }
     }
+    leaveExpression(expression);
   }
 
   private void walkSwitchCase(CoreSwitchCase switchCase) {
     walkPattern(switchCase.pattern());
-    walkBlock(switchCase.body());
+    walkBlock(switchCase.body(), BlockRole.CASE);
   }
 
   private void walkPattern(CorePattern pattern) {
+    visitPattern(pattern);
     switch (pattern) {
       case CorePattern.Variant variant -> variant.arguments().forEach(this::walkPattern);
       case CorePattern.Binding binding -> walkRuntimeType(binding.runtimeType());
@@ -316,6 +356,7 @@ abstract class CoreWalker {
   }
 
   private void walkCollectionElement(CoreCollectionElement element) {
+    visitCollectionElement(element);
     switch (element) {
       case CoreExpression expression -> walkExpression(expression);
       case CoreCollectionElement.Conditional conditional -> {

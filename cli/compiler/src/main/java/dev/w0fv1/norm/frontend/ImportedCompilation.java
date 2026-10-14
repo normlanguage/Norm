@@ -125,7 +125,9 @@ record ImportedCompilation(
                     new CoreDefinitionOrigin(
                         definition.origin().definitionName(),
                         mapping.rebase(definition.origin().rootSpan()),
-                        nodes);
+                        nodes,
+                        definition.origin().declarationIdentity(),
+                        definition.origin().localNames());
                 if (definitions.putIfAbsent(
                         key,
                         new CompiledModule.Definition(

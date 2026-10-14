@@ -75,6 +75,14 @@ final class CoreBuilder {
     }
     CoreProgram coreProgram = new CoreProgram(canonical.groups());
     List<CoreAuthoringMap.Seed> seeds = new ArrayList<>();
+    Map<Integer, String> identities = new java.util.HashMap<>();
+    converted
+        .declarationIndices()
+        .forEach(
+            (key, index) -> {
+              if (key instanceof CoreBuildHistory.Key.Named named)
+                identities.put(index, named.identity());
+            });
     for (int declaration = 0; declaration < converted.declarations().size(); declaration++) {
       guard.checkpoint();
       BoundCoreConverter.Declaration value = converted.declarations().get(declaration);
@@ -83,7 +91,12 @@ final class CoreBuilder {
               canonical.definitionIds().get(declaration),
               canonical.definitionOrbits().get(declaration),
               value.role(),
-              value.origin(),
+              new dev.w0fv1.norm.core.CoreDefinitionOrigin(
+                  value.origin().definitionName(),
+                  value.origin().rootSpan(),
+                  value.origin().nodeSpans(),
+                  java.util.Optional.ofNullable(identities.get(declaration)),
+                  value.origin().localNames()),
               value.referenceTargets()));
     }
     CoreAuthoringMap.Allocation allocation =

@@ -32,7 +32,8 @@ public record ApplicationProgramPlan(
         compilation.annotations().stubs().stream()
             .map(stub -> stub.binaryName())
             .collect(java.util.stream.Collectors.toSet());
-    Set<DefinitionId> hostEntries = new LinkedHashSet<>(applicationIndex.entryPoints());
+    var entryPoints = applicationIndex.sourceEntryPoints(original);
+    Set<DefinitionId> hostEntries = new LinkedHashSet<>(entryPoints);
     for (var definition : original.program().definitions()) {
       var nominal =
           switch (definition.definition()) {
@@ -46,7 +47,7 @@ public record ApplicationProgramPlan(
     }
     var retention = CoreReachability.analyze(original, hostEntries);
     var retained = retention.artifact();
-    var execution = CoreExecutionPlan.forArtifact(retained, applicationIndex.entryPoints());
+    var execution = CoreExecutionPlan.forArtifact(retained, entryPoints);
     var calls = CoreReachability.jarCalls(retained, execution);
     var bindings =
         compilation.javaBindings().stream()

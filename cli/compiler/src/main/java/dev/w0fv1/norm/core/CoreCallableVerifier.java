@@ -21,6 +21,7 @@ final class CoreCallableVerifier {
   private final Map<String, CoreType> patternTypes = new java.util.HashMap<>();
   private final Deque<Control> controls = new ArrayDeque<>();
   private final CoreReferenceFlow referenceFlow = new CoreReferenceFlow();
+  private final Set<DefinitionId> constructors = new HashSet<>();
 
   CoreCallableVerifier(
       CoreProgram program,
@@ -33,6 +34,13 @@ final class CoreCallableVerifier {
     this.intrinsicVerifier = intrinsicVerifier;
     this.functionInterceptor = functionInterceptor;
     this.parameterInterceptor = parameterInterceptor;
+    for (var record : program.definitions()) {
+      if (record.definition() instanceof CoreDefinition.Aggregate aggregate) {
+        aggregate
+            .constructors()
+            .forEach(link -> constructors.add(validationTypes.resolve(record.id(), link)));
+      }
+    }
   }
 
   void verifyCallable(DefinitionId id, CoreDefinition.Callable callable) {
@@ -86,7 +94,13 @@ final class CoreCallableVerifier {
     List<Integer> entryLocals = new ArrayList<>();
     if (callable.receiverType().isPresent()) entryLocals.add(0);
     entryLocals.addAll(callable.captureLocals());
-    entryLocals.addAll(callable.parameterLocals());
+    var defaults =
+        isConstructor(id)
+            ? CoreConstructorParameters.forCallable(callable).defaulted()
+            : Set.<Integer>of();
+    for (int index = 0; index < callable.parameters().size(); index++) {
+      if (!defaults.contains(index)) entryLocals.add(callable.parameters().get(index).localIndex());
+    }
     entryLocals.addAll(callable.reifiedTypeLocals());
     verifyBlock(id, callable, callable.body(), entryLocals, true);
   }
@@ -171,7 +185,11 @@ final class CoreCallableVerifier {
           validationTypes.requireSameType(
               owner, CoreType.BOOLEAN, owner, conditional.condition().type(), "if condition");
           CoreReferenceFlow.State incoming = referenceFlow.snapshot();
-          verifyBlock(owner, callable, conditional.thenBlock());
+          var providedLocals =
+              conditional.condition() instanceof CoreExpression.ParameterProvided provided
+                  ? List.of(callable.parameters().get(provided.parameterIndex()).localIndex())
+                  : List.<Integer>of();
+          verifyBlock(owner, callable, conditional.thenBlock(), providedLocals, true);
           CoreReferenceFlow.State thenFlow = referenceFlow.snapshot();
           referenceFlow.replace(incoming);
           verifyBlock(owner, callable, conditional.elseBlock());
@@ -402,6 +420,10 @@ final class CoreCallableVerifier {
         if (local.type() instanceof CoreType.Reference) {
           referenceFlow.referenceLifetime(read.localIndex());
         }
+      }
+      case CoreExpression.ParameterProvided provided -> {
+        if (!isConstructor(owner) || provided.parameterIndex() >= callable.parameters().size())
+          throw new IllegalArgumentException("parameter presence requires a constructor parameter");
       }
       case CoreExpression.Let let -> {
         verifyExpression(owner, callable, let.initializer());
@@ -768,7 +790,7 @@ final class CoreCallableVerifier {
     }
     validationTypes.verifyTypeArgumentBounds(
         targetId, target.typeParameters(), substitutions, owner);
-    CoreVerificationTypes.verifyDenseArguments(call.arguments(), target.parameterTypes().size());
+    verifyArguments(targetId, call.arguments(), target.parameterTypes().size());
     for (CoreArgument argument : call.arguments()) {
       CoreType expected =
           validationTypes
@@ -983,6 +1005,30 @@ final class CoreCallableVerifier {
         result, validationTypes.absolute(owner, call.type()), "interface call result");
   }
 
+  private boolean isConstructor(DefinitionId callable) {
+    return constructors.contains(callable);
+  }
+
+  private void verifyArguments(DefinitionId target, List<CoreArgument> arguments, int count) {
+    if (!isConstructor(target)) {
+      CoreVerificationTypes.verifyDenseArguments(arguments, count);
+      return;
+    }
+    var contract =
+        CoreConstructorParameters.forCallable(
+            (CoreDefinition.Callable) program.definition(target).orElseThrow());
+    var provided = new HashSet<Integer>();
+    for (var argument : arguments) {
+      if (argument.parameterIndex() >= count || !provided.add(argument.parameterIndex()))
+        throw new IllegalArgumentException(
+            "constructor provided arguments do not match its declaration");
+    }
+    for (int index = 0; index < count; index++) {
+      if (!provided.contains(index) && !contract.defaulted().contains(index))
+        throw new IllegalArgumentException("required constructor argument is absent");
+    }
+  }
+
   private void verifyConstruct(
       DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.Construct construct) {
     DefinitionId targetId = validationTypes.resolve(owner, construct.target());
@@ -1021,8 +1067,7 @@ final class CoreCallableVerifier {
         || initializer.receiverType().isEmpty()) {
       throw new IllegalArgumentException("construct initializer is not a constructor");
     }
-    CoreVerificationTypes.verifyDenseArguments(
-        construct.arguments(), initializer.parameterTypes().size());
+    verifyArguments(initializerId, construct.arguments(), initializer.parameterTypes().size());
     List<CoreType> substitutions = new ArrayList<>(declared.arguments());
     for (CoreArgument argument : construct.arguments()) {
       CoreType expected =

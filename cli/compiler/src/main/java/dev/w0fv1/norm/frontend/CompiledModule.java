@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class CompiledModule {
-  public static final String ABI = "norm-compiled-module-1";
+  public static final String ABI = "norm-compiled-module-5";
   public static final String ENTRY = "core/module.bin";
   private final Payload payload;
   private final dev.w0fv1.norm.value.Sha256Digest contentId;
@@ -247,7 +247,9 @@ public final class CompiledModule {
           new CoreDefinitionOrigin(
               occurrence.origin().definitionName(),
               mapping.rebase(occurrence.origin().rootSpan()),
-              nodes);
+              nodes,
+              occurrence.origin().declarationIdentity(),
+              occurrence.origin().localNames());
       definitions.put(
           key,
           new Definition(

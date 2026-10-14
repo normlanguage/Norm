@@ -449,12 +449,8 @@ public final class CoreCanonicalizer {
         throw new IllegalArgumentException("pending reference is outside the definition set");
       dependencies.add(targets);
     }
-    Tarjan tarjan = new Tarjan(dependencies, state);
-    for (int declaration = 0; declaration < definitions.size(); declaration++) {
-      if (!compiled.contains(declaration) && tarjan.indices[declaration] == -1)
-        tarjan.visit(declaration);
-    }
-    return List.copyOf(tarjan.components);
+    return dev.w0fv1.norm.value.DirectedGraphComponents.compute(
+        dependencies, declaration -> !compiled.contains(declaration), state::checkpoint);
   }
 
   public record Result(
@@ -524,65 +520,4 @@ public final class CoreCanonicalizer {
   }
 
   private record SearchedBranch(int candidate, CanonicalLabeling labeling) {}
-
-  private static final class Tarjan {
-    private final List<int[]> dependencies;
-    private final CoreCanonicalizationControl.State state;
-    private final int[] indices;
-    private final int[] lowLinks;
-    private final int[] cursors;
-    private final boolean[] onStack;
-    private final ArrayDeque<Integer> stack = new ArrayDeque<>();
-    private final ArrayDeque<Integer> traversal = new ArrayDeque<>();
-    private final List<List<Integer>> components = new ArrayList<>();
-    private int nextIndex;
-
-    private Tarjan(List<int[]> dependencies, CoreCanonicalizationControl.State state) {
-      this.dependencies = dependencies;
-      this.state = state;
-      indices = new int[dependencies.size()];
-      Arrays.fill(indices, -1);
-      lowLinks = new int[dependencies.size()];
-      cursors = new int[dependencies.size()];
-      onStack = new boolean[dependencies.size()];
-    }
-
-    private void enter(int declaration) {
-      indices[declaration] = nextIndex;
-      lowLinks[declaration] = nextIndex++;
-      stack.push(declaration);
-      onStack[declaration] = true;
-      traversal.push(declaration);
-    }
-
-    private void visit(int root) {
-      enter(root);
-      while (!traversal.isEmpty()) {
-        state.checkpoint();
-        int declaration = traversal.peek();
-        int[] targets = dependencies.get(declaration);
-        if (cursors[declaration] < targets.length) {
-          int dependency = targets[cursors[declaration]++];
-          if (indices[dependency] == -1) enter(dependency);
-          else if (onStack[dependency])
-            lowLinks[declaration] = Math.min(lowLinks[declaration], indices[dependency]);
-          continue;
-        }
-        traversal.pop();
-        if (!traversal.isEmpty()) {
-          int parent = traversal.peek();
-          lowLinks[parent] = Math.min(lowLinks[parent], lowLinks[declaration]);
-        }
-        if (lowLinks[declaration] != indices[declaration]) continue;
-        List<Integer> component = new ArrayList<>();
-        int member;
-        do {
-          member = stack.pop();
-          onStack[member] = false;
-          component.add(member);
-        } while (member != declaration);
-        components.add(List.copyOf(component));
-      }
-    }
-  }
 }

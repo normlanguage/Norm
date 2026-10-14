@@ -32,7 +32,7 @@ final class DefaultArgumentReuseTest {
     assertEquals(
         1,
         first.authoring().occurrences().stream()
-            .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_ARGUMENT)
+            .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_VALUE)
             .count());
     assertEquals(
         1,
@@ -54,11 +54,11 @@ final class DefaultArgumentReuseTest {
           ArtifactId.forArtifact(output.artifact(), "test"));
       assertEquals(
           first.authoring().occurrences().stream()
-              .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_ARGUMENT)
+              .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_VALUE)
               .map(dev.w0fv1.norm.core.CoreDefinitionOccurrence::id)
               .toList(),
           output.artifact().authoring().occurrences().stream()
-              .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_ARGUMENT)
+              .filter(value -> value.role() == CoreDefinitionRole.DEFAULT_VALUE)
               .map(dev.w0fv1.norm.core.CoreDefinitionOccurrence::id)
               .toList());
     }

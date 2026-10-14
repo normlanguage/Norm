@@ -155,6 +155,10 @@ public final class ExecutionContext {
     return new Builder(this).jarBindingRuntime(value).build();
   }
 
+  public ExecutionContext withCancellation(BooleanSupplier value) {
+    return new Builder(this).cancellation(value).build();
+  }
+
   public ExecutionContext withJavaApplicationEntrypoint(JavaApplicationEntrypoint value) {
     return new Builder(this).javaApplicationEntrypoint(value).build();
   }

@@ -37,7 +37,7 @@ final class StructuredValueAccess {
         || !aggregate.type.equals(shape.type())) {
       throw mismatch(shape.name());
     }
-    return new AggregateValue(aggregate.fields);
+    return new AggregateValue(aggregate, shape);
   }
 
   String enumVariant(SerializationRuntime.EnumShape shape, Object value) {
@@ -87,9 +87,10 @@ final class StructuredValueAccess {
 
   record MapEntry(Object key, Object value) {}
 
-  record AggregateValue(Object[] fields) {
+  record AggregateValue(
+      RuntimeValues.ObjectValue value, SerializationRuntime.AggregateShape shape) {
     Object field(int ordinal) {
-      return fields[ordinal];
+      return value.rawField(shape.info().fields().get(ordinal).key());
     }
   }
 

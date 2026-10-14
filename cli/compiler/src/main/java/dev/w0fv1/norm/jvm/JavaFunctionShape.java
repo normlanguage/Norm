@@ -36,6 +36,36 @@ public enum JavaFunctionShape {
     return type.getName();
   }
 
+  public Class<?> interfaceType() {
+    return type;
+  }
+
+  public Object adapt(Object state, Function<Object[], Object> invocation) {
+    var sidecar = new java.util.concurrent.atomic.AtomicReference<>(state);
+    return java.lang.reflect.Proxy.newProxyInstance(
+        dev.w0fv1.norm.bridge.JavaApplicationObject.class.getClassLoader(),
+        new Class<?>[] {type, dev.w0fv1.norm.bridge.JavaApplicationObject.class},
+        (proxy, method, arguments) -> {
+          if (method.getDeclaringClass() == dev.w0fv1.norm.bridge.JavaApplicationObject.class) {
+            if (arguments == null || arguments.length == 0) return sidecar.get();
+            sidecar.set(arguments[0]);
+            return null;
+          }
+          if (method.getDeclaringClass() == Object.class) {
+            return switch (method.getName()) {
+              case "equals" -> proxy == arguments[0];
+              case "hashCode" -> System.identityHashCode(proxy);
+              case "toString" ->
+                  type.getName() + "@" + Integer.toHexString(System.identityHashCode(proxy));
+              default -> throw new IllegalStateException("Unsupported function object method");
+            };
+          }
+          if (method.isDefault())
+            return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, arguments);
+          return invocation.apply(arguments == null ? new Object[0] : arguments);
+        });
+  }
+
   public boolean accepts(Object value) {
     return type.isInstance(value);
   }
@@ -61,21 +91,6 @@ public enum JavaFunctionShape {
       }
       case BI_FUNCTION ->
           ((BiFunction<Object, Object, ?>) function).apply(arguments[0], arguments[1]);
-    };
-  }
-
-  public Object adapt(Function<Object[], Object> invocation) {
-    return switch (this) {
-      case ACTION -> (Runnable) () -> invocation.apply(new Object[0]);
-      case SUPPLIER -> (Supplier<Object>) () -> invocation.apply(new Object[0]);
-      case CONSUMER -> (Consumer<Object>) value -> invocation.apply(new Object[] {value});
-      case FUNCTION -> (Function<Object, Object>) value -> invocation.apply(new Object[] {value});
-      case BI_CONSUMER ->
-          (BiConsumer<Object, Object>)
-              (first, second) -> invocation.apply(new Object[] {first, second});
-      case BI_FUNCTION ->
-          (BiFunction<Object, Object, Object>)
-              (first, second) -> invocation.apply(new Object[] {first, second});
     };
   }
 }

@@ -14,6 +14,34 @@ class RunProgressTest {
   @TempDir Path directory;
 
   @Test
+  void defaultSourceRunStopsCompilationWhenApplicationFinishes() throws Exception {
+    var entry = directory.resolve("watched.norm");
+    Files.writeString(entry, "Void main() { printLine(\"ready\") }");
+    var output = new StringWriter();
+    var diagnostics = new StringWriter();
+    assertEquals(
+        0,
+        new RunCommand()
+            .execute(
+                List.of(entry.toString()), new PrintWriter(output), new PrintWriter(diagnostics)));
+    assertEquals("ready" + System.lineSeparator(), output.toString());
+    assertEquals("", diagnostics.toString());
+  }
+
+  @Test
+  void liveExecutionIsDefaultWithoutAnAdditionalModeFlag() {
+    assertFalse(new RunCommand().usage().contains("--watch"));
+    var diagnostics = new StringWriter();
+    assertEquals(
+        2,
+        new RunCommand()
+            .execute(
+                List.of("--watch", "missing.norm"),
+                new PrintWriter(new StringWriter()),
+                new PrintWriter(diagnostics)));
+  }
+
+  @Test
   void acceptsDebugAfterDirectSourcePath() throws Exception {
     var entry = directory.resolve("direct.norm");
     Files.writeString(entry, "Void main() { printLine(\"ready\") }");

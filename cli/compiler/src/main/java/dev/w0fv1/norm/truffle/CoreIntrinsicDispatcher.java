@@ -34,7 +34,7 @@ final class CoreIntrinsicDispatcher {
               var handle =
                   (AnnotationRuntime.FieldHandle) ((RuntimeValues.OpaqueValue) arguments[0]).value;
               target = handle.receiver();
-              selected = java.util.OptionalInt.of(handle.field().index());
+              selected = java.util.OptionalInt.of(target.fieldIndex(handle.field().key()));
               var changed = (RuntimeValues.Closure) arguments[1];
               readObserver = field -> {};
               changedObserver =
@@ -80,7 +80,8 @@ final class CoreIntrinsicDispatcher {
                 new Object[0],
                 new Object[0],
                 new Object[0],
-                type);
+                type,
+                null);
           };
       case CONTEXT_WITH ->
           (receiver, arguments, type, context, location, annotations, execution) ->
