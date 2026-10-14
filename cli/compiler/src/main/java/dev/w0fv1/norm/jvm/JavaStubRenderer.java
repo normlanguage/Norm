@@ -29,15 +29,27 @@ final class JavaStubRenderer {
     source.append(type.name());
     appendTypeParameters(source, type.typeParameters());
     type.parentType().ifPresent(parent -> source.append(" extends ").append(parent));
-    if (!type.interfaces().isEmpty()) {
+    var interfaces = new java.util.ArrayList<>(type.interfaces());
+    boolean ownsState =
+        (type.kind() == JavaStubPlan.TypeKind.CLASS
+                || type.kind() == JavaStubPlan.TypeKind.VALUE
+                || type.kind() == JavaStubPlan.TypeKind.ENUM)
+            && !type.generatedParent();
+    if (ownsState) interfaces.add("dev.w0fv1.norm.bridge.JavaApplicationObject");
+    if (!interfaces.isEmpty()) {
       source.append(type.kind() == JavaStubPlan.TypeKind.INTERFACE ? " extends " : " implements ");
-      source.append(String.join(", ", type.interfaces()));
+      source.append(String.join(", ", interfaces));
     }
     source.append(" {\n");
     for (int index = 0; index < type.enumConstants().size(); index++) {
       source.append("  ").append(type.enumConstants().get(index));
       source.append(index + 1 == type.enumConstants().size() ? ";\n" : ",\n");
     }
+    if (ownsState)
+      source
+          .append("  private transient Object $normState;\n")
+          .append("  public Object $normState() { return $normState; }\n")
+          .append("  public void $normState(Object state) { $normState = state; }\n");
     for (var field : type.fields()) {
       appendAnnotations(source, field.annotations(), "  ");
       source.append("  public ").append(field.type()).append(' ').append(field.name());
@@ -51,7 +63,33 @@ final class JavaStubRenderer {
       if (type.generatedParent()) source.append(" super(call);");
       source.append(" }\n");
     }
-    for (var callable : type.callables()) appendCallable(source, type, callable);
+    var constructorSignatures = new java.util.HashSet<List<String>>();
+    for (var callable : type.callables()) {
+      if (callable.kind() == JavaStubPlan.CallableKind.CONSTRUCTOR)
+        constructorSignatures.add(
+            callable.parameters().stream().map(JavaStubPlan.Parameter::type).toList());
+      appendCallable(source, type, callable, callable.parameters().size(), true);
+    }
+    var projectedConstructors = new java.util.HashMap<List<String>, String>();
+    for (var callable : type.callables()) {
+      if (callable.construction().isEmpty()) continue;
+      var construction = callable.construction().orElseThrow();
+      for (int count = construction.count() - 1;
+          construction.acceptsProvidedPrefix(count);
+          count--) {
+        var signature =
+            callable.parameters().subList(0, count).stream()
+                .map(JavaStubPlan.Parameter::type)
+                .toList();
+        if (constructorSignatures.contains(signature)) continue;
+        var previous =
+            projectedConstructors.putIfAbsent(signature, callable.implementationLiteral());
+        if (previous != null && !previous.equals(callable.implementationLiteral()))
+          throw new IllegalArgumentException(
+              "ambiguous Java constructor omission: " + type.binaryName());
+        if (previous == null) appendCallable(source, type, callable, count, false);
+      }
+    }
     type.allocationDefinitionLiteral()
         .ifPresent(
             definition -> {
@@ -71,15 +109,22 @@ final class JavaStubRenderer {
   }
 
   private static void appendCallable(
-      StringBuilder source, JavaStubPlan.Type owner, JavaStubPlan.Callable callable) {
-    appendAnnotations(source, callable.annotations(), "  ");
-    source
-        .append("  @dev.w0fv1.norm.bridge.NormApplicationMethod(value = ")
-        .append(callable.definitionLiteral());
-    if (!callable.implementationLiteral().equals(callable.definitionLiteral())) {
-      source.append(", implementation = ").append(callable.implementationLiteral());
+      StringBuilder source,
+      JavaStubPlan.Type owner,
+      JavaStubPlan.Callable callable,
+      int parameterCount,
+      boolean indexed) {
+    if (indexed) {
+      appendAnnotations(source, callable.annotations(), "  ");
+      source
+          .append("  @dev.w0fv1.norm.bridge.NormApplicationMethod(value = ")
+          .append(callable.definitionLiteral());
+      if (!callable.implementationLiteral().equals(callable.definitionLiteral())) {
+        source.append(", implementation = ").append(callable.implementationLiteral());
+      }
+      source.append(")\n");
     }
-    source.append(")\n  public ");
+    source.append("  public ");
     if (callable.isStatic()) source.append("static ");
     if (callable.kind() == JavaStubPlan.CallableKind.ABSTRACT_METHOD) source.append("abstract ");
     if (callable.kind() == JavaStubPlan.CallableKind.DEFAULT_METHOD) source.append("default ");
@@ -88,7 +133,7 @@ final class JavaStubRenderer {
     if (callable.kind() == JavaStubPlan.CallableKind.CONSTRUCTOR) source.append(owner.name());
     else source.append(callable.returnType()).append(' ').append(callable.name());
     source.append('(');
-    for (int index = 0; index < callable.parameters().size(); index++) {
+    for (int index = 0; index < parameterCount; index++) {
       if (index > 0) source.append(", ");
       var parameter = callable.parameters().get(index);
       appendAnnotations(source, parameter.annotations(), "");
@@ -123,7 +168,7 @@ final class JavaStubRenderer {
     source
         .append(", new Object[] {")
         .append(
-            callable.parameters().stream()
+            callable.parameters().subList(0, parameterCount).stream()
                 .map(JavaStubPlan.Parameter::name)
                 .collect(Collectors.joining(", ")))
         .append("}); }\n");

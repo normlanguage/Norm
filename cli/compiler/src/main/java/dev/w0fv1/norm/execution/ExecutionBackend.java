@@ -4,6 +4,12 @@ import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
 
 public interface ExecutionBackend {
+  default LiveExecution prepareLive(ExecutionRevision revision) {
+    var execution = prepareLive(revision.artifact());
+    execution.update(revision);
+    return execution;
+  }
+
   default LiveExecution prepareLive(CoreArtifact artifact) {
     throw new UnsupportedOperationException("execution backend does not support live execution");
   }

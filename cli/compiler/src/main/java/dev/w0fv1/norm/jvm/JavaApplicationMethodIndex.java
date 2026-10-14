@@ -97,6 +97,13 @@ public final class JavaApplicationMethodIndex {
   }
 
   public record Analysis(Map<DefinitionId, Target> instanceMethods, Set<DefinitionId> entryPoints) {
+    public Set<DefinitionId> sourceEntryPoints(dev.w0fv1.norm.core.CoreArtifact artifact) {
+      var identity = dev.w0fv1.norm.core.CoreRuntimeIdentity.create(artifact);
+      return entryPoints.stream()
+          .map(identity::sourceMember)
+          .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
     public Analysis {
       instanceMethods = Collections.unmodifiableMap(new TreeMap<>(instanceMethods));
       entryPoints = Collections.unmodifiableSet(new java.util.TreeSet<>(entryPoints));

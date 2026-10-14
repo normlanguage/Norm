@@ -22,9 +22,9 @@ final class FieldObservations {
     if (subscriptions.stream().noneMatch(subscription -> subscription.accepts(field))) return;
     var releases = new ArrayList<Runnable>();
     ValueObservations.subscribeTree(
-        target.fields[field],
+        target.rawField(target.fieldKey(field)),
         () -> {
-          var value = RuntimeValues.copy(target.fields[field]);
+          var value = RuntimeValues.copy(target.rawField(target.fieldKey(field)));
           return () -> target.fieldChanged(field, value);
         },
         releases);
@@ -37,7 +37,7 @@ final class FieldObservations {
     var subscription = new Subscription(selected, read, changed);
     subscriptions.add(subscription);
     if (selected.isPresent()) bind(selected.getAsInt());
-    else for (int field = 0; field < target.fields.length; field++) bind(field);
+    else for (int field = 0; field < target.cells.size(); field++) bind(field);
     return subscription;
   }
 

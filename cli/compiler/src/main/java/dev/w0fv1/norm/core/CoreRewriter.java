@@ -67,7 +67,13 @@ final class CoreRewriter {
                               field.interceptors().stream()
                                   .map(interceptor -> resolve(interceptor, resolver))
                                   .toList(),
-                              field.initializer().map(initializer -> new CoreFieldInitializer(initializer.nodeIndex(), resolve(initializer.target(), resolver)))))
+                              field
+                                  .initializer()
+                                  .map(
+                                      initializer ->
+                                          new CoreFieldInitializer(
+                                              initializer.nodeIndex(),
+                                              resolve(initializer.target(), resolver)))))
                   .toList(),
               aggregateDefinition.dispatch().stream()
                   .map(
@@ -106,7 +112,13 @@ final class CoreRewriter {
                                                   .toList(),
                                               field
                                                   .initializer()
-                                                  .map(initializer -> new CoreFieldInitializer(initializer.nodeIndex(), resolve(initializer.target(), resolver)))))
+                                                  .map(
+                                                      initializer ->
+                                                          new CoreFieldInitializer(
+                                                              initializer.nodeIndex(),
+                                                              resolve(
+                                                                  initializer.target(),
+                                                                  resolver)))))
                                   .toList()))
                   .toList());
       case CoreDefinition.Interface declaration ->
@@ -152,7 +164,7 @@ final class CoreRewriter {
             .toList());
   }
 
-  private static CoreAnnotationValue resolveAnnotationValue(
+  static CoreAnnotationValue resolveAnnotationValue(
       CoreAnnotationValue value,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> resolver) {
     return new CoreAnnotationValue(
@@ -293,6 +305,7 @@ final class CoreRewriter {
       case CoreExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               local.nodeIndex(), local.localIndex(), resolve(local.type(), resolver));
+      case CoreExpression.ParameterProvided provided -> provided;
       case CoreExpression.Let let ->
           new CoreExpression.Let(
               let.nodeIndex(),

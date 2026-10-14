@@ -30,18 +30,16 @@ final class CoreLiveSchemaTest {
   }
 
   @Test
-  void rejectsChangedStateAndControlShape() {
+  void acceptsAdditiveLocalsAndChangedControlShape() {
     String text =
         "Void main() { var count = 0 for (count < 3) { printLine(count) count = count + 1 } }";
     var schema = CoreLiveSchema.create(compile(text));
-    assertThrows(
-        IllegalArgumentException.class,
+    assertDoesNotThrow(
         () ->
             schema.requireCompatible(
                 CoreLiveSchema.create(
                     compile(text.replace("var count = 0", "var other = 1 var count = 0")))));
-    assertThrows(
-        IllegalArgumentException.class,
+    assertDoesNotThrow(
         () ->
             schema.requireCompatible(
                 CoreLiveSchema.create(
@@ -56,17 +54,16 @@ final class CoreLiveSchemaTest {
   }
 
   @Test
-  void rejectsRenamingOrSwappingSameTypedLocalState() {
-    String text = "Void main() { var first = 1 var second = 2 printLine(first) }";
-    var schema = CoreLiveSchema.create(compile(text));
-    for (String candidate :
-        java.util.List.of(
-            text.replace("first", "renamed"),
-            "Void main() { var second = 1 var first = 2 printLine(second) }")) {
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> schema.requireCompatible(CoreLiveSchema.create(compile(candidate))));
-    }
+  void retainsLocalIdentityWhenSlotsAreReordered() {
+    var first = compile("Void main() { var first = 1 var second = 2 printLine(first) }");
+    var second = compile("Void main() { var second = 2 var first = 1 printLine(first) }");
+    var before = CoreLiveSchema.create(first);
+    var after = CoreLiveSchema.create(second);
+    assertDoesNotThrow(() -> before.requireCompatible(after));
+    assertEquals(
+        before.layout(first.entryPoint()).local(0), after.layout(second.entryPoint()).local(1));
+    assertEquals(
+        before.layout(first.entryPoint()).local(1), after.layout(second.entryPoint()).local(0));
   }
 
   @Test
@@ -97,13 +94,13 @@ final class CoreLiveSchemaTest {
   }
 
   @Test
-  void rejectsAddingDefaultArgumentPolicyButAllowsUpdatingItsImplementation() {
+  void acceptsDefaultPolicyForNewInvocations() {
     String required =
         "Integer answer(Integer input) { input } Void main() { printLine(answer(7)) }";
     var schema = CoreLiveSchema.create(compile(required));
     var defaulted =
         CoreLiveSchema.create(compile(required.replace("Integer input)", "Integer input = 1)")));
-    assertThrows(IllegalArgumentException.class, () -> schema.requireCompatible(defaulted));
+    assertDoesNotThrow(() -> schema.requireCompatible(defaulted));
     var updatedDefault =
         CoreLiveSchema.create(compile(required.replace("Integer input)", "Integer input = 2)")));
     assertDoesNotThrow(() -> defaulted.requireCompatible(updatedDefault));

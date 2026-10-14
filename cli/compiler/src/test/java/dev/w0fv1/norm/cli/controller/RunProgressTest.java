@@ -14,7 +14,7 @@ class RunProgressTest {
   @TempDir Path directory;
 
   @Test
-  void acceptsWatchAndStopsCompilationWhenApplicationFinishes() throws Exception {
+  void defaultSourceRunStopsCompilationWhenApplicationFinishes() throws Exception {
     var entry = directory.resolve("watched.norm");
     Files.writeString(entry, "Void main() { printLine(\"ready\") }");
     var output = new StringWriter();
@@ -23,11 +23,22 @@ class RunProgressTest {
         0,
         new RunCommand()
             .execute(
-                List.of("--watch", entry.toString()),
-                new PrintWriter(output),
-                new PrintWriter(diagnostics)));
+                List.of(entry.toString()), new PrintWriter(output), new PrintWriter(diagnostics)));
     assertEquals("ready" + System.lineSeparator(), output.toString());
     assertEquals("", diagnostics.toString());
+  }
+
+  @Test
+  void liveExecutionIsDefaultWithoutAnAdditionalModeFlag() {
+    assertFalse(new RunCommand().usage().contains("--watch"));
+    var diagnostics = new StringWriter();
+    assertEquals(
+        2,
+        new RunCommand()
+            .execute(
+                List.of("--watch", "missing.norm"),
+                new PrintWriter(new StringWriter()),
+                new PrintWriter(diagnostics)));
   }
 
   @Test

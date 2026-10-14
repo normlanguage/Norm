@@ -33,6 +33,8 @@ public record AnnotationSchema(
   }
 
   public boolean intercepts(AnnotationTarget target) {
-    return interceptors.contains(target);
+    return targets.contains(target)
+        && interceptors.contains(
+            target == AnnotationTarget.CONSTRUCTOR ? AnnotationTarget.FUNCTION : target);
   }
 }

@@ -16,7 +16,12 @@ final class AnnotationLifecycleNode extends Node {
       Object[] parameters,
       CoreType[] methodTypeArguments) {
     Object[] arguments = arguments(target, execution, annotation, parameters, methodTypeArguments);
-    return call.call(target.target(), arguments);
+    try (var scope =
+        execution.liveBindings() == null || target.version() == null
+            ? null
+            : execution.liveBindings().pin(target.version())) {
+      return call.call(target.target(), arguments);
+    }
   }
 
   @TruffleBoundary

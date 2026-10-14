@@ -95,7 +95,10 @@ final class CoreCodec {
                   writer.writeBoolean(field.initializer().isPresent());
                   field
                       .initializer()
-                      .ifPresent(initializer -> writeReference(writer, referenceResolver.apply(initializer.target())));
+                      .ifPresent(
+                          initializer ->
+                              writeReference(
+                                  writer, referenceResolver.apply(initializer.target())));
                 });
         writer.writeInt(aggregateDefinition.dispatch().size());
         aggregateDefinition.dispatch().stream()
@@ -148,7 +151,9 @@ final class CoreCodec {
                             field
                                 .initializer()
                                 .ifPresent(
-                                    initializer -> writeReference(writer, referenceResolver.apply(initializer.target())));
+                                    initializer ->
+                                        writeReference(
+                                            writer, referenceResolver.apply(initializer.target())));
                           });
                 });
       }
@@ -350,6 +355,8 @@ final class CoreCodec {
         writer.writeTag("local-read").writeInt(local.localIndex());
         writeType(writer, local.type(), referenceResolver);
       }
+      case CoreExpression.ParameterProvided provided ->
+          writer.writeTag("parameter-provided").writeInt(provided.parameterIndex());
       case CoreExpression.Let let -> {
         writer.writeTag("let").writeInt(let.localIndex());
         writeExpression(writer, let.initializer(), referenceResolver);

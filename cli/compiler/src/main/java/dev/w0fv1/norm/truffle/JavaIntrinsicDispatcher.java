@@ -10,7 +10,6 @@ import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import dev.w0fv1.norm.execution.JavaApplicationRuntime;
-import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -57,8 +56,7 @@ final class JavaIntrinsicDispatcher {
               }
               throw execution.values().javaException(exception.failure(), execution, location);
             } catch (JarBindingRuntimeException exception) {
-              throw new NormGuestException(
-                  RuntimeErrorCode.JAR_BINDING, exception.getMessage(), location);
+              throw new NormGuestException(exception.code(), exception.getMessage(), location);
             }
           };
       default -> throw new IllegalArgumentException("Unsupported java intrinsic: " + intrinsic);

@@ -69,7 +69,7 @@ final class JavaApplicationDispatchTest {
         var dispatch =
             new JavaApplicationDispatch(
                 executable.program(),
-                executable.targets(),
+                executable.bridgeTargets(),
                 executable.values(),
                 execution,
                 runtime);
@@ -78,11 +78,20 @@ final class JavaApplicationDispatchTest {
                 runtime.applicationClassLoader(), dispatch)) {
           org.junit.jupiter.api.Assertions.assertSame(
               input,
-              dispatch.invoke(methods.get("bridgeAny").toString(), null, new Object[] {input}));
+              dispatch.invoke(
+                  executable.program().identity().slot(methods.get("bridgeAny")).toString(),
+                  null,
+                  new Object[] {input}));
           assertEquals(
               65,
-              dispatch.invoke(methods.get("bridgeInput").toString(), null, new Object[] {input}));
-          dispatch.invoke(methods.get("bridgeClose").toString(), null, new Object[] {input});
+              dispatch.invoke(
+                  executable.program().identity().slot(methods.get("bridgeInput")).toString(),
+                  null,
+                  new Object[] {input}));
+          dispatch.invoke(
+              executable.program().identity().slot(methods.get("bridgeClose")).toString(),
+              null,
+              new Object[] {input});
           assertEquals(1, closes.get());
         }
       } finally {
@@ -112,7 +121,11 @@ final class JavaApplicationDispatchTest {
     try (var runtime = new JvmJarBindingRuntime(List.of())) {
       var dispatch =
           new JavaApplicationDispatch(
-              executable.program(), executable.targets(), executable.values(), execution, runtime);
+              executable.program(),
+              executable.bridgeTargets(),
+              executable.values(),
+              execution,
+              runtime);
       var methods =
           artifact.program().definitions().stream()
               .filter(
@@ -127,7 +140,7 @@ final class JavaApplicationDispatchTest {
                               .parameters()
                               .getFirst()
                               .name(),
-                      record -> record.id().toString()));
+                      record -> executable.program().identity().slot(record.id()).toString()));
       var task = dispatch.invoke(methods.get("bridgeSeed"), null, new Object[] {7});
       var returned = dispatch.invoke(methods.get("bridgeTask"), null, new Object[] {task});
       org.junit.jupiter.api.Assertions.assertSame(task, returned);
@@ -163,9 +176,21 @@ final class JavaApplicationDispatchTest {
     try (var runtime = new JvmJarBindingRuntime(List.of())) {
       var dispatch =
           new JavaApplicationDispatch(
-              executable.program(), executable.targets(), executable.values(), execution, runtime);
-      assertEquals(0x1F600, dispatch.invoke(target.toString(), null, new Object[] {0x1F600}));
-      assertEquals(65, dispatch.invoke(target.toString(), null, new Object[] {'A'}));
+              executable.program(),
+              executable.bridgeTargets(),
+              executable.values(),
+              execution,
+              runtime);
+      assertEquals(
+          0x1F600,
+          dispatch.invoke(
+              executable.program().identity().slot(target).toString(),
+              null,
+              new Object[] {0x1F600}));
+      assertEquals(
+          65,
+          dispatch.invoke(
+              executable.program().identity().slot(target).toString(), null, new Object[] {'A'}));
       assertEquals(
           "128512" + System.lineSeparator() + "65" + System.lineSeparator(), output.toString());
     } finally {

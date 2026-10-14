@@ -16,6 +16,8 @@ import java.util.Optional;
 final class DefaultValueDeclarations {
   private final Map<SymbolId, Declaration> declarations = new LinkedHashMap<>();
   private final Map<SymbolId, Factory> initializers = new LinkedHashMap<>();
+  private final Map<SymbolId, List<Optional<BoundCallableId>>> constructionDefaults =
+      new LinkedHashMap<>();
 
   DefaultValueDeclarations(List<Syntax.Program> programs, SemanticModel semantics) {
     for (var program : programs) {
@@ -49,18 +51,15 @@ final class DefaultValueDeclarations {
                   });
         }
         if (owner.constructors().isEmpty()) {
-          add(
-              semantics,
-              owner.nameSpan(),
-              owner.typeParameters(),
-              List.of(),
-              Optional.empty(),
+          constructionDefaults.put(
+              symbol.id(),
               owner.fields().stream()
                   .filter(
                       field ->
                           symbol.parameters().stream()
                               .anyMatch(parameter -> parameter.name().equals(field.name())))
-                  .map(Syntax.FieldDecl::defaultValue)
+                  .map(
+                      field -> initializer(semantics.symbolOf(field.nameSpan()).orElseThrow().id()))
                   .toList());
         } else {
           for (var constructor : owner.constructors()) {
@@ -141,6 +140,8 @@ final class DefaultValueDeclarations {
   }
 
   Optional<BoundCallableId> defaultValue(SymbolId target, int parameter) {
+    if (constructionDefaults.containsKey(target))
+      return constructionDefaults.get(target).get(parameter);
     return declaration(target)
         .flatMap(
             value -> value.defaults().get(parameter).map(expression -> value.factory(parameter)));

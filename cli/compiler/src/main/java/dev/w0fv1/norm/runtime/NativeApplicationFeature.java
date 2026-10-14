@@ -34,6 +34,10 @@ public final class NativeApplicationFeature implements Feature {
           throw new IllegalStateException("Java callback type is unavailable: " + callback);
         RuntimeProxyCreation.register(type);
       }
+      for (var shape : dev.w0fv1.norm.jvm.JavaFunctionShape.values()) {
+        RuntimeProxyCreation.register(
+            shape.interfaceType(), dev.w0fv1.norm.bridge.JavaApplicationObject.class);
+      }
     } catch (java.io.IOException | ReflectiveOperationException exception) {
       throw new IllegalStateException("Cannot read Native Image application", exception);
     }

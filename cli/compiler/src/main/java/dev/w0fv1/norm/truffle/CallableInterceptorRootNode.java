@@ -45,6 +45,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
   private final CoreType returnTypeTemplate;
   private final int reifiedTypeCount;
   private final AnnotationRuntime annotations;
+  private final boolean constructor;
   @Child private IndirectCallNode call = IndirectCallNode.create();
   @Child private AnnotationLifecycleNode lifecycle = new AnnotationLifecycleNode();
 
@@ -55,6 +56,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
       DefinitionOccurrenceId callable,
       CallTarget implementation,
       CoreDefinition.Callable declaration,
+      boolean constructor,
       CoreType returnType,
       AnnotationRuntime annotations) {
     super(language);
@@ -78,13 +80,18 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     returnTypeTemplate = returnType;
     reifiedTypeCount = declaration.reifiedTypeLocals().size();
     this.annotations = annotations;
+    this.constructor = constructor;
   }
 
   @Override
   public Object execute(VirtualFrame frame) {
     Object[] arguments = frame.getArguments();
     ExecutionState execution = (ExecutionState) arguments[0];
-    int reifiedOffset = arguments.length - reifiedTypeCount;
+    Object[] reified =
+        constructor
+            ? ConstructionArguments.from(frame).typeArguments()
+            : java.util.Arrays.copyOfRange(
+                arguments, arguments.length - reifiedTypeCount, arguments.length);
     Object receiver = hasReceiver ? arguments[1] : null;
     int captureOffset = 1 + (hasReceiver ? 1 : 0);
     Object[] captures = new Object[captureCount];
@@ -92,10 +99,9 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
       captures[index] = RuntimeValues.copy(arguments[captureOffset + index]);
     }
     Object[] ownerTypeArguments = new Object[receiverTypeParameterCount];
-    System.arraycopy(arguments, reifiedOffset, ownerTypeArguments, 0, receiverTypeParameterCount);
+    System.arraycopy(reified, 0, ownerTypeArguments, 0, receiverTypeParameterCount);
     Object[] callableTypeArguments =
-        java.util.Arrays.copyOfRange(
-            arguments, reifiedOffset + receiverTypeParameterCount, arguments.length);
+        java.util.Arrays.copyOfRange(reified, receiverTypeParameterCount, reified.length);
     RuntimeValues.Closure declarationReference =
         new RuntimeValues.Closure(
             implementation,
@@ -109,15 +115,15 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
             annotations);
     RuntimeValues.FunctionContextValue function =
         new RuntimeValues.FunctionContextValue(FUNCTION_CONTEXT_TYPE, declarationReference);
-    CoreType returnType = returnType(arguments, reifiedOffset);
+    CoreType returnType = returnType(reified);
     return invokeFunction(0, execution, function, arguments, returnType);
   }
 
   @TruffleBoundary
-  private CoreType returnType(Object[] arguments, int reifiedOffset) {
+  private CoreType returnType(Object[] reified) {
     return returnTypeTemplate.equals(CoreType.VOID)
         ? CoreType.DYNAMIC
-        : returnTypeTemplate.substitute(index -> (CoreType) arguments[reifiedOffset + index]);
+        : returnTypeTemplate.substitute(index -> (CoreType) reified[index]);
   }
 
   @Override
@@ -154,7 +160,12 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
       RuntimeValues.FunctionInvocationValue invocation =
           new RuntimeValues.FunctionInvocationValue(
               builtin("std.core.FunctionInvocation", List.of(returnType)),
-              () -> invokeFunction(index + 1, execution, function, arguments, returnType));
+              () -> {
+                try (var scope =
+                    execution.liveBindings() == null ? null : execution.liveBindings().unpin()) {
+                  return invokeFunction(index + 1, execution, function, arguments, returnType);
+                }
+              });
       Object result =
           lifecycle.execute(
               annotations.functionAround(annotation),
@@ -184,6 +195,9 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
       Object[] arguments) {
     if (index == parameterLayers.size()) return call.call(implementation, arguments);
     ParameterLayer layer = parameterLayers.get(index);
+    ConstructionArguments construction = constructor ? (ConstructionArguments) arguments[2] : null;
+    if (constructor && !construction.isProvided(layer.parameterIndex()))
+      return invokeParameter(index + 1, execution, function, arguments);
     RuntimeValues.ParameterContextValue context =
         new RuntimeValues.ParameterContextValue(
             PARAMETER_CONTEXT_TYPE,
@@ -197,9 +211,18 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
             annotations.parameterBefore(annotation),
             execution,
             annotation,
-            new Object[] {context, RuntimeValues.copy(arguments[argumentIndex])},
+            new Object[] {
+              context,
+              RuntimeValues.copy(
+                  constructor
+                      ? construction.parameterValue(layer.parameterIndex())
+                      : arguments[argumentIndex])
+            },
             new CoreType[0]);
-    arguments[argumentIndex] = RuntimeValues.copy(transformed);
+    if (constructor)
+      arguments[2] =
+          construction.withParameter(layer.parameterIndex(), RuntimeValues.copy(transformed));
+    else arguments[argumentIndex] = RuntimeValues.copy(transformed);
     boolean succeeded = false;
     try {
       Object result = invokeParameter(index + 1, execution, function, arguments);

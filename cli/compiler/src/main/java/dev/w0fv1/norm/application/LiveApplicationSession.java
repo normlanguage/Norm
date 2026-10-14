@@ -1,56 +1,58 @@
 package dev.w0fv1.norm.application;
 
+import dev.w0fv1.norm.core.ArtifactId;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.LiveExecution;
-import dev.w0fv1.norm.jvm.LinkedJarBinding;
+import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import dev.w0fv1.norm.project.ProjectInputSnapshot;
 import dev.w0fv1.norm.project.ProjectLoadException;
-import dev.w0fv1.norm.project.ProjectLoadResult;
-import dev.w0fv1.norm.project.ProjectLoader;
-import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
-import java.util.LinkedHashMap;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 final class LiveApplicationSession implements AutoCloseable {
-  private final ProjectLoader projects;
-  private final ApplicationCompiler compiler;
-  private final Path entry;
-  private final CompiledApplication initial;
+  @FunctionalInterface
+  interface CandidateCompiler {
+    ApplicationCandidate compile() throws IOException;
+  }
+
+  private record Request(CompletableFuture<ApplicationUpdateResult> result, boolean force) {}
+
+  private final Object gate = new Object();
+  private final CandidateCompiler compiler;
   private final LiveExecution execution;
   private final Consumer<String> diagnostics;
   private final Consumer<String> progress;
   private final InputChangeMonitor monitor;
   private final AtomicBoolean closed = new AtomicBoolean();
-  private final Map<Path, Sha256Digest> classes;
+  private final ArrayDeque<Request> requests = new ArrayDeque<>();
+  private final Set<Long> batches = new HashSet<>();
+  private long epoch;
   private ProjectInputSnapshot inputs;
   private Thread worker;
+  private LiveExecutionStatus status;
 
   LiveApplicationSession(
-      ProjectLoader projects,
-      ApplicationCompiler compiler,
-      Path entry,
       ProjectInputSnapshot inputs,
-      CompiledApplication initial,
       LiveExecution execution,
+      CandidateCompiler compiler,
       Consumer<String> progress,
       Consumer<String> diagnostics)
       throws IOException {
-    this.projects = projects;
     this.compiler = compiler;
-    this.entry = entry;
     this.inputs = inputs;
-    this.initial = initial;
     this.execution = execution;
     this.progress = progress;
     this.diagnostics = diagnostics;
-    classes = classContents(initial.annotations().classes());
+    status = execution.status();
     monitor = new InputChangeMonitor();
     try {
       monitor.update(inputs);
@@ -60,108 +62,186 @@ final class LiveApplicationSession implements AutoCloseable {
     }
   }
 
+  long beginBatch() {
+    synchronized (gate) {
+      if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      long identity = ++epoch;
+      batches.add(identity);
+      return identity;
+    }
+  }
+
+  CompletableFuture<ApplicationUpdateResult> commitBatch(long identity) {
+    synchronized (gate) {
+      if (!batches.remove(identity)) throw new IllegalStateException("batch is closed");
+      return requestUpdate();
+    }
+  }
+
+  void closeBatch(long identity) {
+    synchronized (gate) {
+      if (!batches.remove(identity)) return;
+      epoch++;
+      requests.addLast(new Request(null, false));
+    }
+  }
+
+  CompletableFuture<ApplicationUpdateResult> requestUpdate() {
+    synchronized (gate) {
+      if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      epoch++;
+      var result = new CompletableFuture<ApplicationUpdateResult>();
+      requests.addLast(new Request(result, true));
+      return result;
+    }
+  }
+
   void start() {
+    synchronized (gate) {
+      if (!inputs.matches()) requests.add(new Request(null, true));
+    }
     worker =
         Thread.ofVirtual()
             .name("norm-live-compilation")
             .start(
                 () -> {
-                  boolean changed = !inputs.matches();
                   while (!closed.get()) {
+                    List<Request> captured = List.of();
                     try {
-                      if (!changed && !monitor.awaitChange(Duration.ofMillis(100))) continue;
-                      monitor.update(inputs);
-                      if (inputs.matches()) {
-                        changed = false;
-                        continue;
+                      var current = execution.status();
+                      if (!status.equals(current)) {
+                        if (!current.pendingLocations().isEmpty())
+                          diagnostics.accept(
+                              "info[NORM-LIVE-0003]: Runtime revision "
+                                  + current.revision()
+                                  + " is pending for active locations: "
+                                  + String.join(", ", current.pendingLocations()));
+                        else if (!status.pendingLocations().isEmpty())
+                          progress.accept("Completed pending runtime transitions");
+                        status = current;
                       }
-                      changed = reload();
+                      boolean ready;
+                      synchronized (gate) {
+                        ready = !requests.isEmpty() && batches.isEmpty();
+                      }
+                      if (!ready && monitor.awaitChange(Duration.ofMillis(100))) {
+                        synchronized (gate) {
+                          requests.addLast(new Request(null, false));
+                        }
+                      }
+                      long capturedEpoch;
+                      synchronized (gate) {
+                        if (!batches.isEmpty() || requests.isEmpty()) continue;
+                        capturedEpoch = epoch;
+                        captured = new ArrayList<>(requests);
+                        requests.clear();
+                      }
+                      monitor.update(inputs);
+                      if (captured.stream().noneMatch(Request::force) && inputs.matches()) continue;
+                      var result = reload(capturedEpoch);
+                      if (result == null) {
+                        synchronized (gate) {
+                          for (Request request : captured) {
+                            if (closed.get()) {
+                              if (request.result() != null) request.result().cancel(false);
+                            } else requests.addLast(new Request(request.result(), true));
+                          }
+                        }
+                      } else {
+                        for (Request request : captured)
+                          if (request.result() != null) request.result().complete(result);
+                        if (result.outcome() == ApplicationUpdateResult.Outcome.PUBLISHED)
+                          progress.accept("Published runtime revision");
+                      }
                     } catch (InterruptedException exception) {
                       Thread.currentThread().interrupt();
+                      for (Request request : captured)
+                        if (request.result() != null) request.result().cancel(false);
                       return;
                     } catch (java.nio.file.ClosedWatchServiceException exception) {
+                      for (Request request : captured)
+                        if (request.result() != null) request.result().cancel(false);
                       return;
                     } catch (IOException | RuntimeException exception) {
                       if (!closed.get())
                         diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
-                      changed = false;
+                      var result =
+                          new ApplicationUpdateResult(
+                              ApplicationUpdateResult.Outcome.FAILED,
+                              Optional.empty(),
+                              execution.status(),
+                              List.of(),
+                              Optional.ofNullable(exception.getMessage()));
+                      for (Request request : captured)
+                        if (request.result() != null) request.result().complete(result);
                     }
                   }
                 });
   }
 
-  private boolean reload() throws IOException {
-    ProjectLoadResult loaded;
+  private ApplicationUpdateResult reload(long capturedEpoch) throws IOException {
+    ApplicationCandidate candidate;
     try {
-      loaded = projects.load(entry);
+      candidate = compiler.compile();
     } catch (ProjectLoadException exception) {
       inputs = exception.inputs();
       monitor.update(inputs);
-      diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
-      return false;
+      throw exception;
     }
-    inputs = loaded.inputs();
-    monitor.update(inputs);
-    var sources = loaded.sources();
-    try (var compilation =
-        compiler.compile(
-            new ApplicationInput(
-                sources.applicationCompilationRequest(entry), java.util.Optional.of(sources)),
-            List.of(),
-            progress)) {
-      if (closed.get()) return false;
-      if (!inputs.matches()) return true;
-      if (!compilation.result().isSuccess()) {
-        compilation
-            .result()
-            .diagnostics()
-            .forEach(value -> diagnostics.accept(DiagnosticRenderer.render(value)));
-        return false;
+    boolean transferred = false;
+    try {
+      inputs = candidate.inputs();
+      monitor.update(inputs);
+      synchronized (gate) {
+        if (closed.get() || !batches.isEmpty() || epoch != capturedEpoch || !inputs.matches())
+          return null;
+        if (!candidate.result().isSuccess()) {
+          candidate
+              .result()
+              .diagnostics()
+              .forEach(value -> diagnostics.accept(DiagnosticRenderer.render(value)));
+          return new ApplicationUpdateResult(
+              ApplicationUpdateResult.Outcome.REJECTED,
+              Optional.empty(),
+              execution.status(),
+              candidate.result().diagnostics(),
+              Optional.empty());
+        }
+        var revision = candidate.revision().orElseThrow();
+        var identity =
+            Optional.of(ArtifactId.forArtifact(revision.artifact(), "norm-source-live-v1"));
+        try {
+          execution.update(revision);
+        } catch (IllegalArgumentException exception) {
+          diagnostics.accept("error[NORM-LIVE-0002]: " + exception.getMessage());
+          return new ApplicationUpdateResult(
+              ApplicationUpdateResult.Outcome.REJECTED,
+              identity,
+              execution.status(),
+              candidate.result().diagnostics(),
+              Optional.ofNullable(exception.getMessage()));
+        }
+        transferred = true;
+        return new ApplicationUpdateResult(
+            ApplicationUpdateResult.Outcome.PUBLISHED,
+            identity,
+            execution.status(),
+            candidate.result().diagnostics(),
+            Optional.empty());
       }
-      var candidate = compilation.application().orElseThrow();
-      if (!initial.javaBindings().stream()
-              .map(binding -> binding.graph().contentId())
-              .toList()
-              .equals(
-                  candidate.javaBindings().stream()
-                      .map(binding -> binding.graph().contentId())
-                      .toList())
-          || !initial.javaBindings().stream()
-              .map(LinkedJarBinding::from)
-              .toList()
-              .equals(candidate.javaBindings().stream().map(LinkedJarBinding::from).toList())
-          || !initial.sourceSet().resourceSet().equals(candidate.sourceSet().resourceSet())
-          || !classes.equals(classContents(candidate.annotations().classes()))) {
-        diagnostics.accept(
-            "error[NORM-LIVE-0002]: Java dependencies, generated classes or resources changed; restart the application");
-        return false;
-      }
-      if (!inputs.matches()) return true;
-      if (closed.get()) return false;
-      try {
-        execution.update(compilation.result().output().orElseThrow().artifact());
-        progress.accept("Updated running application");
-      } catch (IllegalArgumentException exception) {
-        diagnostics.accept("error[NORM-LIVE-0002]: " + exception.getMessage());
-      }
-      return false;
+    } finally {
+      if (!transferred) candidate.close();
     }
-  }
-
-  static Map<Path, Sha256Digest> classContents(Path root) throws IOException {
-    var content = new LinkedHashMap<Path, Sha256Digest>();
-    if (Files.isDirectory(root)) {
-      try (var files = Files.walk(root)) {
-        for (Path file : files.filter(Files::isRegularFile).sorted().toList())
-          content.put(root.relativize(file), Sha256Digest.compute(file));
-      }
-    }
-    return Map.copyOf(content);
   }
 
   @Override
   public void close() throws IOException {
     if (!closed.compareAndSet(false, true)) return;
+    synchronized (gate) {
+      for (Request request : requests) if (request.result() != null) request.result().cancel(false);
+      requests.clear();
+      batches.clear();
+    }
     try {
       monitor.close();
     } finally {

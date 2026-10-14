@@ -43,6 +43,25 @@ final class CoreDefaultValueVerifier {
                   () -> new IllegalArgumentException("parameter default occurrence is absent"));
       var target = occurrence.id().representative();
       var factory = factory(program, target);
+      if (declaration instanceof CoreDefinition.Aggregate aggregate
+          && factory.parameters().size() == 1) {
+        var field =
+            aggregate.fields().stream()
+                .filter(candidate -> candidate.name().equals(parameter.label()))
+                .findFirst()
+                .orElseThrow(
+                    () -> new IllegalArgumentException("constructor field default has no field"));
+        if (occurrence.role() != CoreDefinitionRole.DEFAULT_VALUE
+            || field.initializer().isEmpty()
+            || !authoring
+                .target(binding.occurrence(), field.initializer().orElseThrow().nodeIndex())
+                .equals(resolved.occurrence())
+            || !parameter.type().equals(field.type())) {
+          throw new IllegalArgumentException(
+              "constructor parameter default must reference its field initializer");
+        }
+        continue;
+      }
       if (occurrence.role() != CoreDefinitionRole.DEFAULT_VALUE
           || factory.parameters().size() != (receiver.isPresent() ? 1 : 0)
           || !typeParameters.equals(typeParameters(program, target))
@@ -63,7 +82,8 @@ final class CoreDefaultValueVerifier {
   static void verifyFieldInitializer(
       CoreProgram program, CoreVerificationTypes types, DefinitionId owner, CoreField field) {
     if (field.initializer().isEmpty()) return;
-    var target = program.resolve(owner, (DefinitionReference) field.initializer().orElseThrow().target());
+    var target =
+        program.resolve(owner, (DefinitionReference) field.initializer().orElseThrow().target());
     var factory = factory(program, target);
     var aggregate = (CoreDefinition.Aggregate) program.definition(owner).orElseThrow();
     if (factory.parameters().size() != 1

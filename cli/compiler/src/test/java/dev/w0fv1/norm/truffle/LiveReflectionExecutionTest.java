@@ -59,16 +59,71 @@ final class LiveReflectionExecutionTest {
     assertUpdate(directory, source, 1, List.of("20", "21", "21"));
   }
 
+  @Test
+  void retainedFieldAndClassFollowLogicalMembersAfterFieldInsertion(@TempDir Path directory)
+      throws Exception {
+    String source =
+        """
+        class Counter { Integer value = 7 }
+        Void main() {
+          var counter = Counter()
+          var retained = Counter.value.field
+          var reflected = classOf(counter)
+          var count = 0
+          for (count < 3) {
+            printLine(retained.read(receiver: counter))
+            for field : reflected.fields() { printLine(field.name()) }
+            count = count + 1
+          }
+        }
+        """;
+    assertUpdate(
+        directory,
+        source,
+        source.replace("class Counter {", "class Counter { Integer extra = 11;"),
+        2,
+        List.of("7", "value", "7", "extra", "value", "7", "extra", "value"));
+  }
+
+  @Test
+  void retainedClassMetadataRemainsAvailableAfterItsDeclarationIsRetired(@TempDir Path directory)
+      throws Exception {
+    String source =
+        """
+        class Retired { Integer value = 7 }
+        Void main() {
+          Any retained = Retired()
+          var reflected = classOf(retained)
+          var count = 0
+          for (count < 3) {
+            for field : reflected.fields() { printLine(field.name()) }
+            count = count + 1
+          }
+        }
+        """;
+    String candidate =
+        source
+            .replace("class Retired { Integer value = 7 }", "")
+            .replace("Any retained = Retired()", "Any retained = \"unused\"");
+    assertUpdate(directory, source, candidate, 1, List.of("value", "value", "value"));
+  }
+
   private static void assertUpdate(
       Path directory, String source, int updateAfter, List<String> expected) throws Exception {
+    assertUpdate(
+        directory, source, source.replace("value + 1", "value + 2"), updateAfter, expected);
+  }
+
+  private static void assertUpdate(
+      Path directory, String source, String candidateSource, int updateAfter, List<String> expected)
+      throws Exception {
     try (var compiler =
         ProjectEnvironment.bootstrap(new TruffleExecutionBackend()).compilerSession()) {
       var file = directory.resolve("reflection.norm");
       var originalResult = compiler.compile(SourceFile.of(file, source));
       assertTrue(originalResult.isSuccess(), originalResult.diagnostics().toString());
       var original = originalResult.output().orElseThrow().artifact();
-      var candidateResult =
-          compiler.compile(SourceFile.of(file, source.replace("value + 1", "value + 2")));
+      var candidateResult = compiler.compile(SourceFile.of(file, candidateSource));
       assertTrue(candidateResult.isSuccess(), candidateResult.diagnostics().toString());
       var candidate = candidateResult.output().orElseThrow().artifact();
       assertEquals(original.metadata().annotations(), candidate.metadata().annotations());

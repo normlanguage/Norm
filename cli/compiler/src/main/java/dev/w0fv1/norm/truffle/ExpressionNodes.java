@@ -153,7 +153,6 @@ final class ExpressionNodes {
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Child private ExpressionNode type;
-    private final AnnotationRuntime annotations;
 
     Intrinsic(
         IntrinsicId intrinsic,
@@ -161,15 +160,13 @@ final class ExpressionNodes {
         ExpressionNode[] arguments,
         int[] parameterIndices,
         ExpressionNode type,
-        boolean nullSafe,
-        AnnotationRuntime annotations) {
+        boolean nullSafe) {
       this.operation = IntrinsicDispatcher.resolve(intrinsic);
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.type = type;
       this.nullSafe = nullSafe;
-      this.annotations = annotations;
     }
 
     @Override
@@ -184,7 +181,7 @@ final class ExpressionNodes {
           type == null ? null : (CoreType) type.execute(frame),
           ExecutionContextAccess.get(frame),
           this,
-          annotations,
+          ExecutionContextAccess.state(frame).runtime(),
           ExecutionContextAccess.state(frame));
     }
   }
@@ -314,9 +311,9 @@ final class ExpressionNodes {
 
   static final class AddressField extends ExpressionNode {
     @Child private ExpressionNode receiver;
-    private final int field;
+    private final RuntimeValues.FieldKey field;
 
-    AddressField(ExpressionNode receiver, int field) {
+    AddressField(ExpressionNode receiver, RuntimeValues.FieldKey field) {
       this.receiver = receiver;
       this.field = field;
     }
@@ -794,38 +791,88 @@ final class ExpressionNodes {
     }
   }
 
+  static final class ParameterProvided extends ExpressionNode {
+    private final int parameter;
+
+    ParameterProvided(int parameter) {
+      this.parameter = parameter;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      return ConstructionArguments.from(frame).isProvided(parameter);
+    }
+  }
+
+  static final class ConstructorCall extends ExpressionNode {
+    @Child private DirectCallNode target;
+    @Child private ExpressionNode receiver;
+    @Children private final ExpressionNode[] arguments;
+    @Children private final ExpressionNode[] reified;
+    private final int[] indices;
+    private final int count;
+
+    ConstructorCall(
+        CallTarget target,
+        ExpressionNode receiver,
+        ExpressionNode[] arguments,
+        int[] indices,
+        ExpressionNode[] reified,
+        int count) {
+      this.target = DirectCallNode.create(target);
+      this.receiver = receiver;
+      this.arguments = arguments;
+      this.indices = indices;
+      this.reified = reified;
+      this.count = count;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      var value = receiver.execute(frame);
+      var types = new Object[reified.length];
+      for (int index = 0; index < types.length; index++)
+        types[index] = reified[index].execute(frame);
+      return target.call(
+          ExecutionContextAccess.state(frame),
+          value,
+          ConstructionArguments.evaluate(count, arguments, indices, types, frame));
+    }
+  }
+
   static final class Construct extends ExpressionNode {
     private final RuntimeValues.AggregateInfo aggregateInfo;
     @Child private DirectCallNode initializer;
     @Child private ExpressionNode type;
     @Children private final ExpressionNode[] fields;
     private final int[] fieldIndices;
+    private final int parameterCount;
 
     Construct(
         RuntimeValues.AggregateInfo aggregateInfo,
         CallTarget initializer,
         ExpressionNode type,
         ExpressionNode[] fields,
-        int[] fieldIndices) {
+        int[] fieldIndices,
+        int parameterCount) {
       this.aggregateInfo = aggregateInfo;
       this.initializer = DirectCallNode.create(initializer);
       this.type = type;
       this.fields = fields;
       this.fieldIndices = fieldIndices;
+      this.parameterCount = parameterCount;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
       RuntimeValues.ObjectValue object =
           RuntimeValues.object(aggregateInfo, (CoreType) type.execute(frame));
-      Object[] values = evaluateArguments(fields, fieldIndices, frame);
       Object[] ownerArguments = ownerTypeArguments(object.type);
-      Object[] callArguments = new Object[values.length + ownerArguments.length + 2];
-      callArguments[0] = ExecutionContextAccess.state(frame);
-      callArguments[1] = object;
-      System.arraycopy(values, 0, callArguments, 2, values.length);
-      System.arraycopy(ownerArguments, 0, callArguments, values.length + 2, ownerArguments.length);
-      initializer.call(callArguments);
+      initializer.call(
+          ExecutionContextAccess.state(frame),
+          object,
+          ConstructionArguments.evaluate(
+              parameterCount, fields, fieldIndices, ownerArguments, frame));
       return object;
     }
 
@@ -890,10 +937,10 @@ final class ExpressionNodes {
 
   static final class ReadField extends ExpressionNode {
     @Child private ExpressionNode receiver;
-    private final int field;
+    private final RuntimeValues.FieldKey field;
     private final boolean nullSafe;
 
-    ReadField(ExpressionNode receiver, int field, boolean nullSafe) {
+    ReadField(ExpressionNode receiver, RuntimeValues.FieldKey field, boolean nullSafe) {
       this.receiver = receiver;
       this.field = field;
       this.nullSafe = nullSafe;
@@ -904,7 +951,7 @@ final class ExpressionNodes {
       Object receiverValue = receiver.execute(frame);
       if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) return receiverValue;
       RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
-      Object value = object.readField(field);
+      Object value = object.readField(field, ExecutionContextAccess.state(frame));
       if (value == null) {
         var execution = ExecutionContextAccess.state(frame);
         throw execution

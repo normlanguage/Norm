@@ -570,11 +570,18 @@ public final class NormCompilerPlugin implements Plugin<Project> {
             "jspecify");
     implementation.forEach(
         value -> dependencies.add("implementation", libs.findLibrary(value).orElseThrow().get()));
-    List.of("jackson-core", "jackson-yaml", "woodstox", "truffle-api", "polyglot", "objenesis")
+    List.of(
+            "jackson-core",
+            "jackson-yaml",
+            "woodstox",
+            "truffle-api",
+            "polyglot",
+            "objenesis",
+            "collections")
         .forEach(
             value ->
                 dependencies.add("nativeExecution", libs.findLibrary(value).orElseThrow().get()));
-    List.of("nativeimage", "asm", "kryo")
+    List.of("nativeimage", "asm", "asm-commons", "asm-tree", "kryo")
         .forEach(
             value -> dependencies.add("nativeHosted", libs.findLibrary(value).orElseThrow().get()));
     dependencies.add("runtimeOnly", libs.findLibrary("truffle-runtime").orElseThrow().get());

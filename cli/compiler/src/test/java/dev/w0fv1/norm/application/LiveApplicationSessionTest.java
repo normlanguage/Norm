@@ -6,6 +6,7 @@ import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.execution.ExecutionRevision;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -44,7 +45,7 @@ class LiveApplicationSessionTest {
           }
 
           @Override
-          public LiveExecution prepareLive(CoreArtifact artifact) {
+          public LiveExecution prepareLive(ExecutionRevision initial) {
             return new LiveExecution() {
               @Override
               public void execute(ExecutionContext context) {
@@ -62,6 +63,16 @@ class LiveApplicationSessionTest {
               public void update(CoreArtifact replacement) {
                 fail("terminated application must not publish a pending compilation");
               }
+
+              @Override
+              public void update(ExecutionRevision replacement) {
+                fail("terminated application must not publish a pending compilation");
+              }
+
+              @Override
+              public void close() {
+                initial.close();
+              }
             };
           }
         };
@@ -76,7 +87,7 @@ class LiveApplicationSessionTest {
                     try {
                       assertTrue(
                           runner
-                              .runLive(
+                              .run(
                                   entry,
                                   ExecutionContext.of(new PrintWriter(new StringWriter())),
                                   message -> {
@@ -133,7 +144,8 @@ class LiveApplicationSessionTest {
           }
 
           @Override
-          public LiveExecution prepareLive(CoreArtifact artifact) {
+          public LiveExecution prepareLive(ExecutionRevision initial) {
+            var current = new AtomicReference<>(initial);
             return new LiveExecution() {
               @Override
               public void execute(ExecutionContext context) {
@@ -148,8 +160,20 @@ class LiveApplicationSessionTest {
 
               @Override
               public void update(CoreArtifact replacement) {
-                assertNotEquals(artifact.entryDefinition(), replacement.entryDefinition());
+                fail("application update requires a complete revision");
+              }
+
+              @Override
+              public void update(ExecutionRevision replacement) {
+                assertNotEquals(
+                    initial.artifact().entryDefinition(), replacement.artifact().entryDefinition());
+                current.getAndSet(replacement).close();
                 updated.countDown();
+              }
+
+              @Override
+              public void close() {
+                current.getAndSet(null).close();
               }
             };
           }
@@ -165,7 +189,7 @@ class LiveApplicationSessionTest {
                     try {
                       assertTrue(
                           runner
-                              .runLive(
+                              .run(
                                   entry,
                                   ExecutionContext.of(new PrintWriter(new StringWriter())),
                                   message -> {},

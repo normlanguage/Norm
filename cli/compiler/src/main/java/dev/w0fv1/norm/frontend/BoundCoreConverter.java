@@ -559,14 +559,24 @@ final class BoundCoreConverter {
     var referenceTargets = new LinkedHashMap<Integer, Integer>();
     var initializers = new LinkedHashMap<Integer, CoreFieldInitializer>();
     for (var field : declaration.fields()) {
-      field.initializer().ifPresent(target -> {
-        var factory = program.callables().stream().filter(callable -> callable.id().equals(target)).findFirst().orElseThrow();
-        int nodeIndex = field.ordinal() + 1;
-        int targetIndex = declarationIndex(target.value());
-        nodeSpans.put(nodeIndex, factory.span());
-        referenceTargets.put(nodeIndex, targetIndex);
-        initializers.put(field.ordinal(), new CoreFieldInitializer(nodeIndex, new PendingDefinitionReference(targetIndex)));
-      });
+      field
+          .initializer()
+          .ifPresent(
+              target -> {
+                var factory =
+                    program.callables().stream()
+                        .filter(callable -> callable.id().equals(target))
+                        .findFirst()
+                        .orElseThrow();
+                int nodeIndex = field.ordinal() + 1;
+                int targetIndex = declarationIndex(target.value());
+                nodeSpans.put(nodeIndex, factory.span());
+                referenceTargets.put(nodeIndex, targetIndex);
+                initializers.put(
+                    field.ordinal(),
+                    new CoreFieldInitializer(
+                        nodeIndex, new PendingDefinitionReference(targetIndex)));
+              });
     }
     CoreDefinition definition =
         new CoreDefinition.Aggregate(

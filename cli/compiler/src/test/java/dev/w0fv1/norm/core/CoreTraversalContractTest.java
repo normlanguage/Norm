@@ -327,6 +327,7 @@ final class CoreTraversalContractTest {
             new CoreFieldReference(links.next(), 0),
             new CoreType.Reference(links.type())));
     values.add(new CoreExpression.Dereference(20, values.get(17), links.type()));
+    values.add(new CoreExpression.ParameterProvided(62, 0));
     return List.copyOf(values);
   }
 

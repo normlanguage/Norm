@@ -155,7 +155,9 @@ final class AnnotationChecker {
           List<AnnotationParameterInfo> parameters = new ArrayList<>();
           List<?> constructorParameters =
               declaration.constructors().isEmpty()
-                  ? declaration.fields().stream().filter(declarationPolicies::constructorInput).toList()
+                  ? declaration.fields().stream()
+                      .filter(declarationPolicies::constructorInput)
+                      .toList()
                   : declaration.constructors().getFirst().parameters();
           for (Object parameter : constructorParameters) {
             Syntax.TypeRef typeRef =
@@ -423,9 +425,9 @@ final class AnnotationChecker {
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
-                        && site.kind() == AnnotationTarget.FUNCTION
+                        && site.kind() == callableTarget
                         && site.symbol().equals(callableId)
-                        && isInterceptor(application, AnnotationTarget.FUNCTION))
+                        && isInterceptor(application, callableTarget))
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()

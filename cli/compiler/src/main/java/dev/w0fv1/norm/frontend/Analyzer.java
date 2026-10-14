@@ -144,7 +144,8 @@ final class Analyzer {
           for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
             if (reuse(aggregateDecl.span(), reusableDeclarations)) continue;
             typeResolver.validateTypeParameterNames(aggregateDecl.typeParameters());
-            declarations.validateFields(aggregateDecl, bodies.expressionChecker);
+            declarations.validateFields(aggregateDecl);
+            bodies.analyzeFieldDefaults(aggregateDecl);
             bodies.analyzeImplicitSuperCall(aggregateDecl);
             for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
               bodies.analyzeConstructor(constructor, aggregateDecl);

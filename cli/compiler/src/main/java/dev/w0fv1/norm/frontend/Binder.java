@@ -266,11 +266,10 @@ final class Binder {
       for (Syntax.FunctionDecl function : program.functions()) bindCallable(function, null);
       for (Syntax.AggregateDecl owner : program.aggregates()) {
         if (owner.constructors().isEmpty()) {
-          bindConstructor(owner, Optional.empty(), false);
-          if (hasImplicitDefaultConstructor(owner)) bindConstructor(owner, Optional.empty(), true);
+          bindConstructor(owner, Optional.empty());
         } else {
           for (Syntax.ConstructorDecl constructor : owner.constructors()) {
-            bindConstructor(owner, Optional.of(constructor), false);
+            bindConstructor(owner, Optional.of(constructor));
           }
         }
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
@@ -469,10 +468,9 @@ final class Binder {
   }
 
   private void bindConstructor(
-      Syntax.AggregateDecl owner, Optional<Syntax.ConstructorDecl> declaration, boolean defaults) {
+      Syntax.AggregateDecl owner, Optional<Syntax.ConstructorDecl> declaration) {
     BoundCallableId id =
         declaration.map(this::constructorId).orElseGet(() -> syntheticConstructorId(owner));
-    if (defaults) id = new BoundCallableId(id.value() + "/defaults");
     BoundCallableId previousCallableId = currentCallableId;
     List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
     currentCallableId = id;
@@ -521,7 +519,7 @@ final class Binder {
         Syntax.FieldDecl field = owner.fields().get(ordinal);
         BoundField boundField = field(symbol(field.nameSpan()));
         if (!constructorInput(owner, field) && field.defaultValue().isEmpty()) continue;
-        if (defaults || !constructorInput(owner, field)) {
+        if (!constructorInput(owner, field)) {
           statements.add(
               new BoundStatement.FieldAssignment(
                   thisRead(field.span()),
@@ -539,13 +537,30 @@ final class Binder {
                 parameters.size(),
                 List.of(),
                 defaultValues.defaultValue(symbol(owner.nameSpan()).id(), parameters.size())));
-        statements.add(
+        var provided =
             new BoundStatement.FieldAssignment(
                 thisRead(field.span()),
                 boundField.id(),
                 boundField.ordinal(),
                 new BoundExpression.LocalRead(local, boundField.type(), field.span()),
-                field.span()));
+                field.span());
+        if (field.defaultValue().isPresent()) {
+          var defaulted =
+              new BoundStatement.FieldAssignment(
+                  thisRead(field.span()),
+                  boundField.id(),
+                  boundField.ordinal(),
+                  fieldInitializer(boundField, field.span()),
+                  field.span());
+          statements.add(
+              new BoundStatement.IfStatement(
+                  new BoundExpression.ParameterProvided(parameters.size() - 1, field.span()),
+                  new BoundBlock(List.of(provided), field.span()),
+                  new BoundBlock(List.of(defaulted), field.span()),
+                  field.span()));
+        } else {
+          statements.add(provided);
+        }
       }
     } else {
       Syntax.ConstructorDecl constructor = declaration.orElseThrow();
@@ -585,7 +600,11 @@ final class Binder {
             parameters,
             activeTypeParameters,
             reified,
-            List.of(),
+            declaration
+                .map(
+                    value ->
+                        interceptors(AnnotationTarget.CONSTRUCTOR, symbol(value.nameSpan()).id()))
+                .orElse(List.of()),
             SemanticType.VOID,
             new BoundBlock(statements, span),
             span));
@@ -1704,8 +1723,7 @@ final class Binder {
 
   private BoundExpression bindLambda(Syntax.Lambda lambda, SemanticType type) {
     BoundCallableId lambdaId =
-        new BoundCallableId(
-            currentCallableId.value() + "/lambda/" + authoring.location(lambda));
+        new BoundCallableId(currentCallableId.value() + "/lambda/" + authoring.location(lambda));
     Map<BoundLocalId, SemanticType> previousCaptures = lambdaCaptures;
     java.util.Set<BoundLocalId> previousLocals = lambdaLocals;
     BoundCallableId previousCallable = currentCallableId;
@@ -1899,22 +1917,12 @@ final class Binder {
       return declaration.constructors().stream().map(this::constructorId).toList();
     }
     BoundCallableId constructor = syntheticConstructorId(declaration);
-    return hasImplicitDefaultConstructor(declaration)
-        ? List.of(constructor, new BoundCallableId(constructor.value() + "/defaults"))
-        : List.of(constructor);
+    return List.of(constructor);
   }
 
   private boolean constructorInput(Syntax.AggregateDecl owner, Syntax.FieldDecl field) {
     return symbol(owner.nameSpan()).parameters().stream()
         .anyMatch(parameter -> parameter.name().equals(field.name()));
-  }
-
-  private boolean hasImplicitDefaultConstructor(Syntax.AggregateDecl declaration) {
-    return declaration.constructors().isEmpty()
-        && declaration.fields().stream().anyMatch(field -> constructorInput(declaration, field))
-        && declaration.fields().stream()
-            .filter(field -> constructorInput(declaration, field))
-            .allMatch(field -> field.defaultValue().isPresent());
   }
 
   private BoundCallableId constructorId(Syntax.ConstructorDecl declaration) {

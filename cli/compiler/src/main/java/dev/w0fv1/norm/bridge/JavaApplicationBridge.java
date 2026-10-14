@@ -1,11 +1,33 @@
 package dev.w0fv1.norm.bridge;
 
+import java.lang.ref.WeakReference;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.WeakHashMap;
 
 public final class JavaApplicationBridge {
-  private static final ConcurrentMap<ClassLoader, Handler> HANDLERS = new ConcurrentHashMap<>();
+  public static Registration install(java.util.List<ClassLoader> loaders, Handler handler) {
+    return register(loaders, handler, false);
+  }
+
+  public static Registration replace(java.util.List<ClassLoader> loaders, Handler handler) {
+    return register(loaders, handler, true);
+  }
+
+  private static Registration register(
+      java.util.List<ClassLoader> loaders, Handler handler, boolean replace) {
+    var registrations = new java.util.ArrayList<Registration>();
+    try {
+      for (ClassLoader loader : new java.util.LinkedHashSet<>(loaders))
+        registrations.add(register(loader, handler, replace));
+      return () -> registrations.reversed().forEach(Registration::close);
+    } catch (RuntimeException | Error exception) {
+      registrations.reversed().forEach(Registration::close);
+      throw exception;
+    }
+  }
+
+  private static final Map<ClassLoader, WeakReference<Handler>> HANDLERS = new WeakHashMap<>();
 
   private JavaApplicationBridge() {}
 
@@ -14,12 +36,28 @@ public final class JavaApplicationBridge {
   }
 
   public static Registration install(ClassLoader loader, Handler handler) {
+    return register(loader, handler, false);
+  }
+
+  public static Registration replace(ClassLoader loader, Handler handler) {
+    return register(loader, handler, true);
+  }
+
+  private static Registration register(ClassLoader loader, Handler handler, boolean replace) {
     Objects.requireNonNull(loader, "loader");
     Objects.requireNonNull(handler, "handler");
-    if (HANDLERS.putIfAbsent(loader, handler) != null) {
-      throw new IllegalStateException("Norm Java application bridge is already installed");
+    synchronized (HANDLERS) {
+      var previous = HANDLERS.get(loader);
+      if (!replace && previous != null && previous.get() != null)
+        throw new IllegalStateException("Norm Java application bridge is already installed");
+      HANDLERS.put(loader, new WeakReference<>(handler));
     }
-    return () -> HANDLERS.remove(loader, handler);
+    return () -> {
+      synchronized (HANDLERS) {
+        var current = HANDLERS.get(loader);
+        if (current != null && current.get() == handler) HANDLERS.remove(loader);
+      }
+    };
   }
 
   public static void construct(
@@ -37,13 +75,14 @@ public final class JavaApplicationBridge {
   }
 
   public static Object invokeHost(
+      ClassLoader loader,
       Object receiver,
       String callable,
       Object[] arguments,
       Object receiverType,
       Object[] methodTypes) {
     Objects.requireNonNull(receiver, "receiver");
-    return handler(receiver.getClass())
+    return handler(loader)
         .invokeHost(callable, receiver, arguments.clone(), receiverType, methodTypes.clone());
   }
 
@@ -57,9 +96,9 @@ public final class JavaApplicationBridge {
     return handler(loader).fromJava(value);
   }
 
-  public static void writeField(Object receiver, String field, Object value) {
+  public static void writeField(ClassLoader loader, Object receiver, String field, Object value) {
     Objects.requireNonNull(receiver, "receiver");
-    handler(receiver.getClass()).writeField(receiver, field, value);
+    handler(loader).writeField(receiver, field, value);
   }
 
   private static Handler handler(Class<?> owner) {
@@ -69,11 +108,13 @@ public final class JavaApplicationBridge {
 
   private static Handler handler(ClassLoader loader) {
     Objects.requireNonNull(loader, "loader");
-    Handler handler = HANDLERS.get(loader);
-    if (handler == null) {
-      throw new IllegalStateException("Norm Java application bridge is not installed");
+    synchronized (HANDLERS) {
+      var reference = HANDLERS.get(loader);
+      Handler handler = reference == null ? null : reference.get();
+      if (handler == null)
+        throw new IllegalStateException("Norm Java application bridge is not installed");
+      return handler;
     }
-    return handler;
   }
 
   public interface Handler {

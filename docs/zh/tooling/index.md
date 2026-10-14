@@ -27,9 +27,13 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 
 ## 保存后更新运行中的代码
 
-使用 `norm run --watch main.norm` 在 JVM 上运行并监听项目输入。保存兼容的实现修改后，后续执行边界使用新代码，活动函数帧、局部值和迭代器继续保留；入口不会重跑。程序退出时监听随之结束。
+`norm run main.norm` 与 `norm main.norm` 在 JVM 源码运行期间监听项目输入。保存代码后在执行边界采用新版本并保留运行状态，程序退出时监听随之结束。准备制品缓存复用同一运行入口。
 
-编译错误或不兼容修改会输出诊断，旧版继续执行，修复保存后可以再次更新。当前需要保持调用契约、局部绑定与类型、语句和表达式结构以及运行时对象布局；类型与运行时元数据仍按精确内容身份校验，因此修改类方法实现或带注解函数等导致这些身份变化的更新也会被拒绝。改变 Java 依赖、生成类或资源需要重启。完整兼容判定由 [CoreLiveSchema](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreLiveSchema.java) 和 [LiveApplicationSession](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/LiveApplicationSession.java) 定义，同次运行的状态保留验收见 [LiveExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveExecutionTest.java)。这项能力用于源码运行，不属于 Native Image 发布产物。
+编译失败时继续执行运行中的版本。无法唯一对应的活动区域保留旧版并报告待更新状态。破坏型状态变化需要迁移，当前没有公开的显式状态转换器 API。发布制品直接加载准备好的程序。注解引用具有相同规范内容的全局函数时，无法唯一确定声明会被拒绝；参见 [AnnotationRuntime](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/AnnotationRuntime.java)。
+
+公开的更新与批量生命周期见 [ApplicationSession](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationSession.java) 和 [ApplicationUpdateResult](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationUpdateResult.java)，状态兼容规则以 [CoreRuntimeSchema](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreRuntimeSchema.java) 为准。验证入口为 [LiveExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveExecutionTest.java)、[LiveStructureExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveStructureExecutionTest.java)、[LiveMigrationBoundaryTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveMigrationBoundaryTest.java)、[LiveRuntimeTypesExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveRuntimeTypesExecutionTest.java) 和 [SelfUpdatingApplicationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/cli/controller/SelfUpdatingApplicationTest.java)。
+
+运行时身份与 Java 依赖组件入口为 [CoreRuntimeIdentity](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreRuntimeIdentity.java)、[JavaRealmPool](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaRealmPool.java) 和 [ApplicationRuntimeRevisionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/application/ApplicationRuntimeRevisionTest.java)。事务验证入口为 [LiveContainerMigrationExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveContainerMigrationExecutionTest.java) 和 [LiveConstructionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/LiveConstructionExecutionTest.java)。事务范围仅为 Norm 状态，外部 I/O 不回滚。
 
 ## VS Code
 

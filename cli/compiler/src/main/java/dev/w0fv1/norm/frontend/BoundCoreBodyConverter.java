@@ -162,6 +162,7 @@ final class BoundCoreBodyConverter {
       case BoundExpression.CollectionLiteral collection ->
           collection.elements().forEach(this::scanCollectionElement);
       case BoundExpression.LocalRead ignored -> {}
+      case BoundExpression.ParameterProvided ignored -> {}
       case BoundExpression.Let let -> {
         scanExpression(let.initializer());
         locals.add(let.local(), types.convert(let.initializer().type()), CoreLocal.Kind.VARIABLE);
@@ -315,6 +316,8 @@ final class BoundCoreBodyConverter {
       case BoundExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               node, locals.index(local.local()), types.convert(local.type()));
+      case BoundExpression.ParameterProvided provided ->
+          new CoreExpression.ParameterProvided(node, provided.parameterIndex());
       case BoundExpression.Let let ->
           new CoreExpression.Let(
               node, locals.index(let.local()), convert(let.initializer()), convert(let.body()));

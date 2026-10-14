@@ -287,19 +287,19 @@ final class CollectionIntrinsicDispatcher {
       case PAIR_FIRST_READ ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
-            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
+            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first());
           };
       case PAIR_SECOND_READ ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object second = arguments.length <= 1 ? null : arguments[1];
-            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
+            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second());
           };
       case PAIR_FIRST_WRITE ->
           ValueObservations.mutation(
               (receiver, arguments, type, context, location, annotations, execution) -> {
                 Object first = arguments.length <= 0 ? null : arguments[0];
 
-                ((RuntimeValues.PairValue) receiver).first = RuntimeValues.copy(first);
+                ((RuntimeValues.PairValue) receiver).first(RuntimeValues.copy(first));
                 return null;
               });
       case PAIR_SECOND_WRITE ->
@@ -308,7 +308,7 @@ final class CollectionIntrinsicDispatcher {
                 Object first = arguments.length <= 0 ? null : arguments[0];
                 Object second = arguments.length <= 1 ? null : arguments[1];
 
-                ((RuntimeValues.PairValue) receiver).second = RuntimeValues.copy(first);
+                ((RuntimeValues.PairValue) receiver).second(RuntimeValues.copy(first));
                 return null;
               });
       case ARRAY_INDEX_READ ->

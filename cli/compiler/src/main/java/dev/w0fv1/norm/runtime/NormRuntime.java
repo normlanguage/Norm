@@ -37,6 +37,11 @@ public final class NormRuntime implements ExecutionBackend {
   }
 
   @Override
+  public LiveExecution prepareLive(dev.w0fv1.norm.execution.ExecutionRevision revision) {
+    return backend.prepareLive(revision);
+  }
+
+  @Override
   public void execute(
       CoreArtifact artifact, CoreExecutionPlan execution, ExecutionContext context) {
     backend.execute(

@@ -100,7 +100,8 @@ final class NormTestEngine implements TestEngine {
                   .withEntryPoint(test.occurrence());
           backend.execute(
               artifact,
-              CoreExecutionPlan.forArtifact(artifact, application.methods().entryPoints()),
+              CoreExecutionPlan.forArtifact(
+                  artifact, application.methods().sourceEntryPoints(artifact)),
               execution);
           if (!expected.toString().isEmpty() && !expected.toString().equals(output.toString())) {
             throw new AssertionError("Expected output:\n" + expected + "Actual output:\n" + output);

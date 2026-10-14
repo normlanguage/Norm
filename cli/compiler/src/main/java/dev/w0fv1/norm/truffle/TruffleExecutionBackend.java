@@ -45,6 +45,11 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
   }
 
   @Override
+  public LiveExecution prepareLive(dev.w0fv1.norm.execution.ExecutionRevision revision) {
+    return new LiveTruffleExecution(revision);
+  }
+
+  @Override
   public void execute(
       CoreArtifact artifact, CoreExecutionPlan execution, ExecutionContext context) {
     prepare(artifact, execution).execute(context);

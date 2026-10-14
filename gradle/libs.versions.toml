@@ -13,6 +13,7 @@ slf4j = { strictly = "2.0.18" }
 junit = { strictly = "6.1.2" }
 apiguardian = { strictly = "1.1.2" }
 objenesis = { strictly = "3.3" }
+collections = { strictly = "4.6.0" }
 kryo = { strictly = "5.6.2" }
 reachability = { strictly = "1.1.12" }
 jspecify = { strictly = "1.0.0" }
@@ -36,6 +37,8 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 resolver-supplier = { module = "org.apache.maven.resolver:maven-resolver-supplier-mvn3", version.ref = "resolver" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+asm-commons = { module = "org.ow2.asm:asm-commons", version.ref = "asm" }
+asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 codec = { module = "commons-codec:commons-codec", version.ref = "codec" }
 compress = { module = "org.apache.commons:commons-compress", version.ref = "compress" }
 jcl-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
@@ -46,6 +49,7 @@ junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", vers
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
 objenesis = { module = "org.objenesis:objenesis", version.ref = "objenesis" }
+collections = { module = "org.apache.commons:commons-collections4", version.ref = "collections" }
 kryo = { module = "com.esotericsoftware:kryo", version.ref = "kryo" }
 reachability = { module = "org.graalvm.buildtools:graalvm-reachability-metadata", version.ref = "reachability" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }

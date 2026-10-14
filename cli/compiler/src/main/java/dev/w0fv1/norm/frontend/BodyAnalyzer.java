@@ -197,26 +197,7 @@ final class BodyAnalyzer {
               model.declarationSymbols().get(parameter));
         }
         if (owner != null) {
-          flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
-          for (AggregateView view :
-              typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
-            Map<String, SemanticType> substitutions =
-                typeResolver.aggregateSubstitutions(view.declaration(), view.type());
-            for (Syntax.FieldDecl field : view.declaration().fields()) {
-              if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
-                continue;
-              flow.declareExisting(
-                  field.name(),
-                  typeResolver
-                      .resolveDeclarationType(
-                          field.type(),
-                          field,
-                          typeResolver.aggregateTypeParameters(view.declaration()))
-                      .substitute(substitutions),
-                  field.nameSpan(),
-                  model.declarationSymbols().get(field));
-            }
-          }
+          declareReceiver(owner);
         }
         for (Syntax.Parameter parameter : function.parameters()) {
           typeResolver.validateReferenceCapableType(parameter.type());
@@ -265,6 +246,54 @@ final class BodyAnalyzer {
     }
   }
 
+  void analyzeFieldDefaults(Syntax.AggregateDecl owner) {
+    try (var aggregateScope =
+        resolution.enterParameters(
+            typeResolver.aggregateTypeParameters(owner),
+            typeResolver.typeParameterSymbols(owner.typeParameters()))) {
+      typeResolver.registerBounds(owner.typeParameters(), resolution.parameters());
+      for (var field : owner.fields()) {
+        if (field.defaultValue().isEmpty()) continue;
+        var expected = typeResolver.resolveType(field.type(), resolution.parameters());
+        var expression = field.defaultValue().orElseThrow();
+        try (var callableScope =
+            body.enterCallable(model.declarationSymbols().get(field), expected, false, owner)) {
+          flow.pushScope(expression.span());
+          for (var parameter : owner.typeParameters()) {
+            flow.declareExisting(
+                parameter.name(),
+                resolution.parameters().get(parameter.name()),
+                parameter.nameSpan(),
+                model.declarationSymbols().get(parameter));
+          }
+          declareReceiver(owner);
+          typeResolver.requireType(
+              expected, expressionChecker.typeOf(expression, expected), expression.span());
+          flow.popScope();
+        }
+      }
+    }
+  }
+
+  private void declareReceiver(Syntax.AggregateDecl owner) {
+    flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
+    for (AggregateView view : typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
+      var substitutions = typeResolver.aggregateSubstitutions(view.declaration(), view.type());
+      for (var field : view.declaration().fields()) {
+        if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
+          continue;
+        flow.declareExisting(
+            field.name(),
+            typeResolver
+                .resolveDeclarationType(
+                    field.type(), field, typeResolver.aggregateTypeParameters(view.declaration()))
+                .substitute(substitutions),
+            field.nameSpan(),
+            model.declarationSymbols().get(field));
+      }
+    }
+  }
+
   void analyzeConstructor(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
     try (var constructorScope =
         resolution.enterParameters(
@@ -286,26 +315,7 @@ final class BodyAnalyzer {
           typeResolver.validateReferenceCapableType(parameter.type());
         }
         analyzeParameterDefaults(constructor.parameters());
-        flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
-        for (AggregateView view :
-            typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
-          Map<String, SemanticType> substitutions =
-              typeResolver.aggregateSubstitutions(view.declaration(), view.type());
-          for (Syntax.FieldDecl field : view.declaration().fields()) {
-            if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
-              continue;
-            flow.declareExisting(
-                field.name(),
-                typeResolver
-                    .resolveDeclarationType(
-                        field.type(),
-                        field,
-                        typeResolver.aggregateTypeParameters(view.declaration()))
-                    .substitute(substitutions),
-                field.nameSpan(),
-                model.declarationSymbols().get(field));
-          }
-        }
+        declareReceiver(owner);
         flow.pushScope(constructor.span());
         for (Syntax.Parameter parameter : constructor.parameters()) {
           Symbol symbol =

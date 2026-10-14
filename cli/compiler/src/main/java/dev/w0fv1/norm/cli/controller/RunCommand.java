@@ -1,15 +1,13 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationRunResult;
 import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
-import dev.w0fv1.norm.project.ProjectEnvironment;
-import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -21,7 +19,7 @@ import java.util.List;
 final class RunCommand implements Command {
   @Override
   public String usage() {
-    return "norm run [--debug] [--watch] <file.norm|module-directory> [-- arguments...]";
+    return "norm run [--debug] <file.norm|module-directory> [-- arguments...]";
   }
 
   @Override
@@ -42,7 +40,6 @@ final class RunCommand implements Command {
         separator < 0 ? List.of() : List.copyOf(arguments.subList(separator + 1, arguments.size()));
     if (separator >= 0) arguments = new ArrayList<>(arguments.subList(0, separator));
     boolean debug = arguments.remove("--debug");
-    boolean watch = arguments.remove("--watch");
     if (arguments.size() != 1) {
       err.println(
           "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
@@ -68,34 +65,13 @@ final class RunCommand implements Command {
             .arguments(applicationArguments)
             .platform(JdkSystemPlatform.standard())
             .build();
-    CompilationResult result;
+    ApplicationRunResult result;
     String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
     java.util.function.Consumer<String> progress =
         debug && (applicationBundle == null || applicationBundle.isBlank())
             ? new CommandProgress("run", err)
             : message -> {};
     try {
-      if (watch) {
-        try (var environment = ProjectEnvironment.persistent(new NormRuntime());
-            var launcher = ApplicationRunner.persistent(environment, progress)) {
-          result =
-              launcher.runLive(
-                  entry,
-                  context,
-                  progress,
-                  message -> {
-                    err.println(message);
-                    err.flush();
-                  });
-        }
-        if (!result.isSuccess()) {
-          result
-              .diagnostics()
-              .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
-          return ExitCode.COMPILATION_ERROR;
-        }
-        return context.exitCode();
-      }
       if (applicationBundle != null && !applicationBundle.isBlank()) {
         Path bundle = Path.of(applicationBundle);
         String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
@@ -106,29 +82,19 @@ final class RunCommand implements Command {
         dev.w0fv1.norm.runtime.PreparedApplication.read(bundle).execute(bundle, context);
         return context.exitCode();
       }
-      progress.accept("Checking prepared application");
       var cache =
           new dev.w0fv1.norm.application.PreparedApplicationCache(
               Path.of(System.getProperty("user.home"), ".norm", "cache", "applications"));
-      var prepared = cache.read(entry);
-      if (prepared.content().isPresent()) {
-        progress.accept("Reused prepared application");
-        var content = prepared.content().orElseThrow();
-        try (var workspace = cache.prepare(content)) {
-          var application = content.application();
-          progress.accept("Starting application");
-          application.execute(
-              workspace.path(),
-              context.withApplicationDirectory(entry.toAbsolutePath().normalize().getParent()));
-        }
-        return context.exitCode();
-      }
-      progress.accept("Initializing compiler");
-      NormRuntime backend = new NormRuntime();
-      try (var environment = ProjectEnvironment.persistent(backend);
-          var launcher = ApplicationRunner.persistent(environment, progress)) {
-        result = launcher.run(entry, context, progress, cache, prepared.modules());
-      }
+      result =
+          ApplicationRunner.runSource(
+              entry,
+              context,
+              progress,
+              message -> {
+                err.println(message);
+                err.flush();
+              },
+              cache);
     } catch (IOException exception) {
       err.printf(
           "error[NORM-CLI-0004]: cannot load source file '%s': %s%n",
