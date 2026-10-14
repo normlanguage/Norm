@@ -91,7 +91,7 @@ final class Binder {
   private List<BoundTypeParameter> activeTypeParameters = List.of();
   private BoundLocalId thisLocal;
   private SemanticType thisType;
-  private final Map<BoundCallableId, Integer> lambdaOrdinals = new LinkedHashMap<>();
+  private final SyntaxAuthoringIndex authoring;
   private Map<BoundLocalId, SemanticType> lambdaCaptures;
   private java.util.Set<BoundLocalId> lambdaLocals = java.util.Set.of();
   private BoundCallableId currentCallableId;
@@ -102,6 +102,7 @@ final class Binder {
     this.programs = List.copyOf(programs);
     this.semantics = semantics;
     defaultValues = new DefaultValueDeclarations(programs, semantics);
+    authoring = new SyntaxAuthoringIndex(programs, semantics);
   }
 
   BoundProgram bind(Syntax.FunctionDecl entryPoint) {
@@ -1704,9 +1705,7 @@ final class Binder {
   private BoundExpression bindLambda(Syntax.Lambda lambda, SemanticType type) {
     BoundCallableId lambdaId =
         new BoundCallableId(
-            currentCallableId.value()
-                + "/lambda/"
-                + (lambdaOrdinals.merge(currentCallableId, 1, Integer::sum) - 1));
+            currentCallableId.value() + "/lambda/" + authoring.location(lambda));
     Map<BoundLocalId, SemanticType> previousCaptures = lambdaCaptures;
     java.util.Set<BoundLocalId> previousLocals = lambdaLocals;
     BoundCallableId previousCallable = currentCallableId;
