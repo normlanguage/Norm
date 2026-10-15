@@ -1,15 +1,48 @@
-package openai
+package agent
+import openai.Client
+import openai.GenerationCallbacks
+import openai.GenerationEvent
+import openai.Message
+import openai.OpenAiException
+import openai.Response
+import openai.ResponseInput
+import openai.ResponseRequest
+import openai.ResponseStatus
+import openai.ToolCall
+import openai.ToolCatalog
+import openai.ToolRegistry
+import openai.ToolFailure
+import openai.ToolResult
+import openai.ToolDefinition
+
 
 import std.core.Exception
 import std.json.JsonValue
 import std.json.writeJson
 
 public class AgentSession {
-  private List<JsonValue> history = []
+  private SessionStore store
 
-  public Void append(JsonValue item) { history.add(item) }
+  AgentSession(SessionStore store = JsonSessionStore()) {
+    this.store = store
+  }
 
-  public List<JsonValue> items() { return history }
+  public Void append(JsonValue item) {
+    List<JsonValue> history = this.items()
+    history.add(item)
+    store.save(value: JsonValue.Array(values: history))
+  }
+
+  public List<JsonValue> items() {
+    switch store.load() {
+      case Array(List<JsonValue> values) { break values }
+      case Object(Map<String, JsonValue> value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case String(String value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Number(String value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Boolean(Boolean value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Null { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+    }
+  }
 
   public Void addContext(String text) {
     Map<String, JsonValue> message = Map<>()
@@ -34,20 +67,26 @@ public class Agent {
   private ToolCatalog catalog = ToolCatalog()
   private Integer maximumRounds
   private Integer maximumOutputTokens
+  private List<McpToolProvider> mcpProviders
 
   Agent(Client client, String? instructions = null, List<Function<?>> tools = [],
     Integer maximumRounds = 64, Integer maximumOutputTokens = 8192,
     Function<List<Function<?>>()>? toolProvider = null, Function<ToolScope()>? beginToolScope = null,
-    Function<String?()>? contextProvider = null) {
+    Function<String?()>? contextProvider = null, List<Skill> skills = [], List<McpToolProvider> mcpProviders = []) {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
     this.client = client
-    this.instructions = instructions
+    String? combinedInstructions = instructions
+    for Skill skill : skills {
+      combinedInstructions = if combinedInstructions == null { skill.content } else { combinedInstructions + "\n\n" + skill.content }
+    }
+    this.instructions = combinedInstructions
     this.tools = tools
     this.toolProvider = toolProvider
     this.beginToolScope = beginToolScope
     this.contextProvider = contextProvider
     this.maximumRounds = maximumRounds
     this.maximumOutputTokens = maximumOutputTokens
+    this.mcpProviders = mcpProviders
   }
 
   public Response run(String input, Function<Void(String)>? onResponseStarted = null,
@@ -76,8 +115,12 @@ public class Agent {
         var registry = catalog.refresh(tools: if toolProvider == null { tools } else { toolProvider() })
         String? rejection = catalog.rejection()
         if rejection != null { session.addContext(text: rejection) }
+        List<ToolDefinition> definitions = registry.definitions()
+        for McpToolProvider provider : mcpProviders {
+          for ToolDefinition definition : provider.definitions() { definitions.add(definition) }
+        }
         var response = client.exchange(request: ResponseRequest(model: client.defaultModel(), input: ResponseInput.Items(values: session.items()),
-          instructions: instructions, tools: registry.definitions(), maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
+          instructions: instructions, tools: definitions, maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
         if response.status != ResponseStatus.Completed || response.refusal != null || response.calls.isEmpty() {
           for JsonValue item : response.output { session.append(item: item) }
           callbacks.emit(event: GenerationEvent.RunCompleted(response: response))
@@ -97,7 +140,7 @@ public class Agent {
             callbacks.emit(event: GenerationEvent.ToolStarted(call: call))
             String output = ""
             Boolean succeeded = false
-            try { output = registry.invoke(call: call) succeeded = true }
+            try { output = this.invokeTool(call: call, registry: registry) succeeded = true }
             catch Exception error {
               callbacks.emit(event: GenerationEvent.ToolFailed(failure: ToolFailure(call: call, error: error)))
               Map<String, JsonValue> failure = Map<>()
@@ -123,4 +166,44 @@ public class Agent {
       throw error
     }
   }
+
+  private String invokeTool(ToolCall call, ToolRegistry registry) {
+    try { return registry.invoke(call: call) }
+    catch OpenAiException error {
+      if error.code != "OPENAI-UNKNOWN-TOOL" { throw error }
+      for McpToolProvider provider : mcpProviders {
+        if provider.supports(name: call.name) { return provider.invoke(call: call) }
+      }
+      throw error
+    }
+  }
 }
+
+public Agent newAgent(
+  String apiKey,
+  String model,
+  String endpoint,
+  String? instructions = null,
+  List<Function<?>> tools = [],
+  Integer maximumRounds = 64,
+  Integer maximumOutputTokens = 8192,
+  Function<List<Function<?>>()>? toolProvider = null,
+  Function<ToolScope()>? beginToolScope = null,
+  Function<String?()>? contextProvider = null,
+  List<Skill> skills = [],
+  List<McpToolProvider> mcpProviders = []
+) {
+  return Agent(
+    client: Client(apiKey: apiKey, model: model, endpoint: endpoint),
+    instructions: instructions,
+    tools: tools,
+    maximumRounds: maximumRounds,
+    maximumOutputTokens: maximumOutputTokens,
+    toolProvider: toolProvider,
+    beginToolScope: beginToolScope,
+    contextProvider: contextProvider,
+    skills: skills,
+    mcpProviders: mcpProviders
+  )
+}
+

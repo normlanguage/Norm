@@ -1,4 +1,4 @@
 Module module() {
   return module(name: "agent", version: 1,
-    dependencies: [dependency(repository: "github", name: "openai", version: 1)])
+    dependencies: [dependency(repository: "github", name: "agent", version: 1)])
 }

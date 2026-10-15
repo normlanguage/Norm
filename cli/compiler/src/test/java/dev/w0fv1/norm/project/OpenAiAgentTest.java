@@ -9,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,16 +20,7 @@ final class OpenAiAgentTest {
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings = {"annotation", "schema"})
   void retainsTheAcceptedCatalogUntilARejectedToolIsRepaired(String scenario) throws Exception {
-    Path library =
-        Path.of(System.getProperty("norm.test.stdlib"))
-            .getParent()
-            .getParent()
-            .resolve("libraries/openai");
-    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
-    try (var files = Files.list(library)) {
-      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
-        Files.copy(source, dependency.resolve(source.getFileName()));
-    }
+    installLibraries();
     var requests = new AtomicInteger();
     var failure = new AtomicReference<Throwable>();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -80,13 +72,13 @@ final class OpenAiAgentTest {
       Path app = Files.createDirectories(directory.resolve("app"));
       Files.writeString(
           app.resolve("module.norm"),
-          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
       Path entry = app.resolve("main.norm");
       Files.writeString(
           entry,
           """
         package app
-        import openai.Agent
+        import agent.Agent
         import openai.Client
         import openai.Tool
         class Unsupported {}
@@ -127,16 +119,7 @@ final class OpenAiAgentTest {
 
   @org.junit.jupiter.api.Test
   void closesToolScopeAndNotifiesFailureWhenPublicationFails() throws Exception {
-    Path library =
-        Path.of(System.getProperty("norm.test.stdlib"))
-            .getParent()
-            .getParent()
-            .resolve("libraries/openai");
-    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
-    try (var files = Files.list(library)) {
-      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
-        Files.copy(source, dependency.resolve(source.getFileName()));
-    }
+    installLibraries();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext(
         "/v1/chat/completions",
@@ -161,16 +144,16 @@ final class OpenAiAgentTest {
       Path app = Files.createDirectories(directory.resolve("app"));
       Files.writeString(
           app.resolve("module.norm"),
-          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
       Path entry = app.resolve("main.norm");
       Files.writeString(
           entry,
           """
         package app
-        import openai.Agent
+        import agent.Agent
         import openai.Client
         import openai.Tool
-        import openai.ToolScope
+        import agent.ToolScope
         import std.core.Exception
         class Scope implements ToolScope {
           Boolean closed = false
@@ -204,16 +187,7 @@ final class OpenAiAgentTest {
 
   @org.junit.jupiter.api.Test
   void refreshesToolsBetweenRoundsAndPreservesAnExplicitSession() throws Exception {
-    Path library =
-        Path.of(System.getProperty("norm.test.stdlib"))
-            .getParent()
-            .getParent()
-            .resolve("libraries/openai");
-    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
-    try (var files = Files.list(library)) {
-      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
-        Files.copy(source, dependency.resolve(source.getFileName()));
-    }
+    installLibraries();
     var requests = new AtomicInteger();
     var failure = new AtomicReference<Throwable>();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -291,17 +265,17 @@ final class OpenAiAgentTest {
       Path app = Files.createDirectories(directory.resolve("app"));
       Files.writeString(
           app.resolve("module.norm"),
-          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)]) }");
+          "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
       Path entry = app.resolve("main.norm");
       Files.writeString(
           entry,
           """
         package app
-        import openai.Agent
-        import openai.AgentSession
+        import agent.Agent
+        import agent.AgentSession
         import openai.Client
         import openai.Tool
-        import openai.ToolScope
+        import agent.ToolScope
         class Catalog {
           Integer count = 0
           Integer scopes = 0
@@ -343,16 +317,7 @@ final class OpenAiAgentTest {
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings = {"http", "truncated", "callback"})
   void notifiesFailureOnceAndPropagatesTheOriginalError(String scenario) throws Exception {
-    Path library =
-        Path.of(System.getProperty("norm.test.stdlib"))
-            .getParent()
-            .getParent()
-            .resolve("libraries/openai");
-    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
-    try (var files = Files.list(library)) {
-      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
-        Files.copy(source, dependency.resolve(source.getFileName()));
-    }
+    installLibraries();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext(
         "/v1/responses",
@@ -436,16 +401,7 @@ final class OpenAiAgentTest {
   @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
   void streamsEventsRunsAnnotatedToolsAndStartsEachRunWithoutHistory(boolean failTool)
       throws Exception {
-    Path library =
-        Path.of(System.getProperty("norm.test.stdlib"))
-            .getParent()
-            .getParent()
-            .resolve("libraries/openai");
-    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
-    try (var files = Files.list(library)) {
-      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
-        Files.copy(source, dependency.resolve(source.getFileName()));
-    }
+    installLibraries();
     var requests = new AtomicInteger();
     var failure = new AtomicReference<Throwable>();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -520,7 +476,7 @@ final class OpenAiAgentTest {
           app.resolve("module.norm"),
           """
           Module module() { return module(name: "app", version: 1,
-            dependencies: [dependency(repository: "github", name: "openai", version: 1)]) }
+            dependencies: [dependency(repository: "github", name: "agent", version: 1)]) }
           """);
       Path entry = app.resolve("main.norm");
       Files.writeString(
@@ -528,7 +484,7 @@ final class OpenAiAgentTest {
           """
           package app
           import openai.Client
-          import openai.Agent
+          import agent.Agent
           import openai.Tool
           import openai.ToolParameter
           import openai.GenerationEvent
@@ -581,6 +537,106 @@ final class OpenAiAgentTest {
       assertEquals(4, requests.get());
     } finally {
       server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.api.Test
+  void discoversAndInvokesMcpToolsThroughTheAgentProvider() throws Exception {
+    installLibraries();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/mcp",
+        exchange -> {
+          var request =
+              JsonParser.parseString(
+                      new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                  .getAsJsonObject();
+          String method = request.get("method").getAsString();
+          String body =
+              method.equals("tools/list")
+                  ? "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"tools\":[{\"name\":\"remote\",\"description\":\"Remote tool\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}]}}"
+                  : "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}}";
+          exchange.getResponseHeaders().set("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.getBytes(StandardCharsets.UTF_8).length);
+          exchange.getResponseBody().write(body.getBytes(StandardCharsets.UTF_8));
+          exchange.close();
+        });
+    server.start();
+    try {
+      Path app = Files.createDirectories(directory.resolve("mcp_app"));
+      Files.writeString(
+          app.resolve("module.norm"),
+          "Module module() { return module(name: \"mcp_app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
+      Path entry = app.resolve("main.norm");
+      Files.writeString(
+          entry,
+          """
+          package mcp_app
+          import agent.McpClient
+          import openai.ToolCall
+          Void main() {
+            var client = McpClient(endpoint: "http://127.0.0.1:%d/mcp")
+            require(condition: client.definitions().size() == 1, message: "MCP discovery")
+            require(condition: client.supports(name: "remote"), message: "MCP tool lookup")
+            String result = client.invoke(call: ToolCall(callId: "call-1", name: "remote", arguments: "{}"))
+            require(condition: result.contains(value: "ok"), message: "MCP invocation")
+            printLine("done")
+          }
+          """
+              .formatted(server.getAddress().getPort()));
+      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.api.Test
+  void usesJsonSessionStoreByDefaultAndAcceptsStorageAdapters() throws Exception {
+    installLibraries();
+    Path app = Files.createDirectories(directory.resolve("session_app"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        "Module module() { return module(name: \"session_app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
+    Path entry = app.resolve("main.norm");
+    Files.writeString(
+        entry,
+        """
+        package session_app
+        import agent.AgentSession
+        import agent.SessionStore
+        import std.json.JsonValue
+        class Store implements SessionStore {
+          JsonValue state = JsonValue.Array(values: [])
+          public JsonValue load() { return state }
+          public Void save(JsonValue value) { state = value }
+        }
+        Void main() {
+          var defaultSession = AgentSession()
+          defaultSession.addContext(text: "json")
+          require(condition: defaultSession.items().size() == 1, message: "default JSON store")
+          var store = Store()
+          var customSession = AgentSession(store: store)
+          customSession.addContext(text: "adapter")
+          require(condition: store.state != JsonValue.Null, message: "custom store adapter")
+          printLine("done")
+        }
+        """);
+    assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+  }
+
+  private void installLibraries() throws Exception {
+    Path libraries =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries");
+    for (String name : List.of("openai", "agent")) {
+      Path sourceRoot = libraries.resolve(name);
+      Path dependency = Files.createDirectories(directory.resolve("dependencies").resolve(name));
+      try (var files = Files.list(sourceRoot)) {
+        for (Path source : files.filter(path -> path.toString().endsWith(".norm")).toList())
+          Files.copy(source, dependency.resolve(source.getFileName()));
+      }
     }
   }
 }

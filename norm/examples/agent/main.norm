@@ -1,9 +1,9 @@
 package agent
 
-import openai.Agent
-import openai.AgentSession
+import agent.Agent
+import agent.AgentSession
 import openai.Client
-import openai.ToolScope
+import agent.ToolScope
 import std.application.applicationDirectory
 import std.application.arguments
 import std.application.environmentVariable
@@ -84,3 +84,4 @@ Void main() {
   var response = agent.run(input: inputs[0], session: session, onText: (String text) { print(text: text) })
   printLine("")
 }
+

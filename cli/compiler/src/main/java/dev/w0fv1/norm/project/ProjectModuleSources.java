@@ -73,13 +73,6 @@ final class ProjectModuleSources {
   }
 
   ResolvedProjectModule load(
-      SourceFile moduleSource, Map<Path, SourceFile> overlays, boolean includeTests,
-      boolean resolveUnpinnedBindings)
-      throws IOException {
-    return load(moduleSource, overlays, includeTests, false);
-  }
-
-  ResolvedProjectModule load(
       SourceFile moduleSource,
       Map<Path, SourceFile> overlays,
       boolean includeTests,
