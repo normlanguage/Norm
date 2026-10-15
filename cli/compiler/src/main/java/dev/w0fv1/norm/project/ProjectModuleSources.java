@@ -63,11 +63,27 @@ final class ProjectModuleSources {
 
   ResolvedProjectModule load(SourceFile moduleSource, Map<Path, SourceFile> overlays)
       throws IOException {
-    return load(moduleSource, overlays, false);
+    return load(moduleSource, overlays, false, false);
   }
 
   ResolvedProjectModule load(
       SourceFile moduleSource, Map<Path, SourceFile> overlays, boolean includeTests)
+      throws IOException {
+    return load(moduleSource, overlays, includeTests, false);
+  }
+
+  ResolvedProjectModule load(
+      SourceFile moduleSource, Map<Path, SourceFile> overlays, boolean includeTests,
+      boolean resolveUnpinnedBindings)
+      throws IOException {
+    return load(moduleSource, overlays, includeTests, false);
+  }
+
+  ResolvedProjectModule load(
+      SourceFile moduleSource,
+      Map<Path, SourceFile> overlays,
+      boolean includeTests,
+      boolean resolveUnpinnedBindings)
       throws IOException {
     inputs.source(moduleSource);
     inputs.directory(moduleSource.path().getParent(), true);
@@ -88,15 +104,30 @@ final class ProjectModuleSources {
     Optional<ResolvedJarBinding> binding = Optional.empty();
     Set<DocumentId> bindingSources = Set.of();
     if (descriptor.binding().isPresent()) {
-      if (!isPinned(descriptor.binding().orElseThrow())) {
+      JarBinding declaredBinding = descriptor.binding().orElseThrow();
+      if (!isPinned(declaredBinding) && !resolveUnpinnedBindings) {
         throw new IOException(
             "JAR binding is not pinned; run 'norm resolve' for " + moduleSource.path());
       }
       Path moduleRoot = normalize(moduleSource.path()).getParent();
-      if (descriptor.binding().orElseThrow().target() instanceof LocalJarTarget target)
+      if (declaredBinding.target() instanceof LocalJarTarget target)
         inputs.candidate(moduleRoot.resolve(target.path()));
-      ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
+      ResolvedJarGraph graph = jars.resolve(moduleRoot, declaredBinding);
       inputs.graph(graph);
+      JarBinding resolvedDeclaration =
+          isPinned(declaredBinding)
+              ? declaredBinding
+              : new JarBinding(
+                  switch (declaredBinding.target()) {
+                    case MavenJarTarget target ->
+                        new MavenJarTarget(target.coordinate(), Optional.of(graph.contentId()));
+                    case LocalJarTarget target ->
+                        new LocalJarTarget(target.path(), Optional.of(graph.contentId()));
+                    case JdkModuleTarget target ->
+                        new JdkModuleTarget(target.name(), Optional.of(graph.contentId()));
+                  },
+                  declaredBinding.api());
+      descriptor = descriptor.withBinding(resolvedDeclaration);
       Map<String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal> imports =
           new LinkedHashMap<>();
       providedModules

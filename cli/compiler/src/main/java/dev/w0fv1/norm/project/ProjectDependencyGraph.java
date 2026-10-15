@@ -195,7 +195,8 @@ final class ProjectDependencyGraph {
       if (!ModuleSourceFiles.isModuleSource(moduleSource)) {
         throw new IOException("dependency configuration must be module.norm: " + modulePath);
       }
-      ResolvedProjectModule resolved = moduleSources.load(moduleSource, overlays);
+      ResolvedProjectModule resolved =
+          moduleSources.load(moduleSource, overlays, false, purpose == ProjectLoadPurpose.RUNTIME);
       if (!resolved.descriptor().coordinate().equals(requirement.coordinate())) {
         throw new IOException(
             "module dependency '"
