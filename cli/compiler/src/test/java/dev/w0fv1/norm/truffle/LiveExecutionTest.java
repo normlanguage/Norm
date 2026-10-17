@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CoreArtifact;
@@ -128,7 +127,7 @@ final class LiveExecutionTest {
   }
 
   @Test
-  void rejectsIncompatibleCandidateAndAcceptsLaterValidRevision() {
+  void acceptsUnusedLocalTypeChangesAndLaterRevisions() {
     String source =
         """
         Void main() {
@@ -141,17 +140,18 @@ final class LiveExecutionTest {
         }
         """;
     var execution = prepare(compile(source));
-    var incompatible = compile(source.replace("preserved = 7", "preserved = \"wrong\""));
+    var changed =
+        compile(
+            source.replace("preserved = 7", "preserved = \"wrong\"").replace("old:", "middle:"));
     var updated = compile(source.replace("old:", "new:"));
     var output =
         new UpdatingWriter(
             line -> {
-              if (line == 2)
-                assertThrows(IllegalArgumentException.class, () -> execution.update(incompatible));
+              if (line == 2) execution.update(changed);
               if (line == 3) execution.update(updated);
             });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
-    assertEquals(List.of("old:0", "old:1", "old:2", "new:3", "new:4"), output.lines());
+    assertEquals(List.of("old:0", "old:1", "middle:2", "new:3", "new:4"), output.lines());
   }
 
   @Test

@@ -144,3 +144,9 @@ assert.ok(multilineBody.tokens.every(token => token.scopes.includes('string.quot
 const multilineEnd = loadedGrammar.tokenizeLine('"""', multilineBody.ruleStack);
 assert.ok(loadedGrammar.tokenizeLine('var count = 1', multilineEnd.ruleStack).tokens.every(
   token => !token.scopes.includes('string.quoted.triple.norm')));
+assert.equal(grammar.repository.multilineStrings.begin, '"""[ \\t]*(?=\\r?$)');
+assert.equal(grammar.repository.multilineStrings.end, '^[ \\t]*"""[ \\t]*(?=\\r?$)');
+const inlineOpening = loadedGrammar.tokenizeLine('var query = """text');
+assert.ok(inlineOpening.tokens.every(
+  (token) => !token.scopes.includes('string.quoted.triple.norm'),
+));

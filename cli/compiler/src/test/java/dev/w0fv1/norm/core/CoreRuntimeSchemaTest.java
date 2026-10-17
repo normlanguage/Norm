@@ -9,6 +9,25 @@ import org.junit.jupiter.api.Test;
 
 final class CoreRuntimeSchemaTest {
   @Test
+  void reifiedInstancesPermitGenericDefaultChangesAndBoundRelaxation() {
+    String source =
+        """
+        interface Marker {}
+        class Item implements Marker {}
+        class Box<T extends Marker = Item> { T? value = null }
+        Void main() { var box = Box<Item>() }
+        """;
+    try (var compiler = new CompilerSession()) {
+      var initial = CoreRuntimeSchema.create(compile(compiler, source));
+      var candidate =
+          CoreRuntimeSchema.create(
+              compile(compiler, source.replace("T extends Marker = Item", "T = String")));
+      assertDoesNotThrow(() -> initial.requireCompatible(candidate));
+      assertThrows(IllegalArgumentException.class, () -> candidate.requireCompatible(initial));
+    }
+  }
+
+  @Test
   void nominalAndGenericTypesKeepIdentityAcrossMethodImplementationChanges() {
     String source =
         """

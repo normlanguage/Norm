@@ -11,6 +11,7 @@ import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
@@ -639,6 +640,39 @@ final class ProjectLoaderTest {
               .filter(path -> path.startsWith(root))
               .collect(java.util.stream.Collectors.toSet())
               .contains(generated.path()));
+    }
+  }
+
+  @Test
+  void runtimeLoadResolvesUnpinnedJdkBindingIntoCandidateSnapshot() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("runtime-unpinned"));
+    Path entry = source(root, "demo/Main.norm", "package demo Void main() {}");
+    Files.writeString(
+        root.resolve("demo/module.norm"),
+        """
+        Module module() {
+          return module(
+            name: "demo",
+            version: 1,
+            binding: jarBinding(
+              target: jdkModule(name: "java.base"),
+              api: []
+            )
+          )
+        }
+        """);
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var result = projects.load(entry);
+      ProjectSourceSet loaded = result.sources();
+      var target =
+          loaded
+              .moduleDescriptors()
+              .get(new ModuleCoordinate("demo", 1))
+              .binding()
+              .orElseThrow()
+              .target();
+      assertTrue(((JdkModuleTarget) target).resolution().isPresent());
     }
   }
 

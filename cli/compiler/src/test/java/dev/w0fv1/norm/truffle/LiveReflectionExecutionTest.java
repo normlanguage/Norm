@@ -17,6 +17,64 @@ import org.junit.jupiter.api.io.TempDir;
 @Timeout(30)
 final class LiveReflectionExecutionTest {
   @Test
+  void snapshotKeepsTheEntireCallGraphWhileOrdinaryReferencesStayLive(@TempDir Path directory)
+      throws Exception {
+    String source =
+        """
+        Integer helper(Integer value) { value + 1 }
+        Integer target(Integer value) { helper(value) }
+        Void main() {
+          var live = target.function
+          var frozen = live.snapshot()
+          var offset = 1
+          var action = (Integer value) { helper(value) + offset }
+          var frozenAction = action.snapshot()
+          var count = 0
+          for (count < 3) {
+            printLine(frozen(19))
+            printLine(target(19))
+            var current = live.snapshot()
+            printLine(current(19))
+            printLine(frozenAction(19))
+            count = count + 1
+          }
+        }
+        """;
+    assertUpdate(
+        directory,
+        source,
+        4,
+        List.of("20", "20", "20", "21", "20", "21", "21", "21", "20", "21", "21", "21"));
+  }
+
+  @Test
+  void changedSignaturesKeepRetainedReferencesAndExposeNewContracts(@TempDir Path directory)
+      throws Exception {
+    String source =
+        """
+        import std.json.invokeJson
+        Integer target(Integer amount = 19) { amount + 1 }
+        Void main() {
+          Function<?> retained = target.function
+          var count = 0
+          for (count < 3) {
+            printLine(invokeJson(operation: retained, arguments: "{}"))
+            printLine(invokeJson(operation: target.function, arguments: "{}"))
+            count = count + 1
+          }
+        }
+        """;
+    assertUpdate(
+        directory,
+        source,
+        source.replace(
+            "Integer target(Integer amount = 19) { amount + 1 }",
+            "String target(String text = \"new\") { text }"),
+        2,
+        List.of("20", "20", "20", "\"new\"", "20", "\"new\""));
+  }
+
+  @Test
   void retainedFunctionKeepsMetadataOwnershipWhileItsImplementationUpdates(@TempDir Path directory)
       throws Exception {
     String source =
@@ -138,7 +196,10 @@ final class LiveReflectionExecutionTest {
               for (int index = offset; index < offset + length; index++) {
                 char character = characters[index];
                 output.append(character);
-                if (character == '\n' && ++lines == updateAfter) live.update(candidate);
+                if (character == '\n' && ++lines == updateAfter) {
+                  assertTrue(live.status().pendingLocations().isEmpty(), live.status().toString());
+                  live.update(candidate);
+                }
               }
             }
 

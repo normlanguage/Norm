@@ -39,6 +39,9 @@ import java.util.Map;
 import java.util.Set;
 
 final class AnnotationRuntime {
+  private final dev.w0fv1.norm.core.CoreRuntimeSchema runtimeSchema;
+  private final Map<CoreType, dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint>
+      typeFingerprints = new java.util.concurrent.ConcurrentHashMap<>();
   private final CallTarget fieldWriter;
   private final dev.w0fv1.norm.core.CoreTypeRelations typeRelations;
   private final RuntimeProgram program;
@@ -75,6 +78,7 @@ final class AnnotationRuntime {
 
   AnnotationRuntime(CoreArtifact artifact, dev.w0fv1.norm.core.CoreRuntimeIdentity identity) {
     this.identity = identity;
+    runtimeSchema = dev.w0fv1.norm.core.CoreRuntimeSchema.create(artifact);
     this.authoring = artifact.authoring();
     for (var occurrence : artifact.authoring().occurrences()) {
       if (occurrence.role() == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR) {
@@ -166,6 +170,10 @@ final class AnnotationRuntime {
         });
     ambiguous.forEach(targets::remove);
     this.callableTargets = Map.copyOf(targets);
+  }
+
+  dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint typeFingerprint(CoreType type) {
+    return typeFingerprints.computeIfAbsent(type, runtimeSchema::typeFingerprint);
   }
 
   void attachVersion(LiveBindings.Version version) {
@@ -630,7 +638,7 @@ final class AnnotationRuntime {
   RuntimeValues.OpaqueValue bindField(
       RuntimeValues.FieldValue field, Object receiver, CoreType type) {
     RuntimeValues.ObjectValue object = fieldReceiver(field, receiver);
-    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+    if (((CoreType.Declared) object.type()).category() != CoreValueCategory.IDENTITY) {
       throw new IllegalArgumentException("field binding requires a mutable class target");
     }
     return new RuntimeValues.OpaqueValue(type, new FieldHandle(field, object), "FieldHandle");
@@ -676,7 +684,7 @@ final class AnnotationRuntime {
   void writeField(
       RuntimeValues.FieldValue field, Object target, Object value, ExecutionState execution) {
     RuntimeValues.ObjectValue object = fieldReceiver(field, target);
-    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+    if (((CoreType.Declared) object.type()).category() != CoreValueCategory.IDENTITY) {
       throw new IllegalArgumentException("field writing requires a mutable class target");
     }
     if (value == RuntimeValues.NullValue.INSTANCE
@@ -695,7 +703,7 @@ final class AnnotationRuntime {
     if (!(receiver instanceof RuntimeValues.ObjectValue object)) {
       throw new IllegalArgumentException("field receiver does not match its declaring type");
     }
-    CoreType.Declared actual = declared(object.type);
+    CoreType.Declared actual = declared(object.type());
     CoreType.Declared expected = declared(field.ownerType());
     DefinitionId expectedId =
         resolveExternal(((CoreTypeConstructor.User) expected.constructor()).definition());
@@ -928,7 +936,7 @@ final class AnnotationRuntime {
       throw new IllegalStateException("annotation lifecycle dispatch is absent");
     }
     List<CoreType> concreteArguments =
-        annotation.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+        annotation.type() instanceof CoreType.Declared declared ? declared.arguments() : List.of();
     List<CoreType> receiverTypeArguments =
         callable.specializedReceiverTypeArguments()
             ? callable.receiverTypeArguments().stream()
@@ -1232,7 +1240,7 @@ final class AnnotationRuntime {
       throw new IllegalStateException("annotation enum variant is unavailable: " + variant);
     }
     return new RuntimeValues.EnumValue(
-        id, concrete, enumeration.nominalType().name(), variant, List.of());
+        id, concrete, enumeration.nominalType().name(), variant, List.of(), this);
   }
 
   private static boolean isCodePoint(CoreType type) {

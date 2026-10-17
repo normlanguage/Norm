@@ -107,7 +107,7 @@ final class FieldObservations {
     boolean accepts(Site site) {
       return !closed
           && (selected.isEmpty() || selected.orElseThrow().equals(site.field()))
-          && target.state().sameLocation(view, site.view(), target.type, site.field());
+          && target.state().sameLocation(view, site.view(), target.type(), site.field());
     }
 
     @Override

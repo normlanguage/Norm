@@ -868,7 +868,7 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       RuntimeValues.ObjectValue object =
           RuntimeValues.object(aggregateInfo, (CoreType) type.execute(frame));
-      Object[] ownerArguments = ownerTypeArguments(object.type);
+      Object[] ownerArguments = ownerTypeArguments(object.type());
       initializer.call(
           ExecutionContextAccess.state(frame),
           object,
@@ -932,7 +932,8 @@ final class ExpressionNodes {
           (CoreType) type.execute(frame),
           enumName,
           variantKey,
-          evaluateArguments(fields, fieldIndices, frame));
+          evaluateArguments(fields, fieldIndices, frame),
+          ExecutionContextAccess.state(frame).runtime());
     }
   }
 
@@ -958,9 +959,12 @@ final class ExpressionNodes {
         throw execution
             .values()
             .javaException(
-                new IllegalStateException("field has not been initialized"), execution, this);
+                new IllegalStateException(
+                    "field has not been initialized: " + field + " in " + object.type()),
+                execution,
+                this);
       }
-      return object.type instanceof CoreType.Declared declared
+      return object.type() instanceof CoreType.Declared declared
               && declared.category() == CoreValueCategory.VALUE
           ? RuntimeValues.copy(value)
           : value;

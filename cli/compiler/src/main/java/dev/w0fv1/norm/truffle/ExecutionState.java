@@ -27,6 +27,11 @@ record ExecutionState(
     return liveBindings == null ? annotationExecution.runtime() : liveBindings.runtime();
   }
 
+  @Override
+  public GuestValueFactory values() {
+    return liveBindings == null ? values : runtime().values();
+  }
+
   ClassLoader applicationClassLoader() {
     var selected = liveBindings == null ? context : liveBindings.context(context);
     return ((dev.w0fv1.norm.execution.JavaApplicationRuntime) selected.jarBindingRuntime())

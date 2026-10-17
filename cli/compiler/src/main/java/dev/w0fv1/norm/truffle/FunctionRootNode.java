@@ -37,21 +37,23 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
 
   @Override
   public Object execute(VirtualFrame frame) {
-    Object[] arguments = frame.getArguments();
-    if (constructor.isPresent())
-      ConstructionArguments.from(frame).bind(frame, parameters, constructor.orElseThrow());
-    else
-      for (int index = 0; index < parameters.length; index++)
-        parameters[index].write(frame, arguments[index + 1]);
-    LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
-    if (bindings != null) bindings.enter(frame);
-    try {
-      body.executeVoid(frame);
-      return 0L;
-    } catch (ControlFlow.Return returned) {
-      return RuntimeValues.copy(returned.value);
-    } finally {
-      if (bindings != null) bindings.leave(frame);
+    try (var valueScope = RuntimeValueExecution.enter(ExecutionContextAccess.state(frame))) {
+      Object[] arguments = frame.getArguments();
+      if (constructor.isPresent())
+        ConstructionArguments.from(frame).bind(frame, parameters, constructor.orElseThrow());
+      else
+        for (int index = 0; index < parameters.length; index++)
+          parameters[index].write(frame, arguments[index + 1]);
+      LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
+      if (bindings != null) bindings.enter(frame);
+      try {
+        body.executeVoid(frame);
+        return 0L;
+      } catch (ControlFlow.Return returned) {
+        return RuntimeValues.copy(returned.value);
+      } finally {
+        if (bindings != null) bindings.leave(frame);
+      }
     }
   }
 

@@ -1,12 +1,11 @@
-package dev.w0fv1.norm.application;
+package dev.w0fv1.norm.execution;
 
 import dev.w0fv1.norm.core.ArtifactId;
 import dev.w0fv1.norm.diagnostic.Diagnostic;
-import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import java.util.List;
 import java.util.Optional;
 
-public record ApplicationUpdateResult(
+public record ExecutionUpdateResult(
     Outcome outcome,
     Optional<ArtifactId> candidate,
     LiveExecutionStatus status,
@@ -14,11 +13,12 @@ public record ApplicationUpdateResult(
     Optional<String> failure) {
   public enum Outcome {
     PUBLISHED,
+    UNCHANGED,
     REJECTED,
     FAILED
   }
 
-  public ApplicationUpdateResult {
+  public ExecutionUpdateResult {
     diagnostics = List.copyOf(diagnostics);
   }
 }

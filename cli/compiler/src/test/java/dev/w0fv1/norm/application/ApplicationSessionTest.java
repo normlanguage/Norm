@@ -7,6 +7,7 @@ import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.ExecutionRevision;
+import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import dev.w0fv1.norm.project.ProjectEnvironment;
@@ -40,6 +41,7 @@ class ApplicationSessionTest {
     var published = new CountDownLatch(1);
     var stop = new CountDownLatch(1);
     var revisions = new AtomicInteger();
+    var contexts = new java.util.concurrent.CopyOnWriteArrayList<ExecutionContext>();
     var failure = new AtomicReference<Throwable>();
     ExecutionBackend backend =
         new ExecutionBackend() {
@@ -51,6 +53,7 @@ class ApplicationSessionTest {
 
           @Override
           public LiveExecution prepareLive(ExecutionRevision initial) {
+            contexts.add(initial.context());
             var current = new AtomicReference<>(initial);
             return new LiveExecution() {
               @Override
@@ -70,6 +73,7 @@ class ApplicationSessionTest {
 
               @Override
               public void update(ExecutionRevision candidate) {
+                contexts.add(candidate.context());
                 current.getAndSet(candidate).close();
                 revisions.incrementAndGet();
                 published.countDown();
@@ -113,23 +117,61 @@ class ApplicationSessionTest {
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
         try (var batch = session.beginBatch()) {
+          assertThrows(IllegalStateException.class, session::beginBatch);
+          assertThrows(IllegalStateException.class, session::requestUpdate);
+          assertThrows(
+              IllegalStateException.class,
+              () -> contexts.getFirst().updates().orElseThrow().request());
           Files.writeString(helper, "package batch\nInteger value() { 2 }");
           assertFalse(published.await(250, TimeUnit.MILLISECONDS));
           Files.writeString(entry, "package batch\nVoid main() { printLine(value() + value()) }");
           var update = batch.commit().get(30, TimeUnit.SECONDS);
-          assertEquals(ApplicationUpdateResult.Outcome.PUBLISHED, update.outcome());
+          assertEquals(ExecutionUpdateResult.Outcome.PUBLISHED, update.outcome());
           assertTrue(update.candidate().isPresent());
           assertTrue(update.diagnostics().isEmpty());
+        }
+        assertEquals(1, revisions.get());
+        assertSame(
+            contexts.getFirst().updates().orElseThrow(),
+            contexts.getLast().updates().orElseThrow());
+        assertEquals(
+            ExecutionUpdateResult.Outcome.PUBLISHED,
+            session.latestUpdate().orElseThrow().outcome());
+        try (var batch = session.beginBatch()) {
+          var update = batch.commit().get(30, TimeUnit.SECONDS);
+          assertEquals(ExecutionUpdateResult.Outcome.UNCHANGED, update.outcome());
+          assertEquals(1, update.status().revision());
         }
         assertEquals(1, revisions.get());
         try (var batch = session.beginBatch()) {
           Files.writeString(entry, "package batch\nVoid main() { missing() }");
           var update = batch.commit().get(30, TimeUnit.SECONDS);
-          assertEquals(ApplicationUpdateResult.Outcome.REJECTED, update.outcome());
+          assertEquals(ExecutionUpdateResult.Outcome.REJECTED, update.outcome());
           assertFalse(update.diagnostics().isEmpty());
           assertEquals(1, update.status().revision());
         }
         assertEquals(1, revisions.get());
+        assertEquals(
+            ExecutionUpdateResult.Outcome.REJECTED, session.latestUpdate().orElseThrow().outcome());
+        assertEquals(session.latestUpdate(), contexts.getFirst().updates().orElseThrow().latest());
+        try (var batch = session.beginBatch()) {
+          var update = batch.commit().get(30, TimeUnit.SECONDS);
+          assertEquals(ExecutionUpdateResult.Outcome.REJECTED, update.outcome());
+          assertFalse(update.diagnostics().isEmpty());
+          assertEquals(1, update.status().revision());
+        }
+        Files.writeString(entry, "package batch\nVoid main() { printLine(value()) }");
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        while (revisions.get() < 2 && System.nanoTime() < deadline) Thread.sleep(10);
+        assertEquals(2, revisions.get());
+        deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        while (session.latestUpdate().orElseThrow().outcome()
+                != ExecutionUpdateResult.Outcome.PUBLISHED
+            && System.nanoTime() < deadline) Thread.sleep(10);
+        assertEquals(
+            ExecutionUpdateResult.Outcome.PUBLISHED,
+            session.latestUpdate().orElseThrow().outcome());
+        assertEquals(session.latestUpdate(), contexts.getFirst().updates().orElseThrow().latest());
       } finally {
         stop.countDown();
         execution.join(30000);

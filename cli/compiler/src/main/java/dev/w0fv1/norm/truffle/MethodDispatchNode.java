@@ -64,7 +64,7 @@ final class MethodDispatchNode extends Node {
           object.hostValue,
           slot,
           arguments,
-          object.type,
+          object.type(),
           methodTypeArguments);
     }
     CoreType receiverType = RuntimeValues.runtimeType(receiver);

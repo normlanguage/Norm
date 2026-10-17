@@ -2,6 +2,7 @@ package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.core.ArtifactId;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
+import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import dev.w0fv1.norm.project.ProjectInputSnapshot;
@@ -10,10 +11,8 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -24,7 +23,7 @@ final class LiveApplicationSession implements AutoCloseable {
     ApplicationCandidate compile() throws IOException;
   }
 
-  private record Request(CompletableFuture<ApplicationUpdateResult> result, boolean force) {}
+  private record Request(CompletableFuture<ExecutionUpdateResult> result, boolean force) {}
 
   private final Object gate = new Object();
   private final CandidateCompiler compiler;
@@ -34,11 +33,13 @@ final class LiveApplicationSession implements AutoCloseable {
   private final InputChangeMonitor monitor;
   private final AtomicBoolean closed = new AtomicBoolean();
   private final ArrayDeque<Request> requests = new ArrayDeque<>();
-  private final Set<Long> batches = new HashSet<>();
+  private Long batch;
   private long epoch;
   private ProjectInputSnapshot inputs;
+  private ProjectInputSnapshot completedInputs;
   private Thread worker;
   private LiveExecutionStatus status;
+  private volatile ExecutionUpdateResult latest;
 
   LiveApplicationSession(
       ProjectInputSnapshot inputs,
@@ -49,6 +50,7 @@ final class LiveApplicationSession implements AutoCloseable {
       throws IOException {
     this.compiler = compiler;
     this.inputs = inputs;
+    completedInputs = inputs;
     this.execution = execution;
     this.progress = progress;
     this.diagnostics = diagnostics;
@@ -62,36 +64,69 @@ final class LiveApplicationSession implements AutoCloseable {
     }
   }
 
-  long beginBatch() {
+  LiveExecutionStatus status() {
+    return execution.status();
+  }
+
+  Optional<ExecutionUpdateResult> latest() {
+    return Optional.ofNullable(latest);
+  }
+
+  dev.w0fv1.norm.execution.ExecutionUpdates.Batch beginBatch() {
+    long identity;
     synchronized (gate) {
       if (closed.get()) throw new IllegalStateException("update coordinator is closed");
-      long identity = ++epoch;
-      batches.add(identity);
-      return identity;
+      if (batch != null) throw new IllegalStateException("A source update batch is already open");
+      identity = ++epoch;
+      batch = identity;
+    }
+    return new dev.w0fv1.norm.execution.ExecutionUpdates.Batch() {
+      private final AtomicBoolean completed = new AtomicBoolean();
+
+      @Override
+      public CompletableFuture<ExecutionUpdateResult> commit() {
+        if (!completed.compareAndSet(false, true))
+          throw new IllegalStateException("batch is closed");
+        return commitBatch(identity);
+      }
+
+      @Override
+      public void close() {
+        if (completed.compareAndSet(false, true)) closeBatch(identity);
+      }
+    };
+  }
+
+  private CompletableFuture<ExecutionUpdateResult> commitBatch(long identity) {
+    synchronized (gate) {
+      if (batch == null || batch != identity) throw new IllegalStateException("batch is closed");
+      batch = null;
+      return enqueueUpdate(false);
     }
   }
 
-  CompletableFuture<ApplicationUpdateResult> commitBatch(long identity) {
+  private void closeBatch(long identity) {
     synchronized (gate) {
-      if (!batches.remove(identity)) throw new IllegalStateException("batch is closed");
-      return requestUpdate();
-    }
-  }
-
-  void closeBatch(long identity) {
-    synchronized (gate) {
-      if (!batches.remove(identity)) return;
+      if (batch == null || batch != identity) return;
+      batch = null;
       epoch++;
       requests.addLast(new Request(null, false));
     }
   }
 
-  CompletableFuture<ApplicationUpdateResult> requestUpdate() {
+  CompletableFuture<ExecutionUpdateResult> requestUpdate() {
+    return enqueueUpdate(true);
+  }
+
+  private CompletableFuture<ExecutionUpdateResult> enqueueUpdate(boolean force) {
     synchronized (gate) {
       if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      if (batch != null)
+        throw new IllegalStateException(
+            "Commit or close the open source update batch before requesting publication");
       epoch++;
-      var result = new CompletableFuture<ApplicationUpdateResult>();
-      requests.addLast(new Request(result, true));
+      var result = new CompletableFuture<ExecutionUpdateResult>();
+      requests.addLast(new Request(result, force));
       return result;
     }
   }
@@ -107,6 +142,7 @@ final class LiveApplicationSession implements AutoCloseable {
                 () -> {
                   while (!closed.get()) {
                     List<Request> captured = List.of();
+                    ExecutionUpdateResult completed = null;
                     try {
                       var current = execution.status();
                       if (!status.equals(current)) {
@@ -122,7 +158,7 @@ final class LiveApplicationSession implements AutoCloseable {
                       }
                       boolean ready;
                       synchronized (gate) {
-                        ready = !requests.isEmpty() && batches.isEmpty();
+                        ready = !requests.isEmpty() && batch == null;
                       }
                       if (!ready && monitor.awaitChange(Duration.ofMillis(100))) {
                         synchronized (gate) {
@@ -131,26 +167,31 @@ final class LiveApplicationSession implements AutoCloseable {
                       }
                       long capturedEpoch;
                       synchronized (gate) {
-                        if (!batches.isEmpty() || requests.isEmpty()) continue;
+                        if (batch != null || requests.isEmpty()) continue;
                         capturedEpoch = epoch;
                         captured = new ArrayList<>(requests);
                         requests.clear();
                       }
                       monitor.update(inputs);
-                      if (captured.stream().noneMatch(Request::force) && inputs.matches()) continue;
-                      var result = reload(capturedEpoch);
+                      var result =
+                          reload(capturedEpoch, captured.stream().anyMatch(Request::force));
                       if (result == null) {
                         synchronized (gate) {
                           for (Request request : captured) {
                             if (closed.get()) {
                               if (request.result() != null) request.result().cancel(false);
-                            } else requests.addLast(new Request(request.result(), true));
+                            } else requests.addLast(new Request(request.result(), request.force()));
                           }
                         }
                       } else {
+                        if (result.outcome() == ExecutionUpdateResult.Outcome.UNCHANGED
+                            && captured.stream().allMatch(request -> request.result() == null))
+                          continue;
+                        latest = result;
+                        completed = result;
                         for (Request request : captured)
                           if (request.result() != null) request.result().complete(result);
-                        if (result.outcome() == ApplicationUpdateResult.Outcome.PUBLISHED)
+                        if (result.outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
                           progress.accept("Published runtime revision");
                       }
                     } catch (InterruptedException exception) {
@@ -165,13 +206,15 @@ final class LiveApplicationSession implements AutoCloseable {
                     } catch (IOException | RuntimeException exception) {
                       if (!closed.get())
                         diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
+                      if (completed != null || captured.isEmpty()) continue;
                       var result =
-                          new ApplicationUpdateResult(
-                              ApplicationUpdateResult.Outcome.FAILED,
+                          new ExecutionUpdateResult(
+                              ExecutionUpdateResult.Outcome.FAILED,
                               Optional.empty(),
                               execution.status(),
                               List.of(),
                               Optional.ofNullable(exception.getMessage()));
+                      latest = result;
                       for (Request request : captured)
                         if (request.result() != null) request.result().complete(result);
                     }
@@ -179,7 +222,29 @@ final class LiveApplicationSession implements AutoCloseable {
                 });
   }
 
-  private ApplicationUpdateResult reload(long capturedEpoch) throws IOException {
+  private ExecutionUpdateResult reload(long capturedEpoch, boolean force) throws IOException {
+    synchronized (gate) {
+      if (closed.get() || batch != null || epoch != capturedEpoch) return null;
+      if (!force
+          && completedInputs.matches()
+          && (latest == null || latest.outcome() != ExecutionUpdateResult.Outcome.FAILED)) {
+        inputs = completedInputs;
+        monitor.update(inputs);
+        return latest != null && latest.outcome() == ExecutionUpdateResult.Outcome.REJECTED
+            ? new ExecutionUpdateResult(
+                latest.outcome(),
+                latest.candidate(),
+                execution.status(),
+                latest.diagnostics(),
+                latest.failure())
+            : new ExecutionUpdateResult(
+                ExecutionUpdateResult.Outcome.UNCHANGED,
+                Optional.empty(),
+                execution.status(),
+                List.of(),
+                Optional.empty());
+      }
+    }
     ApplicationCandidate candidate;
     try {
       candidate = compiler.compile();
@@ -193,15 +258,16 @@ final class LiveApplicationSession implements AutoCloseable {
       inputs = candidate.inputs();
       monitor.update(inputs);
       synchronized (gate) {
-        if (closed.get() || !batches.isEmpty() || epoch != capturedEpoch || !inputs.matches())
+        if (closed.get() || batch != null || epoch != capturedEpoch || !inputs.matches())
           return null;
+        completedInputs = inputs;
         if (!candidate.result().isSuccess()) {
           candidate
               .result()
               .diagnostics()
               .forEach(value -> diagnostics.accept(DiagnosticRenderer.render(value)));
-          return new ApplicationUpdateResult(
-              ApplicationUpdateResult.Outcome.REJECTED,
+          return new ExecutionUpdateResult(
+              ExecutionUpdateResult.Outcome.REJECTED,
               Optional.empty(),
               execution.status(),
               candidate.result().diagnostics(),
@@ -214,16 +280,16 @@ final class LiveApplicationSession implements AutoCloseable {
           execution.update(revision);
         } catch (IllegalArgumentException exception) {
           diagnostics.accept("error[NORM-LIVE-0002]: " + exception.getMessage());
-          return new ApplicationUpdateResult(
-              ApplicationUpdateResult.Outcome.REJECTED,
+          return new ExecutionUpdateResult(
+              ExecutionUpdateResult.Outcome.REJECTED,
               identity,
               execution.status(),
               candidate.result().diagnostics(),
               Optional.ofNullable(exception.getMessage()));
         }
         transferred = true;
-        return new ApplicationUpdateResult(
-            ApplicationUpdateResult.Outcome.PUBLISHED,
+        return new ExecutionUpdateResult(
+            ExecutionUpdateResult.Outcome.PUBLISHED,
             identity,
             execution.status(),
             candidate.result().diagnostics(),
@@ -240,7 +306,7 @@ final class LiveApplicationSession implements AutoCloseable {
     synchronized (gate) {
       for (Request request : requests) if (request.result() != null) request.result().cancel(false);
       requests.clear();
-      batches.clear();
+      batch = null;
     }
     try {
       monitor.close();

@@ -13,6 +13,20 @@ final class MigrationIntrinsicDispatcher {
             "Migration operation requires an active migration state");
       var migration = handle.context();
       return switch (intrinsic) {
+        case STATE_MIGRATION_TYPE ->
+            new RuntimeValues.ClassValue(
+                type,
+                migration.objectType(),
+                new ReflectionBinding(migration.sourceAnnotations(), true));
+        case STATE_MIGRATION_VARIANT -> {
+          String variant = migration.variant();
+          yield variant == null ? RuntimeValues.NullValue.INSTANCE : variant;
+        }
+        case STATE_MIGRATION_PAYLOAD -> migration.readPayload((Integer) arguments[1], type);
+        case STATE_MIGRATION_REPLACE -> {
+          migration.replace(arguments[1]);
+          yield null;
+        }
         case STATE_MIGRATION_CONTAINS -> migration.sourceField((String) arguments[1]).isPresent();
         case STATE_MIGRATION_READ -> {
           var field =

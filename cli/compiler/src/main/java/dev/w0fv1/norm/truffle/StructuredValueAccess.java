@@ -34,7 +34,7 @@ final class StructuredValueAccess {
 
   AggregateValue aggregate(SerializationRuntime.AggregateShape shape, Object value) {
     if (!(value instanceof RuntimeValues.ObjectValue aggregate)
-        || !aggregate.type.equals(shape.type())) {
+        || !aggregate.type().equals(shape.type())) {
       throw mismatch(shape.name());
     }
     return new AggregateValue(aggregate, shape);
@@ -73,7 +73,8 @@ final class StructuredValueAccess {
         shape.type(),
         shape.declaration().nominalType().name(),
         variant.key(),
-        List.of());
+        List.of(),
+        shape.annotations());
   }
 
   Object aggregate(

@@ -393,7 +393,12 @@ final class JsonRuntime {
 
     RuntimeValues.EnumValue value(CoreEnumVariant variant, Object... payload) {
       return new RuntimeValues.EnumValue(
-          definition, type, declaration.nominalType().name(), variant.key(), List.of(payload));
+          definition,
+          type,
+          declaration.nominalType().name(),
+          variant.key(),
+          List.of(payload),
+          reflection);
     }
   }
 

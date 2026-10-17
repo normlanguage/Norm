@@ -45,11 +45,11 @@ public final class CoreLiveSchema {
           .forEach(
               local ->
                   localTypes.put(layout.local(local.index()), identity.type(owner, local.type())));
-      var captures = callable.captureLocals().stream().map(layout::local).toList();
       if (indexedContracts.putIfAbsent(
               key,
               new Contract(
-                  runtime.callableContract(occurrence.id()), Map.copyOf(localTypes), captures))
+                  Map.copyOf(localTypes),
+                  callable.reifiedTypeLocals().stream().map(layout::local).toList()))
           != null) {
         throw new IllegalArgumentException("Ambiguous live declaration identity: " + key);
       }
@@ -83,33 +83,26 @@ public final class CoreLiveSchema {
     return runtime.callableContract(occurrence);
   }
 
+  public Map<String, CoreType> localTypes(String declaration) {
+    Contract contract = contracts.get(declaration);
+    return contract == null ? Map.of() : contract.locals();
+  }
+
+  public List<String> reifiedLocals(String declaration) {
+    Contract contract = contracts.get(declaration);
+    return contract == null ? List.of() : contract.reified();
+  }
+
+  public String declarationKey(DefinitionOccurrenceId occurrence) {
+    return runtime.identity().key(occurrence);
+  }
+
   public void requireCompatible(CoreLiveSchema candidate) {
     Objects.requireNonNull(candidate);
     if (!entry.equals(candidate.entry))
       throw new IllegalArgumentException("Live update changes the entry declaration");
     runtime.requireCompatible(candidate.runtime, candidate.migrations);
-    contracts.forEach(
-        (key, contract) -> {
-          Contract next = candidate.contracts.get(key);
-          if (next == null) return;
-          if (!contract.callable().equals(next.callable())) return;
-          if (!contract.captures().equals(next.captures())) {
-            throw new IllegalArgumentException(
-                "Live update changes a callable or local state layout: " + key);
-          }
-          contract
-              .locals()
-              .forEach(
-                  (local, type) -> {
-                    if (next.locals().containsKey(local) && !type.equals(next.locals().get(local)))
-                      throw new IllegalArgumentException(
-                          "Live update requires state migration: " + local);
-                  });
-        });
   }
 
-  private record Contract(
-      CoreRuntimeSchema.CallableContract callable,
-      Map<String, CoreType> locals,
-      List<String> captures) {}
+  private record Contract(Map<String, CoreType> locals, List<String> reified) {}
 }

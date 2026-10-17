@@ -12,6 +12,254 @@ final class RuntimeObjectStateTest {
   private static final DefinitionOccurrenceId OCCURRENCE = new DefinitionOccurrenceId(OWNER, 0);
 
   @Test
+  void nullableAliasesDoNotChangeTheConcreteObjectTypeInEitherTraversalOrder() {
+    var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
+    var concrete =
+        new CoreType.Declared(
+            constructor, List.of(), CoreValueCategory.IDENTITY, CoreNullability.NON_NULL);
+    var nullable =
+        new CoreType.Declared(
+            constructor, List.of(), CoreValueCategory.IDENTITY, CoreNullability.NULLABLE);
+    for (boolean nullableFirst : List.of(false, true)) {
+      var object = new RuntimeValues.ObjectValue(info(Map.of()), concrete);
+      try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+        assertSame(object, transaction.transform(object, nullableFirst ? nullable : concrete));
+        assertSame(object, transaction.transform(object, nullableFirst ? concrete : nullable));
+        assertEquals(concrete, object.type());
+        transaction.commit();
+      }
+      assertEquals(concrete, object.type());
+    }
+  }
+
+  @Test
+  void intermediateRetiredSchemasCanBeCollectedDespiteMetadataValueCycles() throws Exception {
+    var history = metadataHistory(-1);
+    for (int attempt = 0;
+        attempt < 100
+            && history.schemas().subList(1, history.schemas().size() - 1).stream()
+                .anyMatch(reference -> reference.get() != null);
+        attempt++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertTrue(
+        history.schemas().subList(1, history.schemas().size() - 1).stream()
+            .allMatch(reference -> reference.get() == null));
+    assertNotNull(history.object().state().currentInfo());
+    java.lang.ref.Reference.reachabilityFence(history.object());
+  }
+
+  @Test
+  void aRetainedSourceDescriptorKeepsItsRetiredViewAlive() throws Exception {
+    var history = metadataHistory(3);
+    var retained = history.retained();
+    assertNotNull(retained);
+    for (int attempt = 0; attempt < 5; attempt++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    var value =
+        (RuntimeValues.OpaqueValue)
+            history.object().state().view(retained, history.object().type()).get(key("value"));
+    assertSame(retained, value.aggregateInfo);
+  }
+
+  private record MetadataHistory(
+      RuntimeValues.ObjectValue object,
+      List<java.lang.ref.WeakReference<RuntimeValues.AggregateInfo>> schemas,
+      RuntimeValues.AggregateInfo retained) {}
+
+  private static MetadataHistory metadataHistory(int retainedIndex) {
+    var first = info(Map.of("value", CoreType.DYNAMIC));
+    var object = new RuntimeValues.ObjectValue(first, CoreType.DYNAMIC);
+    object.writeRawField(
+        key("value"), new RuntimeValues.OpaqueValue(CoreType.DYNAMIC, "value", "value", first));
+    var schemas = new ArrayList<java.lang.ref.WeakReference<RuntimeValues.AggregateInfo>>();
+    schemas.add(new java.lang.ref.WeakReference<>(first));
+    RuntimeValues.AggregateInfo retained = retainedIndex == 0 ? first : null;
+    for (int index = 0; index < 16; index++) {
+      var next = info(Map.of("value", CoreType.DYNAMIC));
+      schemas.add(new java.lang.ref.WeakReference<>(next));
+      if (index + 1 == retainedIndex) retained = next;
+      try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+        var context = transaction.migrate(object, next);
+        context.stageTransform(
+            key("value"), new RuntimeValues.OpaqueValue(CoreType.DYNAMIC, "value", "value", next));
+        context.validate();
+        transaction.commit();
+      }
+    }
+    return new MetadataHistory(object, schemas, retained);
+  }
+
+  @Test
+  void copyingUsesMaterializedOwnershipAndPreservesPreparedHistoricalViews() {
+    var before = info(Map.of("value", CoreType.INTEGER));
+    var after = info(Map.of("value", CoreType.STRING));
+    var object = new RuntimeValues.ObjectValue(before, CoreType.DYNAMIC);
+    object.writeRawField(key("value"), 7);
+    var initial = object.state().copySource(after, CoreType.DYNAMIC);
+    assertSame(before, initial.info());
+    assertEquals(7, initial.values().get(key("value")));
+    try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+      var context = transaction.migrate(object, after);
+      context.write(key("value"), CoreType.STRING, "seven");
+      context.validate();
+      transaction.commit();
+    }
+    var historical = object.state().copySource(before, CoreType.DYNAMIC);
+    assertSame(before, historical.info());
+    assertEquals(7, historical.values().get(key("value")));
+    var current = object.state().copySource(after, CoreType.DYNAMIC);
+    assertSame(after, current.info());
+    assertEquals("seven", current.values().get(key("value")));
+  }
+
+  @Test
+  void laterMigrationReadsAdoptedGenericStateInsteadOfBirthConfiguration() {
+    var field = new CoreType.Parameter(0, CoreNullability.NON_NULL);
+    var before = info(Map.of("value", field));
+    var after = info(Map.of("value", field));
+    var last = info(Map.of("value", field));
+    var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
+    var sourceType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.INTEGER),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var targetType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.STRING),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var object = new RuntimeValues.ObjectValue(before, sourceType);
+    object.writeRawField(key("value"), 7);
+    object.configuration.put(key("value"), 7);
+    var replacement = new RuntimeValues.ObjectValue(after, targetType);
+    replacement.writeRawField(key("value"), "seven");
+    try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+      var migration = transaction.migrate(object, after);
+      migration.replace(replacement);
+      migration.validate();
+      transaction.commit();
+    }
+    try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+      var migration = transaction.migrate(object, last);
+      assertEquals("seven", migration.read(key("value"), CoreType.STRING));
+    }
+  }
+
+  @Test
+  void requestedSpecializationIsComparedExactlyWithinOneRevision() {
+    var info = info(Map.of());
+    var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
+    var sourceType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.INTEGER),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var targetType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.STRING),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var object = new RuntimeValues.ObjectValue(info, sourceType);
+    assertTrue(object.state().schemaMatches(info, sourceType));
+    assertTrue(object.state().hasView(info, sourceType));
+    assertFalse(object.state().schemaMatches(info, targetType));
+    assertFalse(object.state().hasView(info, targetType));
+    assertEquals(sourceType, object.type(info));
+    try (var migration = object.state().prepare(object, info, targetType)) {
+      assertEquals(targetType, migration.targetType());
+      assertTrue(migration.requiresConverter());
+    }
+  }
+
+  @Test
+  void nestedGenericChangesPreserveInitializedStateForTheChildMigration() {
+    var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
+    var sourceType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.INTEGER),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var targetType =
+        new CoreType.Declared(
+            constructor,
+            List.of(CoreType.STRING),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var before = info(Map.of("value", sourceType));
+    var after = info(Map.of("value", targetType));
+    var object = new RuntimeValues.ObjectValue(before, CoreType.DYNAMIC);
+    var child = new RuntimeValues.OpaqueValue(sourceType, "value", "value", before);
+    object.writeRawField(key("value"), child);
+    try (var context = object.state().prepare(object, after)) {
+      assertTrue(context.target().containsKey(key("value")));
+      assertEquals(sourceType, RuntimeValues.runtimeType(context.target().get(key("value"))));
+      assertTrue(RuntimeValues.equal(child, context.target().get(key("value"))));
+      assertFalse(context.requiresConverter());
+    }
+  }
+
+  @Test
+  void replacementChangesGenericArgumentsWhileRetainingTheSourceViewAndIdentity() {
+    var before = info(Map.of("value", new CoreType.Parameter(0, CoreNullability.NON_NULL)));
+    var after = info(Map.of("value", new CoreType.Parameter(1, CoreNullability.NON_NULL)));
+    var firstType =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new DefinitionReference.External(OWNER)),
+            List.of(CoreType.INTEGER),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var secondType =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new DefinitionReference.External(OWNER)),
+            List.of(CoreType.INTEGER, CoreType.STRING),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var object = new RuntimeValues.ObjectValue(before, firstType);
+    object.writeRawField(key("value"), 7);
+    var candidate = new RuntimeValues.ObjectValue(after, secondType);
+    candidate.writeRawField(key("value"), "seven");
+    try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+      var context = transaction.migrate(object, after);
+      context.replace(candidate);
+      context.validate();
+      assertSame(object, context.replacement());
+      assertEquals(firstType, context.objectType());
+      assertEquals(secondType, context.targetType());
+      transaction.commit();
+    }
+    assertEquals(secondType, object.type());
+    assertEquals(firstType, object.state().type(before, object.type()));
+    assertEquals(7, object.state().view(before, object.type()).get(key("value")));
+    assertEquals("seven", object.state().view(after, object.type()).get(key("value")));
+  }
+
+  @Test
+  void graphTransformationForksCompatiblePolymorphicCellsWithoutChangingRetainedViews() {
+    var before = info(Map.of("value", CoreType.DYNAMIC));
+    var after = info(Map.of("value", CoreType.DYNAMIC));
+    var object = new RuntimeValues.ObjectValue(before, CoreType.DYNAMIC);
+    object.writeRawField(key("value"), 7);
+    try (var transaction = RuntimeValues.prepareState(List.of(), null)) {
+      var context = transaction.migrate(object, after);
+      context.stageTransform(key("value"), "seven");
+      context.validate();
+      transaction.commit();
+    }
+    assertEquals(7, object.state().view(before, object.type()).get(key("value")));
+    assertEquals("seven", object.state().view(after, object.type()).get(key("value")));
+  }
+
+  @Test
   void oldSchemaKeepsTypedValuesWhileIdentityAndAliasesRemain() {
     var old = info(Map.of("value", CoreType.INTEGER, "shared", CoreType.INTEGER));
     var next = info(Map.of("value", CoreType.STRING, "shared", CoreType.INTEGER));
@@ -27,13 +275,13 @@ final class RuntimeObjectStateTest {
       transaction.commit();
     }
     assertSame(object, alias);
-    assertEquals(7, object.state().view(old, object.type).get(key("value")));
-    assertEquals("seven", object.state().view(next, object.type).get(key("value")));
-    object.state().view(next, object.type).put(key("shared"), 2);
-    assertEquals(2, object.state().view(old, object.type).get(key("shared")));
+    assertEquals(7, object.state().view(old, object.type()).get(key("value")));
+    assertEquals("seven", object.state().view(next, object.type()).get(key("value")));
+    object.state().view(next, object.type()).put(key("shared"), 2);
+    assertEquals(2, object.state().view(old, object.type()).get(key("shared")));
     assertThrows(
         RuntimeValues.StateMigrationFailure.class,
-        () -> object.state().view(old, object.type).put(key("value"), 8));
+        () -> object.state().view(old, object.type()).put(key("value"), 8));
   }
 
   @Test
@@ -54,7 +302,7 @@ final class RuntimeObjectStateTest {
     }
     assertEquals(List.of(1), list.values);
     assertEquals(7, object.rawField(key("value")));
-    assertFalse(object.state().hasView(next, object.type));
+    assertFalse(object.state().hasView(next, object.type()));
   }
 
   @Test
@@ -81,10 +329,10 @@ final class RuntimeObjectStateTest {
       migration.validateCoverage();
       transaction.commit();
     }
-    assertSame(object, object.state().view(old, object.type).get(key("self")));
-    assertSame(object, object.state().view(last, object.type).get(key("self")));
-    assertEquals(7, object.state().view(next, object.type).get(key("renamed")));
-    assertEquals("seven", object.state().view(last, object.type).get(key("text")));
+    assertSame(object, object.state().view(old, object.type()).get(key("self")));
+    assertSame(object, object.state().view(last, object.type()).get(key("self")));
+    assertEquals(7, object.state().view(next, object.type()).get(key("renamed")));
+    assertEquals("seven", object.state().view(last, object.type()).get(key("text")));
   }
 
   @Test
@@ -123,8 +371,8 @@ final class RuntimeObjectStateTest {
       migration.write(key("value"), CoreType.INTEGER, 11);
       transaction.commit();
     }
-    assertEquals(7, object.state().view(first, object.type).get(key("value")));
-    assertEquals(11, object.state().view(last, object.type).get(key("value")));
+    assertEquals(7, object.state().view(first, object.type()).get(key("value")));
+    assertEquals(11, object.state().view(last, object.type()).get(key("value")));
   }
 
   @Test
@@ -182,7 +430,7 @@ final class RuntimeObjectStateTest {
           RuntimeValues.StateMigrationPending.class, () -> transaction.include(List.of(reference)));
     }
     assertEquals(7, reference.read());
-    assertFalse(object.state().hasView(next, object.type));
+    assertFalse(object.state().hasView(next, object.type()));
   }
 
   @Test

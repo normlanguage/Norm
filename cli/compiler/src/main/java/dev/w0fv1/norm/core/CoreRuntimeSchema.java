@@ -12,13 +12,9 @@ public final class CoreRuntimeSchema {
   private final CoreRuntimeIdentity identity;
   private final Map<DefinitionId, TypeContract> types;
   private final Map<String, CallableContract> callables;
-  private final Set<String> constructors;
-  private final Map<String, DefinitionId> fieldInitializers;
 
   private CoreRuntimeSchema(CoreArtifact artifact) {
     identity = CoreRuntimeIdentity.create(artifact);
-    var indexedConstructors = new java.util.HashSet<String>();
-    var indexedInitializers = new HashMap<String, DefinitionId>();
     var indexedCallables = new HashMap<String, CallableContract>();
     for (var occurrence : artifact.authoring().occurrences()) {
       var definition =
@@ -32,6 +28,9 @@ public final class CoreRuntimeSchema {
                     callable.receiverType(),
                     callable.typeParameters(),
                     callable.captureTypes(),
+                    callable.captureLocals().stream()
+                        .map(local -> occurrence.origin().localNames().get(local))
+                        .toList(),
                     callable.parameters().stream()
                         .map(parameter -> new Parameter(parameter.name(), parameter.type()))
                         .toList(),
@@ -41,6 +40,7 @@ public final class CoreRuntimeSchema {
                     Optional.of(method.receiverType()),
                     method.typeParameters(),
                     List.of(),
+                    List.of(),
                     java.util.stream.IntStream.range(0, method.parameterTypes().size())
                         .mapToObj(
                             index -> new Parameter("$" + index, method.parameterTypes().get(index)))
@@ -49,25 +49,13 @@ public final class CoreRuntimeSchema {
             default -> null;
           };
       if (contract != null) indexedCallables.put(identity.key(occurrence.id()), contract);
-      if (occurrence.role() == CoreDefinitionRole.CONSTRUCTOR)
-        indexedConstructors.add(identity.key(occurrence.id()));
-      if (definition instanceof CoreDefinition.Aggregate aggregate) {
-        for (var field : aggregate.fields()) {
-          field
-              .initializer()
-              .ifPresent(
-                  initializer -> {
-                    var target =
-                        artifact.authoring().target(occurrence.id(), initializer.nodeIndex());
-                    indexedInitializers.put(
-                        identity.key(target), identity.id(occurrence.id().representative()));
-                  });
-        }
-      }
     }
     callables = Map.copyOf(indexedCallables);
-    constructors = Set.copyOf(indexedConstructors);
-    fieldInitializers = Map.copyOf(indexedInitializers);
+    var definitions =
+        identity.definitions().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    CoreDefinitionRecord::id, CoreDefinitionRecord::definition));
     var indexedTypes = new HashMap<DefinitionId, TypeContract>();
     for (var record : identity.definitions()) {
       TypeContract contract =
@@ -87,34 +75,73 @@ public final class CoreRuntimeSchema {
                     case ANNOTATION -> TypeKind.ANNOTATION;
                   },
                   aggregate.valueCategory(),
-                  aggregate.typeParameters(),
+                  aggregate.typeParameters().stream()
+                      .map(
+                          parameter ->
+                              new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                      .toList(),
                   aggregate.parentType().stream().toList(),
                   Map.copyOf(fields),
                   Map.of(),
                   aggregate.conformances().stream()
                       .map(CoreConformance::interfaceType)
-                      .collect(java.util.stream.Collectors.toSet()));
+                      .collect(java.util.stream.Collectors.toSet()),
+                  Set.of());
             }
             case CoreDefinition.Interface declared ->
                 new TypeContract(
                     TypeKind.INTERFACE,
                     CoreValueCategory.POLYMORPHIC,
-                    declared.typeParameters(),
+                    declared.typeParameters().stream()
+                        .map(
+                            parameter ->
+                                new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                        .toList(),
                     declared.directParents(),
                     Map.of(),
                     Map.of(),
-                    Set.of());
+                    Set.of(),
+                    declared.declaredMethods().stream()
+                        .map(
+                            link -> {
+                              var definition =
+                                  definitions.get(
+                                      ((DefinitionReference.External) link).definition());
+                              if (definition instanceof CoreDefinition.MethodSignature method)
+                                return new MethodContract(
+                                    method.name(),
+                                    method.typeParameters().stream()
+                                        .map(
+                                            parameter ->
+                                                new CoreTypeParameter(
+                                                    parameter.index(), parameter.upperBound()))
+                                        .toList(),
+                                    method.parameterTypes(),
+                                    method.returnType());
+                              throw new IllegalStateException(
+                                  "Interface member has no method signature");
+                            })
+                        .collect(java.util.stream.Collectors.toSet()));
             case CoreDefinition.Enum declared ->
                 new TypeContract(
                     TypeKind.ENUM,
                     CoreValueCategory.VALUE,
-                    declared.typeParameters(),
+                    declared.typeParameters().stream()
+                        .map(
+                            parameter ->
+                                new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                        .toList(),
                     List.of(),
                     Map.of(),
                     declared.variants().stream()
                         .collect(
                             java.util.stream.Collectors.toMap(
-                                CoreEnumVariant::key, CoreEnumVariant::fields)),
+                                CoreEnumVariant::key,
+                                variant ->
+                                    variant.fields().stream()
+                                        .map(field -> new Parameter(field.name(), field.type()))
+                                        .toList())),
+                    Set.of(),
                     Set.of());
             default -> null;
           };
@@ -142,64 +169,131 @@ public final class CoreRuntimeSchema {
         (id, before) -> {
           TypeContract after = candidate.types.get(id);
           if (after == null) return;
-          if (!before.kind().equals(after.kind())
-              || before.category() != after.category()
-              || !before.parameters().equals(after.parameters())
-              || !after.parents().containsAll(before.parents())
-              || !after.conformances().containsAll(before.conformances()))
+          if (!before.kind().equals(after.kind()) || before.category() != after.category())
+            throw new IllegalArgumentException("Runtime nominal kind cannot change: " + id);
+          if (!migrations.contains(id)
+              && (requiresTypeParameterMigration(before.parameters(), after.parameters())
+                  || !after.parents().containsAll(before.parents())
+                  || !after.conformances().containsAll(before.conformances())))
             throw new IllegalArgumentException(
                 "Runtime type contract requires an explicit migration: " + id);
-          if (before.category() == CoreValueCategory.VALUE
-              && !before.fields().equals(after.fields()))
-            throw new IllegalArgumentException(
-                "Runtime value layout requires collection key migration: " + id);
           if (!migrations.contains(id))
             before
                 .fields()
                 .forEach(
                     (name, field) -> {
-                      if (!field.equals(after.fields().get(name)))
+                      if (!field.equals(after.fields().get(name))
+                          && !(after.fields().get(name) != null
+                              && field.visibility() == after.fields().get(name).visibility()
+                              && migratableFieldType(
+                                  field.type(), after.fields().get(name).type())))
                         throw new IllegalArgumentException(
                             "Runtime field requires an explicit migration: " + name);
                     });
-          before
-              .variants()
-              .forEach(
-                  (name, variant) -> {
-                    if (!variant.equals(after.variants().get(name)))
-                      throw new IllegalArgumentException(
-                          "Runtime enum variant requires an explicit migration: " + name);
-                  });
-        });
-    callables.forEach(
-        (key, before) -> {
-          CallableContract after = candidate.callables.get(key);
-          boolean constructor = constructors.contains(key) && candidate.constructors.contains(key);
-          boolean compatibleConstructor =
-              constructor
-                  && after != null
-                  && before.receiver().equals(after.receiver())
-                  && before.parameters().equals(after.parameters())
-                  && before.captures().equals(after.captures())
-                  && before.result().equals(after.result());
-          DefinitionId initializerOwner = fieldInitializers.get(key);
-          boolean migratedInitializer =
-              initializerOwner != null
-                  && initializerOwner.equals(candidate.fieldInitializers.get(key))
-                  && migrations.contains(initializerOwner)
-                  && after != null
-                  && before.receiver().equals(after.receiver())
-                  && before.parameters().equals(after.parameters())
-                  && before.captures().equals(after.captures())
-                  && before.arguments().equals(after.arguments());
-          if (after != null
-              && !before.equals(after)
-              && !compatibleConstructor
-              && !migratedInitializer)
-            throw new IllegalArgumentException(
-                "Runtime callable contract requires an explicit migration: " + key);
+          if (!migrations.contains(id))
+            before
+                .variants()
+                .forEach(
+                    (name, variant) -> {
+                      if (!variant.equals(after.variants().get(name)))
+                        throw new IllegalArgumentException(
+                            "Runtime enum variant requires an explicit migration: " + name);
+                    });
         });
   }
+
+  public static boolean requiresTypeParameterMigration(
+      List<CoreTypeParameter> source, List<CoreTypeParameter> target) {
+    return source.size() != target.size()
+        || java.util.stream.IntStream.range(0, source.size())
+            .anyMatch(
+                index ->
+                    target.get(index).upperBound().isPresent()
+                        && !source.get(index).upperBound().equals(target.get(index).upperBound()));
+  }
+
+  public static boolean migratableFieldType(CoreType source, CoreType target) {
+    if (source.equals(target)) return true;
+    if (!(source instanceof CoreType.Declared before)
+        || !(target instanceof CoreType.Declared after)
+        || !before.constructor().equals(after.constructor())
+        || before.category() != after.category()
+        || before.nullability() != after.nullability()) return false;
+    if (before.constructor() instanceof CoreTypeConstructor.User) return true;
+    var name = ((CoreTypeConstructor.Builtin) before.constructor()).id().value();
+    return Set.of(
+                "std.core.List",
+                "std.core.Map",
+                "std.core.Set",
+                "std.core.Array",
+                "std.core.Stack",
+                "std.core.Queue",
+                "std.core.Deque",
+                "std.core.Pair")
+            .contains(name)
+        && before.arguments().size() == after.arguments().size()
+        && java.util.stream.IntStream.range(0, before.arguments().size())
+            .allMatch(
+                index ->
+                    migratableFieldType(
+                        before.arguments().get(index), after.arguments().get(index)));
+  }
+
+  public TypeFingerprint typeFingerprint(CoreType type) {
+    var contracts = new LinkedHashMap<DefinitionId, TypeContract>();
+    var pending = new java.util.ArrayDeque<CoreType>();
+    pending.add(type);
+    while (!pending.isEmpty()) {
+      var current = pending.removeFirst();
+      switch (current) {
+        case CoreType.Declared declared -> {
+          pending.addAll(declared.arguments());
+          if (declared.constructor() instanceof CoreTypeConstructor.User user
+              && user.definition() instanceof DefinitionReference.External external) {
+            var contract = types.get(external.definition());
+            if (contract == null || contracts.putIfAbsent(external.definition(), contract) != null)
+              continue;
+            contract
+                .parameters()
+                .forEach(parameter -> parameter.upperBound().ifPresent(pending::add));
+            pending.addAll(contract.parents());
+            pending.addAll(contract.conformances());
+            contract.fields().values().forEach(field -> pending.add(field.type()));
+            contract
+                .variants()
+                .values()
+                .forEach(fields -> fields.forEach(field -> pending.add(field.type())));
+            contract
+                .methods()
+                .forEach(
+                    method -> {
+                      method
+                          .parameters()
+                          .forEach(parameter -> parameter.upperBound().ifPresent(pending::add));
+                      pending.addAll(method.arguments());
+                      pending.add(method.result());
+                    });
+          }
+        }
+        case CoreType.Function function -> {
+          pending.add(function.returnType());
+          pending.addAll(function.parameterTypes());
+        }
+        case CoreType.Reference reference -> pending.add(reference.target());
+        default -> {}
+      }
+    }
+    return new TypeFingerprint(type, Map.copyOf(contracts));
+  }
+
+  public record TypeFingerprint(CoreType type, Map<DefinitionId, TypeContract> contracts) {
+    public TypeFingerprint {
+      contracts = Map.copyOf(contracts);
+    }
+  }
+
+  public record MethodContract(
+      String name, List<CoreTypeParameter> parameters, List<CoreType> arguments, CoreType result) {}
 
   public CallableContract callableContract(DefinitionOccurrenceId occurrence) {
     return callables.get(identity.key(occurrence));
@@ -211,12 +305,13 @@ public final class CoreRuntimeSchema {
       Optional<CoreType> receiver,
       List<CoreTypeParameter> parameters,
       List<CoreType> captures,
+      List<String> captureIdentities,
       List<Parameter> arguments,
       CoreType result) {}
 
-  private record FieldContract(CoreVisibility visibility, CoreType type) {}
+  public record FieldContract(CoreVisibility visibility, CoreType type) {}
 
-  private enum TypeKind {
+  public enum TypeKind {
     CLASS,
     VALUE,
     ANNOTATION,
@@ -224,12 +319,22 @@ public final class CoreRuntimeSchema {
     ENUM
   }
 
-  private record TypeContract(
+  public record TypeContract(
       TypeKind kind,
       CoreValueCategory category,
       List<CoreTypeParameter> parameters,
       List<CoreType> parents,
       Map<String, FieldContract> fields,
-      Map<String, List<CoreField>> variants,
-      Set<CoreType> conformances) {}
+      Map<String, List<Parameter>> variants,
+      Set<CoreType> conformances,
+      Set<MethodContract> methods) {
+    public TypeContract {
+      parameters = List.copyOf(parameters);
+      parents = List.copyOf(parents);
+      fields = Map.copyOf(fields);
+      variants = Map.copyOf(variants);
+      conformances = Set.copyOf(conformances);
+      methods = Set.copyOf(methods);
+    }
+  }
 }

@@ -42,8 +42,10 @@ public final class ApplicationRunner implements AutoCloseable {
     var backend = new dev.w0fv1.norm.runtime.NormRuntime();
     var cancellation = new java.util.concurrent.atomic.AtomicBoolean();
     var original = context;
+    var updates = new ApplicationUpdateChannel();
     context =
         context
+            .withUpdates(updates)
             .withApplicationDirectory(entry.toAbsolutePath().normalize().getParent())
             .withCancellation(() -> cancellation.get() || original.cancellation().getAsBoolean());
     var compiler =
@@ -67,7 +69,15 @@ public final class ApplicationRunner implements AutoCloseable {
         inputs = candidate.inputs();
       }
       return new ApplicationSession(
-          backend, compiler, compilation, revision, inputs, cancellation, progress, diagnostics);
+          backend,
+          compiler,
+          compilation,
+          revision,
+          inputs,
+          cancellation,
+          progress,
+          diagnostics,
+          updates);
     } catch (IOException | RuntimeException | Error exception) {
       compiler.close();
       throw exception;
@@ -230,9 +240,11 @@ public final class ApplicationRunner implements AutoCloseable {
       throws IOException {
     var cancellation = new java.util.concurrent.atomic.AtomicBoolean();
     var original = context;
+    var updates = new ApplicationUpdateChannel();
     context =
-        context.withCancellation(
-            () -> cancellation.get() || original.cancellation().getAsBoolean());
+        context
+            .withUpdates(updates)
+            .withCancellation(() -> cancellation.get() || original.cancellation().getAsBoolean());
     var candidateCompiler =
         new SourceApplicationCompiler(this, entry, context, progress, cache, replay);
     try {
@@ -245,7 +257,8 @@ public final class ApplicationRunner implements AutoCloseable {
           candidate.inputs(),
           cancellation,
           progress,
-          diagnostics);
+          diagnostics,
+          updates);
     } catch (IOException | RuntimeException | Error exception) {
       candidateCompiler.close();
       throw exception;

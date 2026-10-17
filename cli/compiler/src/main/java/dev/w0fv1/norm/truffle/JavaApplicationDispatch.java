@@ -96,7 +96,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               var thread = Thread.currentThread();
               var previousLoader = thread.getContextClassLoader();
               thread.setContextClassLoader(applicationLoader);
-              try {
+              try (var valueScope = RuntimeValueExecution.enter(execution)) {
                 if (owner == null) return operation.get();
                 dev.w0fv1.norm.execution.ExecutionRevision retained;
                 synchronized (execution.liveBindings()) {
@@ -258,7 +258,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
           if (plan == null
               || !guest
                   .state()
-                  .sameLocation(view, guest.state().currentInfo(), guest.type, plan.key()))
+                  .sameLocation(view, guest.state().currentInfo(), guest.type(), plan.key()))
             return null;
           Field field = publicField(receiver.getClass(), name);
           if (field != null) {
@@ -372,7 +372,10 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     List<CoreType> receiverArguments =
         guest == null
             ? List.of()
-            : receiverTypeArguments(declaration.receiverType().orElseThrow(), guest.type, id);
+            : receiverTypeArguments(
+                declaration.receiverType().orElseThrow(),
+                guest.type(annotations.aggregateInfo(guest.objectInfo.definition())),
+                id);
     Object[] parameters = new Object[arguments.length];
     for (int index = 0; index < arguments.length; index++) {
       CoreType expected =
@@ -558,7 +561,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     for (RuntimeValues.FieldPlan plan : info.fields()) {
       Field field = publicField(receiver.getClass(), plan.name());
       if (field == null) continue;
-      if (!guest.state().sameLocation(info, guest.state().currentInfo(), guest.type, plan.key()))
+      if (!guest.state().sameLocation(info, guest.state().currentInfo(), guest.type(), plan.key()))
         continue;
       try {
         field.set(receiver, javaResult(guest.rawField(plan.key(), info)));

@@ -163,3 +163,5 @@ External-network smoke programs live in `norm/tests/live` and run only manually 
 8. Regex and crypto.
 
 Keep compilation, execution, and relevant tests passing at every step; remove superseded entries before proceeding to the next.
+
+- Runtime source publication API: [`std.runtime`](../../norm/stdlib/std/runtime/updates.norm); host capability: [`ExecutionUpdates`](../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/ExecutionUpdates.java).

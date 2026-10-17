@@ -509,12 +509,12 @@ public final class SourceFormatter {
       case Syntax.BooleanLiteral value -> Docs.text(Boolean.toString(value.value()));
       case Syntax.NullLiteral ignored -> Docs.text("null");
       case Syntax.StringLiteralExpr value ->
-          Docs.text(
-              value.span().text().startsWith("\"\"\"")
-                  ? value.span().text()
-                  : stringLiteral(value.value()));
+          value.span().text().startsWith("\"\"\"")
+              ? Docs.concat(Docs.text(value.span().text()), Docs.hardLine())
+              : Docs.text(stringLiteral(value.value()));
       case Syntax.InterpolatedStringExpr value -> {
-        if (value.span().text().startsWith("\"\"\"")) yield Docs.text(value.span().text());
+        if (value.span().text().startsWith("\"\"\""))
+          yield Docs.concat(Docs.text(value.span().text()), Docs.hardLine());
         List<Doc> parts = new ArrayList<>();
         parts.add(Docs.text("\""));
         for (int index = 0; index < value.expressions().size(); index++) {

@@ -1,0 +1,130 @@
+package agent
+
+import openai.OpenAiException
+import openai.ToolCall
+import openai.ToolDefinition
+import std.http.HttpClient
+import std.http.HttpResponse
+import std.http.Uri
+import std.http.HttpHeader
+import std.http.HttpMethod
+import std.http.HttpRequest
+import std.http.HeaderMap
+import std.http.systemHttpClient
+import std.io.readAll
+import std.io.encodeText
+import std.io.TextEncoding
+import std.io.decodeText
+import std.json.JsonValue
+import std.json.parseJson
+import std.json.writeJson
+import std.time.Duration
+import std.time.duration
+
+public interface McpToolProvider {
+  List<ToolDefinition> definitions()
+  Boolean supports(String name)
+  String invoke(ToolCall call)
+}
+
+public class McpClient implements McpToolProvider {
+  private String endpoint
+  private HttpClient client
+  private Duration timeout
+  private Integer nextRequestId = 1
+  private List<ToolDefinition> cached = []
+
+  McpClient(
+    String endpoint,
+    HttpClient client = systemHttpClient(),
+    Duration timeout = duration(seconds: 30, nanoseconds: 0)
+  ) {
+    this.endpoint = endpoint
+    this.client = client
+    this.timeout = timeout
+  }
+
+  public List<ToolDefinition> definitions() {
+    JsonValue result = this.request(method: "tools/list", params: JsonValue.Object(fields: Map<>()))
+    Map<String, JsonValue> fields = this.object(value: result)
+    List<ToolDefinition> values = []
+    for JsonValue item : this.array(value: fields.get(key: "tools") ?? JsonValue.Array(values: [])) {
+      Map<String, JsonValue> tool = this.object(value: item)
+      values.add(ToolDefinition(
+        name: this.string(value: tool.get(key: "name") ?? JsonValue.Null),
+        description: this.string(value: tool.get(key: "description") ?? JsonValue.String(value: "")),
+        parameters: tool.get(key: "inputSchema") ?? JsonValue.Object(fields: Map<>()),
+        strict: false
+      ))
+    }
+    cached = values
+    return values
+  }
+
+  public Boolean supports(String name) {
+    for ToolDefinition definition : cached {
+      if definition.name == name { return true }
+    }
+    return false
+  }
+
+  public String invoke(ToolCall call) {
+    Map<String, JsonValue> arguments = switch parseJson(value: if call.arguments.isBlank { "{}" } else { call.arguments }) {
+      case Object(Map<String, JsonValue> fields) { break fields }
+      case _ { throw OpenAiException(code: "OPENAI-MCP-ARGUMENTS", message: "MCP tool arguments must be a JSON object") }
+    }
+    Map<String, JsonValue> params = Map<>()
+    params.put(key: "name", value: JsonValue.String(value: call.name))
+    params.put(key: "arguments", value: JsonValue.Object(fields: arguments))
+    return writeJson(value: this.request(method: "tools/call", params: JsonValue.Object(fields: params)))
+  }
+
+  private JsonValue request(String method, JsonValue params) {
+    Map<String, JsonValue> payload = Map<>()
+    payload.put(key: "jsonrpc", value: JsonValue.String(value: "2.0"))
+    payload.put(key: "id", value: JsonValue.Number(value: nextRequestId.toString()))
+    payload.put(key: "method", value: JsonValue.String(value: method))
+    payload.put(key: "params", value: params)
+    nextRequestId = nextRequestId + 1
+    HttpRequest outgoing = HttpRequest(
+      method: HttpMethod.Post,
+      uri: Uri(value: endpoint),
+      headers: HeaderMap(values: [HttpHeader(name: "Content-Type", value: "application/json")]),
+      body: encodeText(text: writeJson(value: JsonValue.Object(fields: payload)), encoding: TextEncoding.Utf8)
+    )
+    HttpResponse response = client.send(request: outgoing, timeout: timeout)
+    try {
+      if response.status().code < 200 || response.status().code >= 300 {
+        throw OpenAiException(code: "OPENAI-MCP-HTTP", message: "MCP endpoint returned HTTP status " + response.status().code.toString())
+      }
+      JsonValue document = parseJson(value: decodeText(content: readAll(reader: response, maximumBytes: 1048576), encoding: TextEncoding.Utf8))
+      Map<String, JsonValue> root = this.object(value: document)
+      JsonValue? error = root.get(key: "error")
+      if error != null && error != JsonValue.Null {
+        throw OpenAiException(code: "OPENAI-MCP-REMOTE", message: writeJson(value: error))
+      }
+      return root.get(key: "result") ?? JsonValue.Object(fields: Map<>())
+    } finally { response.close() }
+  }
+
+  private Map<String, JsonValue> object(JsonValue value) {
+    switch value {
+      case Object(Map<String, JsonValue> fields) { break fields }
+      case _ { throw OpenAiException(code: "OPENAI-MCP-PROTOCOL", message: "MCP response must contain a JSON object") }
+    }
+  }
+
+  private List<JsonValue> array(JsonValue value) {
+    switch value {
+      case Array(List<JsonValue> values) { break values }
+      case _ { throw OpenAiException(code: "OPENAI-MCP-PROTOCOL", message: "MCP tools must be a JSON array") }
+    }
+  }
+
+  private String string(JsonValue value) {
+    switch value {
+      case String(String text) { break text }
+      case _ { throw OpenAiException(code: "OPENAI-MCP-PROTOCOL", message: "MCP tool name must be a string") }
+    }
+  }
+}

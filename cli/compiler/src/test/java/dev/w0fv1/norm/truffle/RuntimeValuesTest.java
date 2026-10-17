@@ -28,24 +28,25 @@ final class RuntimeValuesTest {
 
     assertTrue(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Renamed", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, integerResult, "Renamed", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(second, integerResult, "Result", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(second, integerResult, "Result", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, stringResult, "Result", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, stringResult, "Result", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Error", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(
+                first, integerResult, "Result", "Error", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(2))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(2), null)));
   }
 
   @Test
@@ -55,7 +56,7 @@ final class RuntimeValuesTest {
     payload.values.add(1);
     RuntimeValues.EnumValue value =
         new RuntimeValues.EnumValue(
-            definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(payload));
+            definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(payload), null);
 
     RuntimeValues.EnumValue copied = (RuntimeValues.EnumValue) RuntimeValues.copy(value);
     payload.values.add(2);
@@ -66,7 +67,7 @@ final class RuntimeValuesTest {
     assertEquals(
         "Result.Ok(1)",
         new RuntimeValues.EnumValue(
-                definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(1))
+                definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(1), null)
             .toString());
   }
 
