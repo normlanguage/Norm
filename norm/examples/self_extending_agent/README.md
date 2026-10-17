@@ -1,6 +1,6 @@
 # Self-extending Agent
 
-Run from an isolated copy of this directory. Place the [OpenAI module](../../libraries/openai) in the workspace's `dependencies/openai` directory; dependency lookup follows the normal Norm module resolver.
+Run from an isolated copy of this directory. Place the [Agent module](../../libraries/agent) in the workspace's `dependencies/agent` directory; its exported OpenAI dependency follows the normal Norm module resolver.
 
 Set `OPENAI_API_KEY` and `OPENAI_MODEL`. `OPENAI_BASE_URL` optionally supplies the complete Responses or Chat Completions endpoint URL. The application task is the first argument:
 
@@ -15,7 +15,7 @@ Entry points:
 - [main.norm](main.norm): model configuration, persistent session and runtime publication feedback.
 - [tools.norm](tools.norm): initial file tools and the live tool catalog the Agent edits.
 - [module.norm](module.norm): dependency declarations.
-- [OpenAI Agent](../../libraries/openai/agent.norm): request and tool lifecycle.
+- [Agent library](../../libraries/agent): request loop, session storage, Skill loading, tools and MCP.
 - [Runtime publication API](../../stdlib/std/runtime/updates.norm): update transactions and diagnostics.
 - [Language reference](../../../docs/zh/spec/language-spec.md): source syntax and semantics.
 - [Standard library](../../../docs/zh/stdlib/overview.md): available capabilities.

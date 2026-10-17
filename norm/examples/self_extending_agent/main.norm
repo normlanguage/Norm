@@ -1,4 +1,4 @@
-package agent
+package self_extending_agent
 
 import agent.Agent
 import agent.AgentSession

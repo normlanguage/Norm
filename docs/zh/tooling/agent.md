@@ -11,7 +11,7 @@ CLI 用法以安装版 `norm -h` 为入口；各命令使用 `norm <command> -h`
 
 使用当前工具链支持的语言与 API。能力成熟度见 [Status](/zh/status)，工具设计原则与规划见 [Agent 工具设计](/zh/design/agent-tooling)。源码工作区中的能力不代表已进入正式发行包。
 
-持续修改自身代码的可执行入口见[自扩展 Agent](https://github.com/normlanguage/Norm/blob/main/norm/examples/agent/README.md)。模型调用复用 [OpenAI 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)，工具声明从 Norm 函数和注解派生。
+持续修改自身代码的可执行入口见[自扩展 Agent](https://github.com/normlanguage/Norm/blob/main/norm/examples/self_extending_agent/README.md)。它使用建立在协议层 [OpenAI 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)之上的 [Agent 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/agent)，工具声明从 Norm 函数和注解派生。
 
 ## 学习与查询
 
@@ -35,3 +35,4 @@ CLI 用法以安装版 `norm -h` 为入口；各命令使用 `norm <command> -h`
 验证结论必须说明实际执行范围。编译成功只证明静态约束，测试通过只证明被执行用例的断言；修改后需重新验证对应源码。
 
 可复用的任务准备、独立验收与测量边界见 [Agent 任务基准](/zh/tooling/agent-benchmark)。
+

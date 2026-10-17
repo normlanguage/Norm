@@ -38,13 +38,15 @@ final class SelfExtendingAgentApplicationTest {
   void repairsSourceAddsDependencyAndInvokesNewToolInTheSameProcess(boolean jarDependency)
       throws Exception {
     Path norm = Path.of(System.getProperty("norm.test.stdlib")).getParent().getParent();
-    Path app = Files.createDirectories(directory.resolve("agent"));
+    Path app = Files.createDirectories(directory.resolve("self_extending_agent"));
     for (var mapping :
         Map.of(
-                norm.resolve("examples/agent"),
+                norm.resolve("examples/self_extending_agent"),
                 app,
                 norm.resolve("libraries/openai"),
-                directory.resolve("dependencies/openai"))
+                directory.resolve("dependencies/openai"),
+                norm.resolve("libraries/agent"),
+                directory.resolve("dependencies/agent"))
             .entrySet()) {
       Files.createDirectories(mapping.getValue());
       try (var files = Files.list(mapping.getKey())) {
@@ -76,7 +78,7 @@ final class SelfExtendingAgentApplicationTest {
               + "\")), api: [jarType(name: \"org.apache.commons.lang3.StringUtils\", members: [\"reverse\"])])";
     }
     String dependencyModule =
-        "Module module() { module(name: \"agent\", version: 1, dependencies: [dependency(repository: \"github\", name: \"openai\", version: 1)"
+        "Module module() { module(name: \"self_extending_agent\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)"
             + (jarDependency
                 ? ""
                 : ", dependency(repository: \"github\", name: \"capability\", version: 1)")
@@ -86,7 +88,7 @@ final class SelfExtendingAgentApplicationTest {
     String dependencyTool =
         jarDependency
             ? """
-        package agent
+        package self_extending_agent
         import openai.Tool
         import openai.ToolParameter
         @Tool(name: "reverse_text", description: "Reverse text using Apache Commons Lang")
@@ -94,7 +96,7 @@ final class SelfExtendingAgentApplicationTest {
           return stringUtilsReverse(text) ?? ""
         }
         """
-            : "package agent\nimport openai.Tool\nimport capability.compute\n@Tool(name: \"answer\", description: \"Compute the answer through the added dependency\")\nInteger answer() { compute() }";
+            : "package self_extending_agent\nimport openai.Tool\nimport capability.compute\n@Tool(name: \"answer\", description: \"Compute the answer through the added dependency\")\nInteger answer() { compute() }";
     var rounds = new AtomicInteger();
     var failure = new AtomicReference<Throwable>();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -126,7 +128,7 @@ final class SelfExtendingAgentApplicationTest {
             JsonArray calls = new JsonArray();
             if (round == 0) {
               calls.add(
-                  writeCall(0, app.resolve("extra.norm"), "package agent\nInteger broken( {"));
+                  writeCall(0, app.resolve("extra.norm"), "package self_extending_agent\nInteger broken( {"));
             } else if (round == 1) {
               assertTrue(request.toString().contains("Rejected"), request.toString());
               if (!jarDependency) {
@@ -267,3 +269,4 @@ final class SelfExtendingAgentApplicationTest {
     return call;
   }
 }
+

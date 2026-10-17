@@ -1,4 +1,4 @@
 Module module() {
-  return module(name: "agent", version: 1,
+  return module(name: "self_extending_agent", version: 1,
     dependencies: [dependency(repository: "github", name: "agent", version: 1)])
 }
