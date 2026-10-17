@@ -137,8 +137,7 @@ final class SourceFormatterTest {
   @Test
   void preservesMultilineLiteralContentsAndExecution() {
     String literal = "\"\"\"\n  select \"todo\"\n  ${1 + 2}\n\"\"\"";
-    var source =
-        SourceFile.of(Path.of("query.norm"), "Void main(){printLine(" + literal + "\n)}");
+    var source = SourceFile.of(Path.of("query.norm"), "Void main(){printLine(" + literal + "\n)}");
     var formatted = formatter.format(source).orElseThrow();
     assertTrue(formatted.contains(literal));
     assertEquals(
