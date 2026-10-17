@@ -172,7 +172,7 @@ final class OpenAiAgentTest {
             agent.skill(Skill(name: "norm-skill", url: "http://127.0.0.1:%d/skill.md"))
             agent.skill("http://127.0.0.1:%d/skill.md")
             agent.tool(echo.function)
-            var response = agent.run(input: "hello")
+            var response = agent.chat(input: "hello")
             require(condition: response.text == "done", message: "agent response")
             printLine("done")
           }

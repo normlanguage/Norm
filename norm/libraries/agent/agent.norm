@@ -133,6 +133,10 @@ public class Agent {
     return this
   }
 
+  public Response chat(String input, Function<Void(String)>? onText = null) {
+    return this.run(input: input, onText: onText)
+  }
+
   public Response run(String input, Function<Void(String)>? onResponseStarted = null,
     Function<Void(String)>? onMessageStarted = null,
     Function<Void(String)>? onText = null,
