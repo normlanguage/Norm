@@ -270,6 +270,30 @@ class Page {
     );
   });
 
+  test('diagnoses multiline string delimiters while preserving valid blocks', async () => {
+    const invalid = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'Void main() {\n  String value = """inline\ntext\n"""\n}',
+    });
+    await vscode.window.showTextDocument(invalid);
+    await eventually(() =>
+      vscode.languages
+        .getDiagnostics(invalid.uri)
+        .some((diagnostic) => diagnosticCode(diagnostic) === 'NORM-LEXER-0008')
+        ? true
+        : undefined,
+    );
+
+    const valid = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'Void main() {\n  String value = """\ntext\n"""\n  printLine(value)\n}',
+    });
+    await vscode.window.showTextDocument(valid);
+    await eventually(() =>
+      vscode.languages.getDiagnostics(valid.uri).length === 0 ? true : undefined,
+    );
+  });
+
   test('analyzes package-less single-file applications', async () => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     assert.ok(root, 'test workspace was not opened');

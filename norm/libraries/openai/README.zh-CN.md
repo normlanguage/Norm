@@ -21,7 +21,7 @@ var response = client.generate(
 工具直接使用函数或绑定方法引用：
 
 ```norm
-import openai.Agent
+import agent.Agent
 import openai.Tool
 import openai.ToolParameter
 
@@ -33,7 +33,7 @@ Integer sumNumbers(
   return left + right
 }
 
-var agent = Agent(client: client, tools: [sumNumbers])
+var agent = Agent(apiKey: key, model: model, endpoint: endpoint, tool: [sumNumbers])
 var response = agent.run(input: "计算 19 加 23")
 ```
 

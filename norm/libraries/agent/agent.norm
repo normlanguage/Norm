@@ -68,6 +68,34 @@ public class Agent {
   private Integer maximumRounds
   private Integer maximumOutputTokens
   private List<McpToolProvider> mcpProviders
+  private List<Skill> skills
+
+  Agent(
+    String apiKey,
+    String model,
+    String endpoint,
+    String? instruction = null,
+    List<Skill> skill = [],
+    List<Function<?>> tool = [],
+    Integer maximumRounds = 64,
+    Integer maximumOutputTokens = 8192,
+    Function<List<Function<?>>()>? toolProvider = null,
+    Function<ToolScope()>? beginToolScope = null,
+    Function<String?()>? contextProvider = null,
+    List<McpToolProvider> mcp = []
+  ) {
+    if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
+    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
+    this.instructions = instruction
+    this.tools = tool
+    this.toolProvider = toolProvider
+    this.beginToolScope = beginToolScope
+    this.contextProvider = contextProvider
+    this.maximumRounds = maximumRounds
+    this.maximumOutputTokens = maximumOutputTokens
+    this.mcpProviders = mcp
+    this.skills = skill
+  }
 
   Agent(Client client, String? instructions = null, List<Function<?>> tools = [],
     Integer maximumRounds = 64, Integer maximumOutputTokens = 8192,
@@ -75,11 +103,7 @@ public class Agent {
     Function<String?()>? contextProvider = null, List<Skill> skills = [], List<McpToolProvider> mcpProviders = []) {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
     this.client = client
-    String? combinedInstructions = instructions
-    for Skill skill : skills {
-      combinedInstructions = if combinedInstructions == null { skill.content } else { combinedInstructions + "\n\n" + skill.content }
-    }
-    this.instructions = combinedInstructions
+    this.instructions = instructions
     this.tools = tools
     this.toolProvider = toolProvider
     this.beginToolScope = beginToolScope
@@ -87,6 +111,26 @@ public class Agent {
     this.maximumRounds = maximumRounds
     this.maximumOutputTokens = maximumOutputTokens
     this.mcpProviders = mcpProviders
+    this.skills = skills
+  }
+
+  public Agent skill(Skill value) {
+    skills.add(value)
+    return this
+  }
+
+  public Agent skill(String url) {
+    return this.skill(value: Skill(url: url))
+  }
+
+  public Agent tool(Function<?> value) {
+    tools.add(value)
+    return this
+  }
+
+  public Agent mcp(McpToolProvider value) {
+    mcpProviders.add(value)
+    return this
   }
 
   public Response run(String input, Function<Void(String)>? onResponseStarted = null,
@@ -120,7 +164,7 @@ public class Agent {
           for ToolDefinition definition : provider.definitions() { definitions.add(definition) }
         }
         var response = client.exchange(request: ResponseRequest(model: client.defaultModel(), input: ResponseInput.Items(values: session.items()),
-          instructions: instructions, tools: definitions, maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
+          instructions: this.instructionText(), tools: definitions, maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
         if response.status != ResponseStatus.Completed || response.refusal != null || response.calls.isEmpty() {
           for JsonValue item : response.output { session.append(item: item) }
           callbacks.emit(event: GenerationEvent.RunCompleted(response: response))
@@ -167,6 +211,15 @@ public class Agent {
     }
   }
 
+  private String? instructionText() {
+    String? combined = instructions
+    for Skill value : skills {
+      String content = SkillLoader().fetch(skill: value)
+      combined = if combined == null { content } else { combined + "\n\n" + content }
+    }
+    return combined
+  }
+
   private String invokeTool(ToolCall call, ToolRegistry registry) {
     try { return registry.invoke(call: call) }
     catch OpenAiException error {
@@ -178,32 +231,3 @@ public class Agent {
     }
   }
 }
-
-public Agent newAgent(
-  String apiKey,
-  String model,
-  String endpoint,
-  String? instructions = null,
-  List<Function<?>> tools = [],
-  Integer maximumRounds = 64,
-  Integer maximumOutputTokens = 8192,
-  Function<List<Function<?>>()>? toolProvider = null,
-  Function<ToolScope()>? beginToolScope = null,
-  Function<String?()>? contextProvider = null,
-  List<Skill> skills = [],
-  List<McpToolProvider> mcpProviders = []
-) {
-  return Agent(
-    client: Client(apiKey: apiKey, model: model, endpoint: endpoint),
-    instructions: instructions,
-    tools: tools,
-    maximumRounds: maximumRounds,
-    maximumOutputTokens: maximumOutputTokens,
-    toolProvider: toolProvider,
-    beginToolScope: beginToolScope,
-    contextProvider: contextProvider,
-    skills: skills,
-    mcpProviders: mcpProviders
-  )
-}
-

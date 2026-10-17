@@ -2,7 +2,7 @@ package self_extending_agent
 
 import agent.Agent
 import agent.AgentSession
-import openai.Client
+import agent.Skill
 import agent.ToolScope
 import std.application.applicationDirectory
 import std.application.arguments
@@ -67,19 +67,23 @@ Void main() {
   String directory = applicationDirectory().value
   String documentation = environmentVariable(name: "NORM_DOCUMENTATION_DIRECTORY") ?? directory + "/../../../docs/zh"
   String standardLibrary = environmentVariable(name: "NORM_STDLIB_DIRECTORY") ?? directory + "/../../stdlib/std"
-  String instructions = "You are a Norm Agent running from " + directory + ". Your initial tools only read and write files. "
-    + "Your own tool catalog is in tools.norm; main.norm owns your persistent conversation. Read these files before extending yourself. "
-    + "Read Norm syntax at " + documentation + "/spec/language-spec.md and library references at " + documentation + "/stdlib/overview.md. "
-    + "The actual standard library sources are at " + standardLibrary + ". Do not guess APIs or borrow syntax from other languages. "
-    + "When a task needs a missing capability, implement an annotated Norm tool and add its function reference to tools(). "
-    + "Add dependencies to module.norm and create their source under the application dependency directory when needed. "
-    + "All writes from one response are published together. Runtime publication feedback follows tool outputs. "
-    + "Fix rejected source using the diagnostics before using the new tool. A published revision may still have pending old continuations. "
-    + "Continue until you invoke the capability you added and finish the task."
-  var client = Client(apiKey: key, model: model, endpoint: endpoint)
+  String instructions = """
+You are a Norm Agent running from ${directory}. Your initial tools only read and write files.
+Your own tool catalog is in tools.norm; main.norm owns your persistent conversation. Read these files before extending yourself.
+Read Norm syntax at ${documentation}/spec/language-spec.md and library references at ${documentation}/stdlib/overview.md.
+The actual standard library sources are at ${standardLibrary}. Do not guess APIs or borrow syntax from other languages.
+When a task needs a missing capability, implement an annotated Norm tool and add its function reference to tools().
+Add dependencies to module.norm and create their source under the application dependency directory when needed.
+All writes from one response are published together. Runtime publication feedback follows tool outputs.
+Fix rejected source using the diagnostics before using the new tool. A published revision may still have pending old continuations.
+Continue until you invoke the capability you added and finish the task.
+"""
+  var skill = Skill("https://raw.githubusercontent.com/normlanguage/Norm-Skill/main/SKILL.md")
   var runtime = RuntimeContext()
-  var agent = Agent(client: client, instructions: instructions, toolProvider: tools.function,
-    beginToolScope: beginSourceUpdate.function, contextProvider: runtime.context)
+  var agent = Agent(apiKey: key, model: model, endpoint: endpoint, instruction: instructions,
+    skill: [skill], tool: tools(), toolProvider: tools.function,
+    beginToolScope: beginSourceUpdate.function,
+    contextProvider: runtime.context)
   var session = AgentSession()
   var response = agent.run(input: inputs[0], session: session, onText: (String text) { print(text: text) })
   printLine("")

@@ -118,6 +118,76 @@ final class OpenAiAgentTest {
   }
 
   @org.junit.jupiter.api.Test
+  void loadsSkillDataAtRunTimeAndSupportsFluentPluginRegistration() throws Exception {
+    installLibraries();
+    var failure = new AtomicReference<Throwable>();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/skill.md",
+        exchange -> {
+          byte[] body = "Use the Norm tool catalog before editing source.".getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          try {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(body.contains("Use the Norm tool catalog before editing source."), body);
+            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, 0);
+            exchange
+                .getResponseBody()
+                .write(
+                    ("data: {\"id\":\"r1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\n"
+                            + "data: [DONE]\n\n")
+                        .getBytes(StandardCharsets.UTF_8));
+          } catch (Throwable error) {
+            failure.compareAndSet(null, error);
+          } finally {
+            exchange.close();
+          }
+        });
+    server.start();
+    try {
+      Path app = Files.createDirectories(directory.resolve("plugin_api_app"));
+      Files.writeString(
+          app.resolve("module.norm"),
+          "Module module() { return module(name: \"plugin_api_app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"agent\", version: 1)]) }");
+      Path entry = app.resolve("main.norm");
+      Files.writeString(
+          entry,
+          """
+          package plugin_api_app
+          import agent.Agent
+          import agent.Skill
+          import openai.Tool
+          @Tool(description: "Echo")
+          String echo() { return "ok" }
+          Void main() {
+            var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+              instruction: "base", tool: [])
+            agent.skill(Skill(name: "norm-skill", url: "http://127.0.0.1:%d/skill.md"))
+            agent.skill("http://127.0.0.1:%d/skill.md")
+            agent.tool(echo.function)
+            var response = agent.run(input: "hello")
+            require(condition: response.text == "done", message: "agent response")
+            printLine("done")
+          }
+          """.formatted(
+              server.getAddress().getPort(),
+              server.getAddress().getPort(),
+              server.getAddress().getPort()));
+      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+      if (failure.get() != null) throw new AssertionError(failure.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @org.junit.jupiter.api.Test
   void closesToolScopeAndNotifiesFailureWhenPublicationFails() throws Exception {
     installLibraries();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
