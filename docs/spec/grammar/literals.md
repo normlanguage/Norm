@@ -29,7 +29,7 @@ CodePoint newline = '\n'
 
 Strings use double quotes and standard escapes. `${expression}` evaluates the expression and obtains text through its `toString()` contract, from left to right. `\${` retains a literal `${`, useful for configuration placeholders.
 
-Triple quotes `"""` enclose a multiline string, preserving newlines and indentation. Escape and interpolation rules are the same as ordinary strings. One or two consecutive double quotes inside need no escaping; three end the string. Formatting preserves the original multiline content.
+Triple quotes `"""` enclose a multiline string, preserving newlines and indentation. The opening delimiter must be followed immediately by a line break, so content starts on the next line. The closing delimiter must be alone on its line, with only spaces or tabs around it. Escape and interpolation rules are the same as ordinary strings. One or two consecutive double quotes inside need no escaping; three end the string. Formatting preserves the original multiline content.
 
 ```norm
 String query = """
