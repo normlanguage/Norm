@@ -3,7 +3,6 @@ package self_extending_agent
 import agent.Agent
 import agent.Skill
 import std.application.applicationDirectory
-import std.application.arguments
 import std.application.environmentVariable
 import std.core.Exception
 import std.io.print
@@ -12,8 +11,6 @@ Void main() {
   String key = environmentVariable(name: "OPENAI_API_KEY") ?? throw Exception(message: "OPENAI_API_KEY is required")
   String model = environmentVariable(name: "OPENAI_MODEL") ?? throw Exception(message: "OPENAI_MODEL is required")
   String endpoint = environmentVariable(name: "OPENAI_BASE_URL") ?? "https://api.openai.com/v1/responses"
-  var inputs = arguments()
-  if inputs.isEmpty() { throw Exception(message: "Pass the task as the first application argument") }
   String directory = applicationDirectory().value
   String documentation = environmentVariable(name: "NORM_DOCUMENTATION_DIRECTORY") ?? directory + "/../../../docs/zh"
   String standardLibrary = environmentVariable(name: "NORM_STDLIB_DIRECTORY") ?? directory + "/../../stdlib/std"
@@ -31,7 +28,7 @@ Continue until you finish the task.
   var agent = Agent(apiKey: key, model: model, endpoint: endpoint, instruction: instructions,
     skills: [skill], tools: tools())
   agent.onText { print(text: text) }
-  var response = agent.chat(inputs[0])
+  var response = agent.chat("Run a console multi-turn dialogue for this project. You have exactly one chance to complete the dialogue. Finish the dialogue, then stop and wait for me to give you a new goal.")
   printLine("")
 }
 

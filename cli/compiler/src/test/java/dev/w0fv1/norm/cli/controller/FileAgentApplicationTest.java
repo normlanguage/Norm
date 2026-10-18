@@ -54,6 +54,7 @@ final class FileAgentApplicationTest {
                             exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
                     .getAsJsonObject();
             assertEquals(0, rounds.getAndIncrement());
+            assertTrue(request.toString().contains("exactly one chance"), request.toString());
             Set<String> names =
                 request.getAsJsonArray("tools").asList().stream()
                     .map(
@@ -106,9 +107,7 @@ final class FileAgentApplicationTest {
             "--module",
             "dev.w0fv1.norm/dev.w0fv1.norm.cli.Main",
             "run",
-            app.resolve("main.norm").toString(),
-            "--",
-            "Inspect the project.");
+            app.resolve("main.norm").toString());
     var builder =
         new ProcessBuilder(command)
             .directory(directory.toFile())
