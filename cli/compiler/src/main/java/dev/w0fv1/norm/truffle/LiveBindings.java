@@ -149,8 +149,7 @@ final class LiveBindings implements AutoCloseable {
         boolean controlBoundary) {
       if (expressions.put(
               key, new Expression(node, List.copyOf(required), writesState, controlBoundary))
-          != null)
-        throw new IllegalStateException("duplicate expression binding");
+          != null) throw new IllegalStateException("duplicate expression binding");
       return new ExpressionBinding(key, this, node, controlBoundary);
     }
 

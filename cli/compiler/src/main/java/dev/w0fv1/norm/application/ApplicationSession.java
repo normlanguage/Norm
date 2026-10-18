@@ -2,6 +2,7 @@ package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionRevision;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.LiveExecution;
@@ -116,6 +117,11 @@ public final class ApplicationSession implements AutoCloseable {
     return updates.requestUpdate();
   }
 
+  public CompletableFuture<ExecutionUpdatePreview> previewUpdate() {
+    if (updates == null) throw new IllegalStateException("application compilation failed");
+    return updates.previewUpdate();
+  }
+
   public ExecutionUpdateSubscription subscribeUpdates() {
     return subscribeUpdates(0);
   }
@@ -123,6 +129,17 @@ public final class ApplicationSession implements AutoCloseable {
   public ExecutionUpdateSubscription subscribeUpdates(long afterSequence) {
     if (updates == null) throw new IllegalStateException("application compilation failed");
     return updates.subscribe(afterSequence);
+  }
+
+  public ExecutionUpdateSubscription onUpdate(
+      Consumer<dev.w0fv1.norm.execution.ExecutionUpdateEvent> listener) {
+    return onUpdate(0, listener);
+  }
+
+  public ExecutionUpdateSubscription onUpdate(
+      long afterSequence, Consumer<dev.w0fv1.norm.execution.ExecutionUpdateEvent> listener) {
+    if (updates == null) throw new IllegalStateException("application compilation failed");
+    return updates.onUpdate(afterSequence, listener);
   }
 
   public void cancel() {

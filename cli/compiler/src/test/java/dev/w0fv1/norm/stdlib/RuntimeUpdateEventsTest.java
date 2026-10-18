@@ -71,16 +71,23 @@ final class RuntimeUpdateEventsTest {
 
   private static String source(int marker) {
     return """
-        import std.runtime.subscribeUpdates
+        import std.system.currentSystem
+        import std.concurrent.delay
+        import std.time.duration
+        class State { Boolean observed = false }
         Integer marker() { %d }
         Void main() {
           printLine("ready")
-          var subscription = subscribeUpdates()
-          var event = subscription.next()
-          if (event != null) {
-            printLine(event.kind)
-            printLine(event.changes.size() > 0)
+          var runtime = currentSystem().runtime()
+          var state = State()
+          var subscription = runtime.onUpdate {
+            if event.kind == "Published" {
+              state.observed = true
+              printLine(event.kind)
+              printLine(event.changes.size() > 0)
+            }
           }
+          for !state.observed { delay(duration(seconds: 0, nanoseconds: 1000000)) }
           subscription.close()
         }
         """

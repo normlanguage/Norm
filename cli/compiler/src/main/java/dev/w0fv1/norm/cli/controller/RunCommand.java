@@ -26,6 +26,7 @@ final class RunCommand implements Command {
   RunCommand(Path workingDirectory) {
     this.workingDirectory = workingDirectory.toAbsolutePath().normalize();
   }
+
   @Override
   public String usage() {
     return "norm run [--debug] [file.norm|module-directory] [-- arguments...]";

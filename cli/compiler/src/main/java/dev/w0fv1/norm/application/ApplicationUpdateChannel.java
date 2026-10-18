@@ -1,11 +1,13 @@
 package dev.w0fv1.norm.application;
 
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 final class ApplicationUpdateChannel implements ExecutionUpdates {
   private volatile LiveApplicationSession session;
@@ -35,8 +37,19 @@ final class ApplicationUpdateChannel implements ExecutionUpdates {
   }
 
   @Override
+  public CompletableFuture<ExecutionUpdatePreview> preview() {
+    return session().previewUpdate();
+  }
+
+  @Override
   public ExecutionUpdateSubscription subscribe(long afterSequence) {
     return session().subscribe(afterSequence);
+  }
+
+  @Override
+  public ExecutionUpdateSubscription onUpdate(
+      long afterSequence, Consumer<dev.w0fv1.norm.execution.ExecutionUpdateEvent> listener) {
+    return session().onUpdate(afterSequence, listener);
   }
 
   @Override

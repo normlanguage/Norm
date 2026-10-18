@@ -20,6 +20,20 @@ final class SystemIntrinsicDispatcher {
       case TIME_CLOCK_NOW ->
           (receiver, arguments, type, context, location, annotations, execution) ->
               clockNow(arguments[0], type, execution, location);
+      case SYSTEM_CURRENT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (type == null || execution == null) {
+              throw new IllegalStateException("system runtime type is unavailable");
+            }
+            return execution.values().opaque(type, context, "System");
+          };
+      case SYSTEM_RUNTIME ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (type == null || execution == null) {
+              throw new IllegalStateException("runtime capability type is unavailable");
+            }
+            return execution.values().opaque(type, context, "Runtime");
+          };
       default -> throw new IllegalStateException("unsupported system intrinsic " + intrinsic);
     };
   }

@@ -127,7 +127,8 @@ final class OpenAiAgentTest {
         "/skill.md",
         exchange -> {
           skillRequests.incrementAndGet();
-          byte[] body = "Use the Norm tool catalog before editing source.".getBytes(StandardCharsets.UTF_8);
+          byte[] body =
+              "Use the Norm tool catalog before editing source.".getBytes(StandardCharsets.UTF_8);
           exchange.sendResponseHeaders(200, body.length);
           exchange.getResponseBody().write(body);
           exchange.close();
@@ -136,19 +137,19 @@ final class OpenAiAgentTest {
         "/v1/chat/completions",
         exchange -> {
           try {
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String body =
+                new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             assertTrue(body.contains("Use the Norm tool catalog before editing source."), body);
             int request = requests.getAndIncrement();
             exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, 0);
-            String event = request == 0
-                ? "data: {\"id\":\"r1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"echo\",\"function\":{\"name\":\"echo\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n"
-                : "data: {\"id\":\"r2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\n";
+            String event =
+                request == 0
+                    ? "data: {\"id\":\"r1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"echo\",\"function\":{\"name\":\"echo\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n"
+                    : "data: {\"id\":\"r2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\n";
             exchange
                 .getResponseBody()
-                .write(
-                    (event + "data: [DONE]\n\n")
-                        .getBytes(StandardCharsets.UTF_8));
+                .write((event + "data: [DONE]\n\n").getBytes(StandardCharsets.UTF_8));
           } catch (Throwable error) {
             failure.compareAndSet(null, error);
           } finally {
@@ -183,10 +184,11 @@ final class OpenAiAgentTest {
             require(condition: response.text == "done", message: "agent response")
             printLine("done")
           }
-          """.formatted(
-              server.getAddress().getPort(),
-              server.getAddress().getPort(),
-              server.getAddress().getPort()));
+          """
+              .formatted(
+                  server.getAddress().getPort(),
+                  server.getAddress().getPort(),
+                  server.getAddress().getPort()));
       assertEquals("donedone\n", NormTestKit.run(entry).replace("\r\n", "\n"));
       if (failure.get() != null) throw new AssertionError(failure.get());
       assertEquals(2, skillRequests.get());

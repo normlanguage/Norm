@@ -6,11 +6,13 @@ import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
+import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.execution.ExecutionUpdateEvent;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
-import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
-import java.time.Duration;
+import dev.w0fv1.norm.execution.LiveExecutionStatus;
+import dev.w0fv1.norm.execution.RuntimeChangeSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +52,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
                   .values()
                   .resource(type, updates.beginBatch(), "runtime update batch", execution);
           case RUNTIME_PUBLISH -> completion(await(updates.request(), execution), type, execution);
+          case RUNTIME_PREVIEW -> preview(await(updates.preview(), execution), type, execution);
           case RUNTIME_COMMIT -> {
             var resource = (RuntimeValues.OpaqueResource) arguments[0];
             yield completion(
@@ -57,17 +60,34 @@ final class RuntimeUpdateIntrinsicDispatcher {
                 type,
                 execution);
           }
-          case RUNTIME_SUBSCRIBE ->
-              execution
-                  .values()
-                  .resource(type, updates.subscribe(), "runtime update subscription", execution);
-          case RUNTIME_NEXT -> {
+          case RUNTIME_PREVIEW_BATCH -> {
             var resource = (RuntimeValues.OpaqueResource) arguments[0];
-            var event =
-                await(resource.resource.value(ExecutionUpdateSubscription.class), execution);
-            yield event
-                .map(value -> event(value, type, execution))
-                .orElse(RuntimeValues.NullValue.INSTANCE);
+            yield preview(
+                await(resource.resource.value(ExecutionUpdates.Batch.class).preview(), execution),
+                type,
+                execution);
+          }
+          case RUNTIME_ON_UPDATE -> {
+            var callback = (RuntimeValues.Closure) arguments[0];
+            var eventType =
+                ((dev.w0fv1.norm.core.CoreType.Function) callback.functionType())
+                    .parameterTypes()
+                    .getFirst();
+            var subscription =
+                updates.onUpdate(
+                    event -> {
+                      execution
+                          .callbacks()
+                          .invoke(
+                              () -> {
+                                RuntimeInvocation.invoke(
+                                    execution, callback, event(event, eventType, execution));
+                                return null;
+                              });
+                    });
+            yield execution
+                .values()
+                .resource(type, subscription, "runtime update subscription", execution);
           }
           case RUNTIME_CLOSE -> {
             ((RuntimeValues.OpaqueResource) arguments[0]).resource.close();
@@ -82,8 +102,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
     };
   }
 
-  private static ExecutionUpdateResult await(
-      CompletableFuture<ExecutionUpdateResult> future, ExecutionState execution) {
+  private static <T> T await(CompletableFuture<T> future, ExecutionState execution) {
     return execution
         .callbacks()
         .hostCall(
@@ -102,29 +121,6 @@ final class RuntimeUpdateIntrinsicDispatcher {
                       "Runtime publication wait was interrupted", failure);
                 } catch (java.util.concurrent.ExecutionException failure) {
                   throw new IllegalStateException("Runtime publication failed", failure.getCause());
-                }
-              }
-            });
-  }
-
-  private static java.util.Optional<ExecutionUpdateEvent> await(
-      ExecutionUpdateSubscription subscription, ExecutionState execution) {
-    return execution
-        .callbacks()
-        .hostCall(
-            () -> {
-              while (true) {
-                if (execution.context().cancellation().getAsBoolean()) {
-                  throw new java.util.concurrent.CancellationException(
-                      "Runtime update event wait was cancelled");
-                }
-                try {
-                  var event = subscription.next(Duration.ofMillis(100));
-                  if (event.isPresent()) return event;
-                } catch (InterruptedException failure) {
-                  Thread.currentThread().interrupt();
-                  throw new IllegalStateException(
-                      "Runtime update event wait was interrupted", failure);
                 }
               }
             });
@@ -191,10 +187,40 @@ final class RuntimeUpdateIntrinsicDispatcher {
 
   private static Object completion(
       ExecutionUpdateResult result, CoreType type, ExecutionState execution) {
+    return completion(
+        result.outcome().name(),
+        result.status(),
+        result.diagnostics(),
+        result.changes(),
+        result.failure(),
+        type,
+        execution);
+  }
+
+  private static Object preview(
+      ExecutionUpdatePreview result, CoreType type, ExecutionState execution) {
+    return completion(
+        result.outcome().name(),
+        result.status(),
+        result.diagnostics(),
+        result.changes(),
+        result.failure(),
+        type,
+        execution);
+  }
+
+  private static Object completion(
+      String outcome,
+      LiveExecutionStatus status,
+      List<Diagnostic> diagnosticValues,
+      RuntimeChangeSet changeSet,
+      java.util.Optional<String> failure,
+      CoreType type,
+      ExecutionState execution) {
     var diagnosticType = ((CoreType.Declared) type).arguments().getFirst();
     var changeType = ((CoreType.Declared) type).arguments().get(1);
     var diagnostics =
-        result.diagnostics().stream()
+        diagnosticValues.stream()
             .map(
                 value ->
                     execution
@@ -210,7 +236,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
                             value.primarySpan().endOffset()))
             .toList();
     var changes =
-        result.changes().declarations().stream()
+        changeSet.declarations().stream()
             .map(
                 value ->
                     execution
@@ -238,12 +264,12 @@ final class RuntimeUpdateIntrinsicDispatcher {
         .construct(
             type,
             execution,
-            result.outcome().name(),
-            result.status().revision(),
-            list(CoreType.STRING, result.status().pendingLocations()),
+            outcome,
+            status.revision(),
+            list(CoreType.STRING, status.pendingLocations()),
             list(diagnosticType, diagnostics),
             list(changeType, changes),
-            result.failure().<Object>map(value -> value).orElse(RuntimeValues.NullValue.INSTANCE));
+            failure.<Object>map(value -> value).orElse(RuntimeValues.NullValue.INSTANCE));
   }
 
   private static RuntimeValues.ListValue list(CoreType element, List<?> values) {

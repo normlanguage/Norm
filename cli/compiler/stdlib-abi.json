@@ -1,5 +1,5 @@
 {
-  "version": 50,
+  "version": 51,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1142,6 +1142,16 @@
       "writesState": true
     },
     {
+      "name": "SYSTEM_CURRENT",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "SYSTEM_RUNTIME",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
       "name": "RUNTIME_STATUS",
       "requiresResultRuntimeType": true,
       "writesState": false
@@ -1153,6 +1163,16 @@
     },
     {
       "name": "RUNTIME_PUBLISH",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_PREVIEW",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_PREVIEW_BATCH",
       "requiresResultRuntimeType": true,
       "writesState": false
     },
@@ -1172,12 +1192,7 @@
       "writesState": false
     },
     {
-      "name": "RUNTIME_SUBSCRIBE",
-      "requiresResultRuntimeType": true,
-      "writesState": false
-    },
-    {
-      "name": "RUNTIME_NEXT",
+      "name": "RUNTIME_ON_UPDATE",
       "requiresResultRuntimeType": true,
       "writesState": false
     },
@@ -3368,6 +3383,22 @@
       "arguments": [],
       "nullable": false
     },
+    "std.core.__systemCurrent/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__systemCurrent/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__systemRuntime/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__systemRuntime/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
     "std.core.__runtimeLatest/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__runtimeLatest/T",
@@ -3392,6 +3423,23 @@
       "arguments": [],
       "nullable": false
     },
+    "std.core.__runtimePreview/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePreview/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimePreviewBatch/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePreviewBatch/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+
     "std.core.__runtimeBegin/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__runtimeBegin/T",
@@ -3408,29 +3456,32 @@
       "arguments": [],
       "nullable": false
     },
-    "std.core.__runtimeSubscribe/T": {
+    "std.core.__runtimeOnUpdate/T": {
       "kind": "TYPE_PARAMETER",
-      "identity": "std.core.__runtimeSubscribe/T",
+      "identity": "std.core.__runtimeOnUpdate/T",
       "name": "T",
       "category": "POLYMORPHIC",
       "arguments": [],
       "nullable": false
     },
-    "std.core.__runtimeNext/T": {
+    "std.core.__runtimeOnUpdate/E": {
       "kind": "TYPE_PARAMETER",
-      "identity": "std.core.__runtimeNext/T",
-      "name": "T",
+      "identity": "std.core.__runtimeOnUpdate/E",
+      "name": "E",
       "category": "POLYMORPHIC",
       "arguments": [],
       "nullable": false
     },
-    "std.core.__runtimeNext/T?": {
-      "kind": "TYPE_PARAMETER",
-      "identity": "std.core.__runtimeNext/T",
-      "name": "T",
-      "category": "POLYMORPHIC",
-      "arguments": [],
-      "nullable": true
+    "std.core.Function<std.core.Void,std.core.__runtimeOnUpdate/E>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.Void",
+        "std.core.__runtimeOnUpdate/E"
+      ],
+      "nullable": false
     },
     "std.core.__stateMigrationPayload/T": {
       "kind": "TYPE_PARAMETER",
@@ -8918,6 +8969,44 @@
     },
     {
       "symbol": {
+        "name": "__systemCurrent",
+        "kind": "FUNCTION",
+        "type": "std.core.__systemCurrent/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__systemCurrent/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Current system capability."
+      },
+      "intrinsic": "SYSTEM_CURRENT"
+    },
+    {
+      "symbol": {
+        "name": "__systemRuntime",
+        "kind": "FUNCTION",
+        "type": "std.core.__systemRuntime/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__systemRuntime/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "system",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Current system runtime capability."
+      },
+      "intrinsic": "SYSTEM_RUNTIME"
+    },
+    {
+      "symbol": {
         "name": "__runtimeStatus",
         "kind": "FUNCTION",
         "type": "std.core.__runtimeStatus/T",
@@ -8963,6 +9052,44 @@
         "documentation": "Runtime publication operation."
       },
       "intrinsic": "RUNTIME_PUBLISH"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePreview",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePreview/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePreview/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime update preview operation."
+      },
+      "intrinsic": "RUNTIME_PREVIEW"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePreviewBatch",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePreviewBatch/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePreviewBatch/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime update preview operation."
+      },
+      "intrinsic": "RUNTIME_PREVIEW_BATCH"
     },
     {
       "symbol": {
@@ -9021,41 +9148,29 @@
     },
     {
       "symbol": {
-        "name": "__runtimeSubscribe",
+        "name": "__runtimeOnUpdate",
         "kind": "FUNCTION",
-        "type": "std.core.__runtimeSubscribe/T",
+        "type": "std.core.__runtimeOnUpdate/T",
         "typeParameters": [
           {
             "name": "T",
-            "type": "std.core.__runtimeSubscribe/T"
-          }
-        ],
-        "parameters": [],
-        "documentation": "Runtime update event subscription."
-      },
-      "intrinsic": "RUNTIME_SUBSCRIBE"
-    },
-    {
-      "symbol": {
-        "name": "__runtimeNext",
-        "kind": "FUNCTION",
-        "type": "std.core.__runtimeNext/T?",
-        "typeParameters": [
+            "type": "std.core.__runtimeOnUpdate/T"
+          },
           {
-            "name": "T",
-            "type": "std.core.__runtimeNext/T"
+            "name": "E",
+            "type": "std.core.__runtimeOnUpdate/E"
           }
         ],
         "parameters": [
           {
-            "name": "subscription",
-            "type": "std.core.Any",
+            "name": "callback",
+            "type": "std.core.Function<std.core.Void,std.core.__runtimeOnUpdate/E>",
             "hasDefault": false
           }
         ],
-        "documentation": "Waits for the next runtime update event."
+        "documentation": "Subscribes a callback to runtime update events."
       },
-      "intrinsic": "RUNTIME_NEXT"
+      "intrinsic": "RUNTIME_ON_UPDATE"
     },
     {
       "symbol": {

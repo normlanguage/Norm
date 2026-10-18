@@ -1,0 +1,13 @@
+package std.system
+
+import std.annotation.Document
+import std.runtime.Runtime
+
+@Document(description: "Provides system capabilities for the current execution.")
+public class System {
+  @Document(description: "Returns the current execution's runtime update capability.")
+  public Runtime runtime() { __systemRuntime<Runtime>(system: this) }
+}
+
+@Document(description: "Returns the system capabilities of the current execution.")
+public System currentSystem() { __systemCurrent<System>() }

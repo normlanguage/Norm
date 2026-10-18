@@ -4,8 +4,38 @@ import std.annotation.Document
 import std.core.Exception
 import std.io.Resource
 
+@Document(description: "Provides the current source execution's runtime update capability.")
+public class Runtime {
+  @Document(description: "Reports live source execution state.")
+  public RuntimeStatus status() { __runtimeStatus<RuntimeStatus>() }
+
+  @Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
+  public UpdateResult? latestUpdate() {
+    var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()
+    if completion != null { return completeUpdate(completion) }
+    return null
+  }
+
+  @Document(description: "Starts a publication batch for related source and dependency edits.")
+  public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
+
+  @Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
+  public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
+
+  @Document(description: "Compiles current sources and returns all before and after changes without publishing them.")
+  public UpdatePreview previewUpdate() { completePreview(__runtimePreview<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
+
+  @Document(description: "Subscribes a callback to runtime update transitions.")
+  public UpdateSubscription onUpdate(Void callback(RuntimeUpdateEvent event)) {
+    __runtimeOnUpdate<UpdateSubscription, RuntimeUpdateEvent>(callback: callback)
+  }
+}
+
 @Document(description: "Distinguishes successful publication, unchanged sources, invalid code and host compilation failure.")
 public enum UpdateOutcome { Published, Unchanged, Rejected, Failed }
+
+@Document(description: "Distinguishes a reviewable preview from unchanged sources, invalid code and host compilation failure.")
+public enum PreviewOutcome { Previewed, Unchanged, Rejected, Failed }
 
 @Document(description: "Reports a compiler diagnostic without parsing formatted output.")
 public value RuntimeDiagnostic {
@@ -46,6 +76,16 @@ public value UpdateResult {
   String? failure
 }
 
+@Document(description: "Reports the complete before and after declaration changes without publishing them.")
+public value UpdatePreview {
+  PreviewOutcome outcome
+  Long revision
+  List<String> pendingLocations
+  List<RuntimeDiagnostic> diagnostics
+  List<RuntimeChange> changes
+  String? failure
+}
+
 private value UpdateCompletion<D, C> {
   String outcome
   Long revision
@@ -68,27 +108,27 @@ private UpdateResult completeUpdate(UpdateCompletion<RuntimeDiagnostic, RuntimeC
     changes: completion.changes, failure: completion.failure)
 }
 
+private UpdatePreview completePreview(UpdateCompletion<RuntimeDiagnostic, RuntimeChange> completion) {
+  PreviewOutcome outcome = switch completion.outcome {
+    case "PREVIEWED" { break PreviewOutcome.Previewed }
+    case "UNCHANGED" { break PreviewOutcome.Unchanged }
+    case "REJECTED" { break PreviewOutcome.Rejected }
+    case "FAILED" { break PreviewOutcome.Failed }
+    case _ { throw Exception(message: "Unknown runtime preview outcome") }
+  }
+  return UpdatePreview(outcome: outcome, revision: completion.revision,
+    pendingLocations: completion.pendingLocations, diagnostics: completion.diagnostics,
+    changes: completion.changes, failure: completion.failure)
+}
+
 @Document(description: "Suppresses automatic publication until commit or close. Closing without commit releases suppression; it does not undo filesystem writes.")
 public class UpdateBatch implements Resource {
+  @Document(description: "Compiles the complete source tree and returns all before and after changes without publishing them. The preview remains valid until the batch sources change or the batch closes.")
+  public UpdatePreview preview() { completePreview(__runtimePreviewBatch<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>(batch: this)) }
+
   @Document(description: "Publishes the complete source tree when it changes. Unchanged sources preserve their previous outcome. Waits for compilation, while existing activations may still be pending.")
   public UpdateResult commit() { completeUpdate(__runtimeCommit<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>(batch: this)) }
 
   @Document(description: "Releases publication suppression. Closing an already completed batch has no effect.")
   public Void close() { __runtimeClose(batch: this) }
 }
-
-@Document(description: "Reports live source execution state. Unavailable in executions without a source update coordinator.")
-public RuntimeStatus runtimeStatus() { __runtimeStatus<RuntimeStatus>() }
-
-@Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
-public UpdateResult? latestUpdate() {
-  var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()
-  if completion != null { return completeUpdate(completion) }
-  return null
-}
-
-@Document(description: "Starts a publication batch for related source and dependency edits.")
-public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
-
-@Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
-public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }

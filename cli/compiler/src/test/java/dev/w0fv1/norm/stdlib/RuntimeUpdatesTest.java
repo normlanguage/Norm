@@ -10,24 +10,30 @@ final class RuntimeUpdatesTest {
     assertOutput(
         """
         import std.core.Exception
-        import std.runtime.runtimeStatus
-        import std.runtime.beginUpdate
-        import std.runtime.publishUpdate
-        import std.runtime.latestUpdate
-        import std.runtime.subscribeUpdates
+        import std.system.currentSystem
         Void main() {
-          try { runtimeStatus() }
+          var runtime = currentSystem().runtime()
+          try { runtime.status() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
-          try { beginUpdate() }
+          try { runtime.beginUpdate() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
-          try { publishUpdate() }
+          try {
+            var batch = runtime.beginUpdate()
+            batch.preview()
+          }
           catch Exception error { printLine(error.message.contains("unavailable")) }
-          try { latestUpdate() }
+          try { runtime.publishUpdate() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
-          try { subscribeUpdates() }
+          try { runtime.previewUpdate() }
+          catch Exception error { printLine(error.message.contains("unavailable")) }
+          try { runtime.latestUpdate() }
+          catch Exception error { printLine(error.message.contains("unavailable")) }
+          try { runtime.onUpdate { } }
           catch Exception error { printLine(error.message.contains("unavailable")) }
         }
         """,
+        "true",
+        "true",
         "true",
         "true",
         "true",
