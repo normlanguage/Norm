@@ -6,8 +6,11 @@ import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
+import dev.w0fv1.norm.execution.ExecutionUpdateEvent;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
+import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +57,18 @@ final class RuntimeUpdateIntrinsicDispatcher {
                 type,
                 execution);
           }
+          case RUNTIME_SUBSCRIBE ->
+              execution
+                  .values()
+                  .resource(type, updates.subscribe(), "runtime update subscription", execution);
+          case RUNTIME_NEXT -> {
+            var resource = (RuntimeValues.OpaqueResource) arguments[0];
+            var event =
+                await(resource.resource.value(ExecutionUpdateSubscription.class), execution);
+            yield event
+                .map(value -> event(value, type, execution))
+                .orElse(RuntimeValues.NullValue.INSTANCE);
+          }
           case RUNTIME_CLOSE -> {
             ((RuntimeValues.OpaqueResource) arguments[0]).resource.close();
             yield null;
@@ -92,9 +107,92 @@ final class RuntimeUpdateIntrinsicDispatcher {
             });
   }
 
+  private static java.util.Optional<ExecutionUpdateEvent> await(
+      ExecutionUpdateSubscription subscription, ExecutionState execution) {
+    return execution
+        .callbacks()
+        .hostCall(
+            () -> {
+              while (true) {
+                if (execution.context().cancellation().getAsBoolean()) {
+                  throw new java.util.concurrent.CancellationException(
+                      "Runtime update event wait was cancelled");
+                }
+                try {
+                  var event = subscription.next(Duration.ofMillis(100));
+                  if (event.isPresent()) return event;
+                } catch (InterruptedException failure) {
+                  Thread.currentThread().interrupt();
+                  throw new IllegalStateException(
+                      "Runtime update event wait was interrupted", failure);
+                }
+              }
+            });
+  }
+
+  private static Object event(ExecutionUpdateEvent event, CoreType type, ExecutionState execution) {
+    var eventType = nonNullable(type);
+    var changes =
+        event
+            .result()
+            .map(ExecutionUpdateResult::changes)
+            .map(
+                value ->
+                    value.declarations().stream()
+                        .map(RuntimeUpdateIntrinsicDispatcher::summary)
+                        .toList())
+            .orElse(List.of());
+    return execution
+        .values()
+        .construct(
+            eventType,
+            execution,
+            event.sequence(),
+            eventKind(event.kind()),
+            event.status().revision(),
+            list(CoreType.STRING, event.status().pendingLocations()),
+            list(CoreType.STRING, changes));
+  }
+
+  private static String summary(dev.w0fv1.norm.execution.RuntimeDeclarationChange change) {
+    return change.kind().name()
+        + " "
+        + change.declarationKind().name()
+        + " "
+        + change.identity()
+        + " : "
+        + change.before().map(Object::toString).orElse("<none>")
+        + " -> "
+        + change.after().map(Object::toString).orElse("<none>");
+  }
+
+  private static String eventKind(dev.w0fv1.norm.execution.ExecutionUpdateEventKind kind) {
+    return switch (kind) {
+      case REQUESTED -> "Requested";
+      case PUBLISHED -> "Published";
+      case UNCHANGED -> "Unchanged";
+      case REJECTED -> "Rejected";
+      case FAILED -> "Failed";
+      case ADOPTION_PENDING -> "AdoptionPending";
+      case ADOPTED -> "Adopted";
+    };
+  }
+
+  private static CoreType nonNullable(CoreType type) {
+    if (type instanceof CoreType.Declared declared
+        && declared.nullability() == CoreNullability.NULLABLE)
+      return new CoreType.Declared(
+          declared.constructor(),
+          declared.arguments(),
+          declared.category(),
+          CoreNullability.NON_NULL);
+    return type;
+  }
+
   private static Object completion(
       ExecutionUpdateResult result, CoreType type, ExecutionState execution) {
     var diagnosticType = ((CoreType.Declared) type).arguments().getFirst();
+    var changeType = ((CoreType.Declared) type).arguments().get(1);
     var diagnostics =
         result.diagnostics().stream()
             .map(
@@ -111,6 +209,30 @@ final class RuntimeUpdateIntrinsicDispatcher {
                             value.primarySpan().startOffset(),
                             value.primarySpan().endOffset()))
             .toList();
+    var changes =
+        result.changes().declarations().stream()
+            .map(
+                value ->
+                    execution
+                        .values()
+                        .construct(
+                            changeType,
+                            execution,
+                            value.kind().name(),
+                            value.declarationKind().name(),
+                            value.identity(),
+                            value
+                                .before()
+                                .<Object>map(Object::toString)
+                                .orElse(RuntimeValues.NullValue.INSTANCE),
+                            value
+                                .after()
+                                .<Object>map(Object::toString)
+                                .orElse(RuntimeValues.NullValue.INSTANCE),
+                            value.source(),
+                            value.startOffset(),
+                            value.endOffset()))
+            .toList();
     return execution
         .values()
         .construct(
@@ -120,6 +242,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
             result.status().revision(),
             list(CoreType.STRING, result.status().pendingLocations()),
             list(diagnosticType, diagnostics),
+            list(changeType, changes),
             result.failure().<Object>map(value -> value).orElse(RuntimeValues.NullValue.INSTANCE));
   }
 

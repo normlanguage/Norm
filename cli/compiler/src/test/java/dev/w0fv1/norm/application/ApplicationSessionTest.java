@@ -7,6 +7,7 @@ import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.ExecutionRevision;
+import dev.w0fv1.norm.execution.ExecutionUpdateEventKind;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
@@ -116,6 +117,7 @@ class ApplicationSessionTest {
                   });
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
+        var events = session.subscribeUpdates();
         try (var batch = session.beginBatch()) {
           assertThrows(IllegalStateException.class, session::beginBatch);
           assertThrows(IllegalStateException.class, session::requestUpdate);
@@ -129,7 +131,15 @@ class ApplicationSessionTest {
           assertEquals(ExecutionUpdateResult.Outcome.PUBLISHED, update.outcome());
           assertTrue(update.candidate().isPresent());
           assertTrue(update.diagnostics().isEmpty());
+          assertFalse(update.changes().isEmpty());
+          assertEquals(
+              ExecutionUpdateEventKind.REQUESTED,
+              events.next(java.time.Duration.ofSeconds(30)).orElseThrow().kind());
+          var publishedEvent = events.next(java.time.Duration.ofSeconds(30)).orElseThrow();
+          assertEquals(ExecutionUpdateEventKind.PUBLISHED, publishedEvent.kind());
+          assertTrue(publishedEvent.result().orElseThrow().changes().declarations().size() >= 1);
         }
+        events.close();
         assertEquals(1, revisions.get());
         assertSame(
             contexts.getFirst().updates().orElseThrow(),

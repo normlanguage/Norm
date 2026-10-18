@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
+import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
 import java.util.Optional;
@@ -31,6 +32,11 @@ final class ApplicationUpdateChannel implements ExecutionUpdates {
   @Override
   public CompletableFuture<ExecutionUpdateResult> request() {
     return session().requestUpdate();
+  }
+
+  @Override
+  public ExecutionUpdateSubscription subscribe(long afterSequence) {
+    return session().subscribe(afterSequence);
   }
 
   @Override

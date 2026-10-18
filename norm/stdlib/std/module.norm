@@ -37,6 +37,7 @@ Module module() {
       "process.process",
       "runtime.migration",
       "runtime.updates",
+      "runtime.events",
       "observation.fields",
       "serialization.core",
       "testing.output",

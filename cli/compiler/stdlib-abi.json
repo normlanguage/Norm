@@ -1172,6 +1172,16 @@
       "writesState": false
     },
     {
+      "name": "RUNTIME_SUBSCRIBE",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_NEXT",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
       "name": "FUNCTION_SNAPSHOT",
       "requiresResultRuntimeType": false,
       "writesState": false
@@ -1230,6 +1240,13 @@
       "moduleVersion": 1,
       "packageName": "std.runtime",
       "typeName": "UpdateBatch"
+    },
+    {
+      "name": "UPDATE_SUBSCRIPTION",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.runtime",
+      "typeName": "UpdateSubscription"
     }
   ],
   "runtimeShapes": [
@@ -3390,6 +3407,30 @@
       "category": "POLYMORPHIC",
       "arguments": [],
       "nullable": false
+    },
+    "std.core.__runtimeSubscribe/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeSubscribe/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeNext/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeNext/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeNext/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeNext/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
     },
     "std.core.__stateMigrationPayload/T": {
       "kind": "TYPE_PARAMETER",
@@ -8977,6 +9018,44 @@
         "documentation": "Runtime publication operation."
       },
       "intrinsic": "RUNTIME_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeSubscribe",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeSubscribe/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeSubscribe/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime update event subscription."
+      },
+      "intrinsic": "RUNTIME_SUBSCRIBE"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeNext",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeNext/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeNext/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Waits for the next runtime update event."
+      },
+      "intrinsic": "RUNTIME_NEXT"
     },
     {
       "symbol": {

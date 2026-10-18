@@ -22,7 +22,9 @@ public final class IntrinsicDispatcher {
           RUNTIME_BEGIN,
           RUNTIME_PUBLISH,
           RUNTIME_COMMIT,
-          RUNTIME_CLOSE ->
+          RUNTIME_CLOSE,
+          RUNTIME_SUBSCRIBE,
+          RUNTIME_NEXT ->
           RuntimeUpdateIntrinsicDispatcher.resolve(intrinsic);
       case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
       case STATE_MIGRATION_CONTAINS,

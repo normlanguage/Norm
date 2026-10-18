@@ -1,0 +1,27 @@
+package std.runtime
+
+import std.annotation.Document
+import std.io.Resource
+
+@Document(description: "Reports one runtime update transition and the declarations changed by that publication.")
+public value RuntimeUpdateEvent {
+  Long sequence
+  String kind
+  Long revision
+  List<String> pendingLocations
+  List<String> changes
+}
+
+@Document(description: "Consumes runtime update events in publication order.")
+public class UpdateSubscription implements Resource {
+  @Document(description: "Waits for the next runtime update event and returns null when the execution is unavailable.")
+  public RuntimeUpdateEvent? next() {
+    __runtimeNext<RuntimeUpdateEvent>(subscription: this)
+  }
+
+  @Document(description: "Stops this subscription.")
+  public Void close() { __runtimeClose(batch: this) }
+}
+
+@Document(description: "Subscribes to runtime update transitions. Events include declaration summaries for each publication.")
+public UpdateSubscription subscribeUpdates() { __runtimeSubscribe<UpdateSubscription>() }
