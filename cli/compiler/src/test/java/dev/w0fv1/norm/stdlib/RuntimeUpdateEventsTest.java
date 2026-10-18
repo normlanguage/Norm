@@ -72,9 +72,12 @@ final class RuntimeUpdateEventsTest {
   private static String source(int marker) {
     return """
         import std.runtime.subscribeUpdates
+        import std.runtime.previewUpdate
         Integer marker() { %d }
         Void main() {
           printLine("ready")
+          var preview = previewUpdate()
+          printLine(preview.changes.size() == 0)
           var subscription = subscribeUpdates()
           var event = subscription.next()
           if (event != null) {

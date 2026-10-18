@@ -4,6 +4,8 @@
 
 声明差异由 [`RuntimeChangeAnalyzer`](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/RuntimeChangeAnalyzer.java) 基于编译产物的 authoring identity、语义形状、注解摘要和内容摘要生成。`ExecutionUpdateResult.changes` 是 Java API 的结构化结果，标准库的 `RuntimeChange` 是同一结果的 Norm 投影；事件中的 `changes` 是可直接展示的稳定摘要。
 
+预览入口位于 [`ExecutionUpdatePreview`](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/ExecutionUpdatePreview.java)、[`ExecutionUpdates.preview`](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/ExecutionUpdates.java) 和标准库的 `previewUpdate`、`UpdateBatch.preview`。预览与发布共用 `LiveApplicationSession` 的编译队列和差异分析；预览不会调用执行后端、更新已发布基线或发送发布事件。批次预览会保留候选修订，提交时再次校验输入快照，源文件变化后提交返回拒绝并要求重新预览。
+
 验证入口：
 
 - [`RuntimeChangeAnalyzerTest`](../../../cli/compiler/src/test/java/dev/w0fv1/norm/execution/RuntimeChangeAnalyzerTest.java) 验证类型、构造器和函数的旧新形状；

@@ -2,6 +2,7 @@ package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionRevision;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.LiveExecution;
@@ -114,6 +115,11 @@ public final class ApplicationSession implements AutoCloseable {
   public CompletableFuture<ExecutionUpdateResult> requestUpdate() {
     if (updates == null) throw new IllegalStateException("application compilation failed");
     return updates.requestUpdate();
+  }
+
+  public CompletableFuture<ExecutionUpdatePreview> previewUpdate() {
+    if (updates == null) throw new IllegalStateException("application compilation failed");
+    return updates.previewUpdate();
   }
 
   public ExecutionUpdateSubscription subscribeUpdates() {

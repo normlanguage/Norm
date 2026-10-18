@@ -13,6 +13,7 @@ final class RuntimeUpdatesTest {
         import std.runtime.runtimeStatus
         import std.runtime.beginUpdate
         import std.runtime.publishUpdate
+        import std.runtime.previewUpdate
         import std.runtime.latestUpdate
         import std.runtime.subscribeUpdates
         Void main() {
@@ -20,7 +21,14 @@ final class RuntimeUpdatesTest {
           catch Exception error { printLine(error.message.contains("unavailable")) }
           try { beginUpdate() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
+          try {
+            var batch = beginUpdate()
+            batch.preview()
+          }
+          catch Exception error { printLine(error.message.contains("unavailable")) }
           try { publishUpdate() }
+          catch Exception error { printLine(error.message.contains("unavailable")) }
+          try { previewUpdate() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
           try { latestUpdate() }
           catch Exception error { printLine(error.message.contains("unavailable")) }
@@ -28,6 +36,8 @@ final class RuntimeUpdatesTest {
           catch Exception error { printLine(error.message.contains("unavailable")) }
         }
         """,
+        "true",
+        "true",
         "true",
         "true",
         "true",

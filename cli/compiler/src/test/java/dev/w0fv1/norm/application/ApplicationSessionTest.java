@@ -8,6 +8,7 @@ import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.ExecutionRevision;
 import dev.w0fv1.norm.execution.ExecutionUpdateEventKind;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
@@ -127,6 +128,12 @@ class ApplicationSessionTest {
           Files.writeString(helper, "package batch\nInteger value() { 2 }");
           assertFalse(published.await(250, TimeUnit.MILLISECONDS));
           Files.writeString(entry, "package batch\nVoid main() { printLine(value() + value()) }");
+          var preview = batch.preview().get(30, TimeUnit.SECONDS);
+          assertEquals(ExecutionUpdatePreview.Outcome.PREVIEWED, preview.outcome());
+          assertTrue(preview.candidate().isPresent());
+          assertFalse(preview.changes().isEmpty());
+          assertEquals(0, revisions.get());
+          assertTrue(session.latestUpdate().isEmpty());
           var update = batch.commit().get(30, TimeUnit.SECONDS);
           assertEquals(ExecutionUpdateResult.Outcome.PUBLISHED, update.outcome());
           assertTrue(update.candidate().isPresent());
@@ -147,12 +154,26 @@ class ApplicationSessionTest {
         assertEquals(
             ExecutionUpdateResult.Outcome.PUBLISHED,
             session.latestUpdate().orElseThrow().outcome());
+        var directPreview = session.previewUpdate().get(30, TimeUnit.SECONDS);
+        assertEquals(ExecutionUpdatePreview.Outcome.UNCHANGED, directPreview.outcome());
+        assertEquals(1, revisions.get());
         try (var batch = session.beginBatch()) {
           var update = batch.commit().get(30, TimeUnit.SECONDS);
           assertEquals(ExecutionUpdateResult.Outcome.UNCHANGED, update.outcome());
           assertEquals(1, update.status().revision());
         }
         assertEquals(1, revisions.get());
+        try (var batch = session.beginBatch()) {
+          Files.writeString(helper, "package batch\nInteger value() { 3 }");
+          var preview = batch.preview().get(30, TimeUnit.SECONDS);
+          assertEquals(ExecutionUpdatePreview.Outcome.PREVIEWED, preview.outcome());
+          Files.writeString(helper, "package batch\nInteger value() { 4 }");
+          var stale = batch.commit().get(30, TimeUnit.SECONDS);
+          assertEquals(ExecutionUpdateResult.Outcome.REJECTED, stale.outcome());
+          assertTrue(stale.failure().orElseThrow().contains("stale"));
+          assertEquals(1, revisions.get());
+        }
+        Files.writeString(helper, "package batch\nInteger value() { 2 }");
         try (var batch = session.beginBatch()) {
           Files.writeString(entry, "package batch\nVoid main() { missing() }");
           var update = batch.commit().get(30, TimeUnit.SECONDS);

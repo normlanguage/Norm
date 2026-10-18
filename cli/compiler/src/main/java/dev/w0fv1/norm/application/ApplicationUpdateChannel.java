@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.application;
 
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
@@ -32,6 +33,11 @@ final class ApplicationUpdateChannel implements ExecutionUpdates {
   @Override
   public CompletableFuture<ExecutionUpdateResult> request() {
     return session().requestUpdate();
+  }
+
+  @Override
+  public CompletableFuture<ExecutionUpdatePreview> preview() {
+    return session().previewUpdate();
   }
 
   @Override

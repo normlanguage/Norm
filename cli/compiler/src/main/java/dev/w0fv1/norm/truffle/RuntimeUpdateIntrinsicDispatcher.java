@@ -6,10 +6,14 @@ import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
+import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.execution.ExecutionUpdateEvent;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.ExecutionUpdates;
+import dev.w0fv1.norm.execution.LiveExecutionStatus;
+import dev.w0fv1.norm.execution.RuntimeChangeSet;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -50,10 +54,18 @@ final class RuntimeUpdateIntrinsicDispatcher {
                   .values()
                   .resource(type, updates.beginBatch(), "runtime update batch", execution);
           case RUNTIME_PUBLISH -> completion(await(updates.request(), execution), type, execution);
+          case RUNTIME_PREVIEW -> preview(await(updates.preview(), execution), type, execution);
           case RUNTIME_COMMIT -> {
             var resource = (RuntimeValues.OpaqueResource) arguments[0];
             yield completion(
                 await(resource.resource.value(ExecutionUpdates.Batch.class).commit(), execution),
+                type,
+                execution);
+          }
+          case RUNTIME_PREVIEW_BATCH -> {
+            var resource = (RuntimeValues.OpaqueResource) arguments[0];
+            yield preview(
+                await(resource.resource.value(ExecutionUpdates.Batch.class).preview(), execution),
                 type,
                 execution);
           }
@@ -82,8 +94,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
     };
   }
 
-  private static ExecutionUpdateResult await(
-      CompletableFuture<ExecutionUpdateResult> future, ExecutionState execution) {
+  private static <T> T await(CompletableFuture<T> future, ExecutionState execution) {
     return execution
         .callbacks()
         .hostCall(
@@ -191,10 +202,40 @@ final class RuntimeUpdateIntrinsicDispatcher {
 
   private static Object completion(
       ExecutionUpdateResult result, CoreType type, ExecutionState execution) {
+    return completion(
+        result.outcome().name(),
+        result.status(),
+        result.diagnostics(),
+        result.changes(),
+        result.failure(),
+        type,
+        execution);
+  }
+
+  private static Object preview(
+      ExecutionUpdatePreview result, CoreType type, ExecutionState execution) {
+    return completion(
+        result.outcome().name(),
+        result.status(),
+        result.diagnostics(),
+        result.changes(),
+        result.failure(),
+        type,
+        execution);
+  }
+
+  private static Object completion(
+      String outcome,
+      LiveExecutionStatus status,
+      List<Diagnostic> diagnosticValues,
+      RuntimeChangeSet changeSet,
+      java.util.Optional<String> failure,
+      CoreType type,
+      ExecutionState execution) {
     var diagnosticType = ((CoreType.Declared) type).arguments().getFirst();
     var changeType = ((CoreType.Declared) type).arguments().get(1);
     var diagnostics =
-        result.diagnostics().stream()
+        diagnosticValues.stream()
             .map(
                 value ->
                     execution
@@ -210,7 +251,7 @@ final class RuntimeUpdateIntrinsicDispatcher {
                             value.primarySpan().endOffset()))
             .toList();
     var changes =
-        result.changes().declarations().stream()
+        changeSet.declarations().stream()
             .map(
                 value ->
                     execution
@@ -238,12 +279,12 @@ final class RuntimeUpdateIntrinsicDispatcher {
         .construct(
             type,
             execution,
-            result.outcome().name(),
-            result.status().revision(),
-            list(CoreType.STRING, result.status().pendingLocations()),
+            outcome,
+            status.revision(),
+            list(CoreType.STRING, status.pendingLocations()),
             list(diagnosticType, diagnostics),
             list(changeType, changes),
-            result.failure().<Object>map(value -> value).orElse(RuntimeValues.NullValue.INSTANCE));
+            failure.<Object>map(value -> value).orElse(RuntimeValues.NullValue.INSTANCE));
   }
 
   private static RuntimeValues.ListValue list(CoreType element, List<?> values) {

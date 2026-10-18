@@ -5,6 +5,7 @@ import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionUpdateEvent;
 import dev.w0fv1.norm.execution.ExecutionUpdateEventKind;
+import dev.w0fv1.norm.execution.ExecutionUpdatePreview;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
 import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.LiveExecution;
@@ -16,7 +17,6 @@ import dev.w0fv1.norm.project.ProjectLoadException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +31,38 @@ final class LiveApplicationSession implements AutoCloseable {
     ApplicationCandidate compile() throws IOException;
   }
 
-  private record Request(CompletableFuture<ExecutionUpdateResult> result, boolean force) {}
+  private record Request(
+      CompletableFuture<ExecutionUpdateResult> result,
+      CompletableFuture<ExecutionUpdatePreview> preview,
+      boolean force,
+      Long batchIdentity) {
+    void cancel() {
+      if (result != null) result.cancel(false);
+      if (preview != null) preview.cancel(false);
+    }
+  }
+
+  private record ReviewedUpdate(ApplicationCandidate candidate, ExecutionUpdatePreview preview)
+      implements AutoCloseable {
+    @Override
+    public void close() {
+      candidate.close();
+    }
+  }
+
+  private static final class BatchState {
+    private final long identity;
+    private boolean previewing;
+    private boolean reviewed;
+    private boolean committing;
+    private ReviewedUpdate prepared;
+
+    private BatchState(long identity) {
+      this.identity = identity;
+    }
+  }
+
+  private record ReloadOutcome(ExecutionUpdateResult result, ExecutionUpdatePreview preview) {}
 
   private final Object gate = new Object();
   private final CandidateCompiler compiler;
@@ -45,7 +76,8 @@ final class LiveApplicationSession implements AutoCloseable {
   private final java.util.Set<EventSubscription> subscriptions = new java.util.HashSet<>();
   private long eventSequence;
   private CoreArtifact publishedArtifact;
-  private Long batch;
+  private BatchState batch;
+  private boolean automaticPending;
   private long epoch;
   private ProjectInputSnapshot inputs;
   private ProjectInputSnapshot completedInputs;
@@ -160,44 +192,66 @@ final class LiveApplicationSession implements AutoCloseable {
       if (closed.get()) throw new IllegalStateException("update coordinator is closed");
       if (batch != null) throw new IllegalStateException("A source update batch is already open");
       identity = ++epoch;
-      batch = identity;
+      batch = new BatchState(identity);
     }
     return new dev.w0fv1.norm.execution.ExecutionUpdates.Batch() {
-      private final AtomicBoolean completed = new AtomicBoolean();
+      @Override
+      public CompletableFuture<ExecutionUpdatePreview> preview() {
+        return enqueuePreview(identity);
+      }
 
       @Override
       public CompletableFuture<ExecutionUpdateResult> commit() {
-        if (!completed.compareAndSet(false, true))
-          throw new IllegalStateException("batch is closed");
-        return commitBatch(identity);
+        synchronized (gate) {
+          if (batch == null || batch.identity != identity || batch.committing || batch.previewing)
+            throw new IllegalStateException("batch is closed or committing");
+          if (!batch.reviewed) {
+            batch = null;
+            return enqueueUpdate(false);
+          }
+          batch.committing = true;
+          var result = new CompletableFuture<ExecutionUpdateResult>();
+          requests.addLast(new Request(result, null, false, identity));
+          emit(ExecutionUpdateEventKind.REQUESTED, Optional.empty(), execution.status());
+          return result;
+        }
       }
 
       @Override
       public void close() {
-        if (completed.compareAndSet(false, true)) closeBatch(identity);
+        synchronized (gate) {
+          if (batch == null || batch.identity != identity) return;
+          if (batch.prepared != null) batch.prepared.close();
+          batch = null;
+          epoch++;
+          automaticPending = true;
+        }
       }
     };
   }
 
-  private CompletableFuture<ExecutionUpdateResult> commitBatch(long identity) {
-    synchronized (gate) {
-      if (batch == null || batch != identity) throw new IllegalStateException("batch is closed");
-      batch = null;
-      return enqueueUpdate(false);
-    }
-  }
-
-  private void closeBatch(long identity) {
-    synchronized (gate) {
-      if (batch == null || batch != identity) return;
-      batch = null;
-      epoch++;
-      requests.addLast(new Request(null, false));
-    }
-  }
-
   CompletableFuture<ExecutionUpdateResult> requestUpdate() {
     return enqueueUpdate(true);
+  }
+
+  CompletableFuture<ExecutionUpdatePreview> previewUpdate() {
+    return enqueuePreview(null);
+  }
+
+  private CompletableFuture<ExecutionUpdatePreview> enqueuePreview(Long identity) {
+    synchronized (gate) {
+      if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      if (identity == null
+          ? batch != null
+          : batch == null || batch.identity != identity || batch.committing || batch.previewing)
+        throw new IllegalStateException(
+            "Use the active source update batch to preview its changes");
+      var result = new CompletableFuture<ExecutionUpdatePreview>();
+      if (identity == null) epoch++;
+      else batch.previewing = true;
+      requests.addLast(new Request(null, result, true, identity));
+      return result;
+    }
   }
 
   private CompletableFuture<ExecutionUpdateResult> enqueueUpdate(boolean force) {
@@ -208,7 +262,7 @@ final class LiveApplicationSession implements AutoCloseable {
             "Commit or close the open source update batch before requesting publication");
       epoch++;
       var result = new CompletableFuture<ExecutionUpdateResult>();
-      requests.addLast(new Request(result, force));
+      requests.addLast(new Request(result, null, force, null));
       emit(ExecutionUpdateEventKind.REQUESTED, Optional.empty(), execution.status());
       return result;
     }
@@ -216,7 +270,7 @@ final class LiveApplicationSession implements AutoCloseable {
 
   void start() {
     synchronized (gate) {
-      if (!inputs.matches()) requests.add(new Request(null, true));
+      automaticPending = !inputs.matches();
     }
     worker =
         Thread.ofVirtual()
@@ -224,8 +278,8 @@ final class LiveApplicationSession implements AutoCloseable {
             .start(
                 () -> {
                   while (!closed.get()) {
-                    List<Request> captured = List.of();
-                    ExecutionUpdateResult completed = null;
+                    Request captured = null;
+                    boolean completed = false;
                     try {
                       var current = execution.status();
                       if (!status.equals(current)) {
@@ -236,7 +290,7 @@ final class LiveApplicationSession implements AutoCloseable {
                                   + current.revision()
                                   + " is pending for active locations: "
                                   + String.join(", ", current.pendingLocations()));
-                        else if (!status.pendingLocations().isEmpty())
+                        else if (wasPending)
                           progress.accept("Completed pending runtime transitions");
                         status = current;
                         if (wasPending && current.pendingLocations().isEmpty())
@@ -245,98 +299,167 @@ final class LiveApplicationSession implements AutoCloseable {
                               Optional.ofNullable(latest),
                               current);
                       }
-                      boolean ready;
-                      synchronized (gate) {
-                        ready = !requests.isEmpty() && batch == null;
-                      }
-                      if (!ready && monitor.awaitChange(Duration.ofMillis(100))) {
-                        synchronized (gate) {
-                          requests.addLast(new Request(null, false));
-                        }
-                      }
                       long capturedEpoch;
                       synchronized (gate) {
-                        if (batch != null || requests.isEmpty()) continue;
-                        capturedEpoch = epoch;
-                        captured = new ArrayList<>(requests);
-                        requests.clear();
-                      }
-                      monitor.update(inputs);
-                      var result =
-                          reload(capturedEpoch, captured.stream().anyMatch(Request::force));
-                      if (result == null) {
-                        synchronized (gate) {
-                          for (Request request : captured) {
-                            if (closed.get()) {
-                              if (request.result() != null) request.result().cancel(false);
-                            } else requests.addLast(new Request(request.result(), request.force()));
+                        var iterator = requests.iterator();
+                        while (iterator.hasNext()) {
+                          var request = iterator.next();
+                          if (request.batchIdentity() != null
+                              && (batch == null || batch.identity != request.batchIdentity())) {
+                            iterator.remove();
+                            request.cancel();
+                          } else if (batch == null || request.batchIdentity() != null) {
+                            iterator.remove();
+                            captured = request;
+                            break;
                           }
                         }
-                      } else {
-                        if (result.outcome() == ExecutionUpdateResult.Outcome.UNCHANGED
-                            && captured.stream().allMatch(request -> request.result() == null))
-                          continue;
-                        latest = result;
-                        completed = result;
-                        emitResult(result);
-                        for (Request request : captured)
-                          if (request.result() != null) request.result().complete(result);
-                        if (result.outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
-                          progress.accept("Published runtime revision");
+                        if (captured == null && batch == null && automaticPending) {
+                          automaticPending = false;
+                          captured = new Request(null, null, false, null);
+                        }
+                        capturedEpoch = epoch;
                       }
+                      if (captured == null) {
+                        if (monitor.awaitChange(Duration.ofMillis(100))) {
+                          synchronized (gate) {
+                            automaticPending = true;
+                          }
+                        }
+                        continue;
+                      }
+                      var outcome = reload(capturedEpoch, captured);
+                      if (outcome == null) {
+                        synchronized (gate) {
+                          if (closed.get()) captured.cancel();
+                          else requests.addFirst(captured);
+                        }
+                        continue;
+                      }
+                      completed = true;
+                      complete(captured, outcome);
+                      if (outcome.result() != null
+                          && outcome.result().outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
+                        progress.accept("Published runtime revision");
                     } catch (InterruptedException exception) {
                       Thread.currentThread().interrupt();
-                      for (Request request : captured)
-                        if (request.result() != null) request.result().cancel(false);
+                      if (captured != null) captured.cancel();
                       return;
                     } catch (java.nio.file.ClosedWatchServiceException exception) {
-                      for (Request request : captured)
-                        if (request.result() != null) request.result().cancel(false);
+                      if (captured != null) captured.cancel();
                       return;
                     } catch (IOException | RuntimeException exception) {
+                      if (!completed && captured != null) {
+                        var failure = Optional.ofNullable(exception.getMessage());
+                        complete(
+                            captured,
+                            captured.preview() != null
+                                ? new ReloadOutcome(
+                                    null,
+                                    new ExecutionUpdatePreview(
+                                        ExecutionUpdatePreview.Outcome.FAILED,
+                                        Optional.empty(),
+                                        execution.status(),
+                                        List.of(),
+                                        failure,
+                                        RuntimeChangeSet.empty()))
+                                : new ReloadOutcome(
+                                    new ExecutionUpdateResult(
+                                        ExecutionUpdateResult.Outcome.FAILED,
+                                        Optional.empty(),
+                                        execution.status(),
+                                        List.of(),
+                                        failure,
+                                        RuntimeChangeSet.empty()),
+                                    null));
+                      }
                       if (!closed.get())
                         diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
-                      if (completed != null || captured.isEmpty()) continue;
-                      var result =
-                          new ExecutionUpdateResult(
-                              ExecutionUpdateResult.Outcome.FAILED,
-                              Optional.empty(),
-                              execution.status(),
-                              List.of(),
-                              Optional.ofNullable(exception.getMessage()),
-                              RuntimeChangeSet.empty());
-                      latest = result;
-                      emitResult(result);
-                      for (Request request : captured)
-                        if (request.result() != null) request.result().complete(result);
                     }
                   }
                 });
   }
 
-  private ExecutionUpdateResult reload(long capturedEpoch, boolean force) throws IOException {
+  private void complete(Request request, ReloadOutcome outcome) {
     synchronized (gate) {
-      if (closed.get() || batch != null || epoch != capturedEpoch) return null;
-      if (!force
+      if (request.batchIdentity() != null
+          && batch != null
+          && batch.identity == request.batchIdentity()) {
+        batch.committing = false;
+        batch.previewing = false;
+        if (outcome.preview() != null)
+          batch.reviewed =
+              outcome.preview().outcome() == ExecutionUpdatePreview.Outcome.PREVIEWED
+                  || outcome.preview().outcome() == ExecutionUpdatePreview.Outcome.UNCHANGED;
+      }
+      if (outcome.preview() != null) request.preview().complete(outcome.preview());
+      if (outcome.result() != null) {
+        var result = outcome.result();
+        if (request.result() == null && result.outcome() == ExecutionUpdateResult.Outcome.UNCHANGED)
+          return;
+        latest = result;
+        emitResult(result);
+        if (request.result() != null) request.result().complete(result);
+      }
+    }
+  }
+
+  private ReloadOutcome reload(long capturedEpoch, Request request) throws IOException {
+    synchronized (gate) {
+      if (closed.get() || epoch != capturedEpoch) return null;
+      if (request.batchIdentity() != null) {
+        if (batch == null || batch.identity != request.batchIdentity()) return null;
+        if (request.preview() == null) {
+          var prepared = batch.prepared;
+          batch.prepared = null;
+          batch.reviewed = false;
+          if (prepared == null || !prepared.candidate().inputs().matches()) {
+            if (prepared != null) prepared.close();
+            return new ReloadOutcome(
+                new ExecutionUpdateResult(
+                    ExecutionUpdateResult.Outcome.REJECTED,
+                    Optional.empty(),
+                    execution.status(),
+                    List.of(),
+                    Optional.of("Preview is stale; preview the current sources before committing"),
+                    RuntimeChangeSet.empty()),
+                null);
+          }
+          var result = publish(prepared);
+          if (result.outcome() == ExecutionUpdateResult.Outcome.PUBLISHED
+              || result.outcome() == ExecutionUpdateResult.Outcome.UNCHANGED) {
+            batch = null;
+            epoch++;
+          }
+          return new ReloadOutcome(result, null);
+        }
+        batch.reviewed = true;
+        if (batch.prepared != null) batch.prepared.close();
+        batch.prepared = null;
+      } else if (batch != null) return null;
+      if (request.preview() == null
+          && !request.force()
           && completedInputs.matches()
           && (latest == null || latest.outcome() != ExecutionUpdateResult.Outcome.FAILED)) {
         inputs = completedInputs;
         monitor.update(inputs);
-        return latest != null && latest.outcome() == ExecutionUpdateResult.Outcome.REJECTED
-            ? new ExecutionUpdateResult(
-                latest.outcome(),
-                latest.candidate(),
-                execution.status(),
-                latest.diagnostics(),
-                latest.failure(),
-                latest.changes())
-            : new ExecutionUpdateResult(
-                ExecutionUpdateResult.Outcome.UNCHANGED,
-                Optional.empty(),
-                execution.status(),
-                List.of(),
-                Optional.empty(),
-                RuntimeChangeSet.empty());
+        return new ReloadOutcome(
+            latest != null && latest.outcome() == ExecutionUpdateResult.Outcome.REJECTED
+                ? new ExecutionUpdateResult(
+                    latest.outcome(),
+                    latest.candidate(),
+                    execution.status(),
+                    latest.diagnostics(),
+                    latest.failure(),
+                    latest.changes())
+                : new ExecutionUpdateResult(
+                    ExecutionUpdateResult.Outcome.UNCHANGED,
+                    Optional.empty(),
+                    execution.status(),
+                    List.of(),
+                    Optional.empty(),
+                    RuntimeChangeSet.empty()),
+            null);
       }
     }
     ApplicationCandidate candidate;
@@ -347,55 +470,103 @@ final class LiveApplicationSession implements AutoCloseable {
       monitor.update(inputs);
       throw exception;
     }
-    boolean transferred = false;
+    boolean retained = false;
     try {
       inputs = candidate.inputs();
       monitor.update(inputs);
       synchronized (gate) {
-        if (closed.get() || batch != null || epoch != capturedEpoch || !inputs.matches())
-          return null;
-        completedInputs = inputs;
-        if (!candidate.result().isSuccess()) {
-          candidate
-              .result()
-              .diagnostics()
-              .forEach(value -> diagnostics.accept(DiagnosticRenderer.render(value)));
-          return new ExecutionUpdateResult(
-              ExecutionUpdateResult.Outcome.REJECTED,
-              Optional.empty(),
-              execution.status(),
-              candidate.result().diagnostics(),
-              Optional.empty(),
-              RuntimeChangeSet.empty());
-        }
-        var revision = candidate.revision().orElseThrow();
+        if (closed.get() || epoch != capturedEpoch || !inputs.matches()) return null;
+        var revision = candidate.revision();
         var identity =
-            Optional.of(ArtifactId.forArtifact(revision.artifact(), "norm-source-live-v1"));
-        var changes = new RuntimeChangeAnalyzer().compare(publishedArtifact, revision.artifact());
-        try {
-          execution.update(revision);
-        } catch (IllegalArgumentException exception) {
-          diagnostics.accept("error[NORM-LIVE-0002]: " + exception.getMessage());
-          return new ExecutionUpdateResult(
-              ExecutionUpdateResult.Outcome.REJECTED,
-              identity,
-              execution.status(),
-              candidate.result().diagnostics(),
-              Optional.ofNullable(exception.getMessage()),
-              changes);
+            revision.map(value -> ArtifactId.forArtifact(value.artifact(), "norm-source-live-v1"));
+        var changes =
+            revision
+                .map(
+                    value ->
+                        new RuntimeChangeAnalyzer().compare(publishedArtifact, value.artifact()))
+                .orElseGet(RuntimeChangeSet::empty);
+        var preview =
+            new ExecutionUpdatePreview(
+                !candidate.result().isSuccess()
+                    ? ExecutionUpdatePreview.Outcome.REJECTED
+                    : identity
+                            .orElseThrow()
+                            .equals(
+                                ArtifactId.forArtifact(publishedArtifact, "norm-source-live-v1"))
+                        ? ExecutionUpdatePreview.Outcome.UNCHANGED
+                        : ExecutionUpdatePreview.Outcome.PREVIEWED,
+                identity,
+                execution.status(),
+                candidate.result().diagnostics(),
+                Optional.empty(),
+                changes);
+        var prepared = new ReviewedUpdate(candidate, preview);
+        if (request.preview() != null) {
+          if (request.batchIdentity() != null) {
+            batch.prepared = prepared;
+            retained = true;
+          }
+          return new ReloadOutcome(null, preview);
         }
-        transferred = true;
-        publishedArtifact = revision.artifact();
-        return new ExecutionUpdateResult(
-            ExecutionUpdateResult.Outcome.PUBLISHED,
-            identity,
-            execution.status(),
-            candidate.result().diagnostics(),
-            Optional.empty(),
-            changes);
+        retained = true;
+        return new ReloadOutcome(publish(prepared), null);
       }
     } finally {
-      if (!transferred) candidate.close();
+      if (!retained) candidate.close();
+    }
+  }
+
+  private ExecutionUpdateResult publish(ReviewedUpdate prepared) {
+    boolean transferred = false;
+    var candidate = prepared.candidate();
+    var preview = prepared.preview();
+    try {
+      completedInputs = candidate.inputs();
+      if (!candidate.result().isSuccess()) {
+        candidate
+            .result()
+            .diagnostics()
+            .forEach(value -> diagnostics.accept(DiagnosticRenderer.render(value)));
+        return new ExecutionUpdateResult(
+            ExecutionUpdateResult.Outcome.REJECTED,
+            preview.candidate(),
+            execution.status(),
+            preview.diagnostics(),
+            preview.failure(),
+            preview.changes());
+      }
+      if (preview.outcome() == ExecutionUpdatePreview.Outcome.UNCHANGED)
+        return new ExecutionUpdateResult(
+            ExecutionUpdateResult.Outcome.UNCHANGED,
+            preview.candidate(),
+            execution.status(),
+            preview.diagnostics(),
+            Optional.empty(),
+            preview.changes());
+      var revision = candidate.revision().orElseThrow();
+      try {
+        execution.update(revision);
+      } catch (IllegalArgumentException exception) {
+        diagnostics.accept("error[NORM-LIVE-0002]: " + exception.getMessage());
+        return new ExecutionUpdateResult(
+            ExecutionUpdateResult.Outcome.REJECTED,
+            preview.candidate(),
+            execution.status(),
+            preview.diagnostics(),
+            Optional.ofNullable(exception.getMessage()),
+            preview.changes());
+      }
+      transferred = true;
+      publishedArtifact = revision.artifact();
+      return new ExecutionUpdateResult(
+          ExecutionUpdateResult.Outcome.PUBLISHED,
+          preview.candidate(),
+          execution.status(),
+          preview.diagnostics(),
+          Optional.empty(),
+          preview.changes());
+    } finally {
+      if (!transferred) prepared.close();
     }
   }
 
@@ -404,8 +575,9 @@ final class LiveApplicationSession implements AutoCloseable {
     if (!closed.compareAndSet(false, true)) return;
     List<EventSubscription> activeSubscriptions;
     synchronized (gate) {
-      for (Request request : requests) if (request.result() != null) request.result().cancel(false);
+      for (Request request : requests) request.cancel();
       requests.clear();
+      if (batch != null && batch.prepared != null) batch.prepared.close();
       batch = null;
       activeSubscriptions = List.copyOf(subscriptions);
       subscriptions.clear();

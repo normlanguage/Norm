@@ -28,6 +28,13 @@ final class RuntimeChangeAnalyzerTest {
       assertTrue(
           changes.stream()
               .allMatch(change -> change.before().isPresent() && change.after().isPresent()));
+      var fieldChange =
+          changes.stream()
+              .filter(change -> change.identity().contains("Counter"))
+              .findFirst()
+              .orElseThrow();
+      assertTrue(fieldChange.before().orElseThrow().sourceContent().contains("Integer value"));
+      assertTrue(fieldChange.after().orElseThrow().sourceContent().contains("Long value"));
     }
   }
 

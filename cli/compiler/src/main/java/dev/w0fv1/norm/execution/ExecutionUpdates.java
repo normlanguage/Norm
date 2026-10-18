@@ -10,6 +10,8 @@ public interface ExecutionUpdates {
 
   CompletableFuture<ExecutionUpdateResult> request();
 
+  CompletableFuture<ExecutionUpdatePreview> preview();
+
   default ExecutionUpdateSubscription subscribe() {
     return subscribe(0);
   }
@@ -19,6 +21,8 @@ public interface ExecutionUpdates {
   Batch beginBatch();
 
   interface Batch extends AutoCloseable {
+    CompletableFuture<ExecutionUpdatePreview> preview();
+
     CompletableFuture<ExecutionUpdateResult> commit();
 
     @Override

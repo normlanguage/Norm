@@ -1157,6 +1157,16 @@
       "writesState": false
     },
     {
+      "name": "RUNTIME_PREVIEW",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_PREVIEW_BATCH",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
       "name": "RUNTIME_BEGIN",
       "requiresResultRuntimeType": true,
       "writesState": false
@@ -3392,6 +3402,23 @@
       "arguments": [],
       "nullable": false
     },
+    "std.core.__runtimePreview/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePreview/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimePreviewBatch/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePreviewBatch/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+
     "std.core.__runtimeBegin/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__runtimeBegin/T",
@@ -8963,6 +8990,44 @@
         "documentation": "Runtime publication operation."
       },
       "intrinsic": "RUNTIME_PUBLISH"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePreview",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePreview/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePreview/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime update preview operation."
+      },
+      "intrinsic": "RUNTIME_PREVIEW"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePreviewBatch",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePreviewBatch/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePreviewBatch/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime update preview operation."
+      },
+      "intrinsic": "RUNTIME_PREVIEW_BATCH"
     },
     {
       "symbol": {

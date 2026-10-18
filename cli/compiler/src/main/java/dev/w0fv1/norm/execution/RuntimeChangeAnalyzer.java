@@ -155,6 +155,7 @@ public final class RuntimeChangeAnalyzer {
         identity,
         signature,
         digest(definition.toString()),
+        artifact.authoring().origin(occurrence.id()).rootSpan().text(),
         members,
         annotations(artifact, occurrence));
   }

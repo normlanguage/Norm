@@ -21,6 +21,8 @@ public final class IntrinsicDispatcher {
           RUNTIME_LATEST,
           RUNTIME_BEGIN,
           RUNTIME_PUBLISH,
+          RUNTIME_PREVIEW,
+          RUNTIME_PREVIEW_BATCH,
           RUNTIME_COMMIT,
           RUNTIME_CLOSE,
           RUNTIME_SUBSCRIBE,

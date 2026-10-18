@@ -8,6 +8,7 @@ public record RuntimeDeclarationShape(
     String identity,
     String signature,
     String bodyContentId,
+    String sourceContent,
     List<String> members,
     List<String> annotations) {
   public RuntimeDeclarationShape {
@@ -15,6 +16,7 @@ public record RuntimeDeclarationShape(
     Objects.requireNonNull(identity, "identity");
     Objects.requireNonNull(signature, "signature");
     Objects.requireNonNull(bodyContentId, "bodyContentId");
+    Objects.requireNonNull(sourceContent, "sourceContent");
     members = List.copyOf(members);
     annotations = List.copyOf(annotations);
   }
