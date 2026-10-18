@@ -12,11 +12,11 @@ norm run main.norm -- "Read your source and add the tool needed to complete this
 
 Entry points:
 
-- [main.norm](main.norm): model configuration, persistent session and runtime publication feedback.
+- [main.norm](main.norm): model configuration, dynamic tools and runtime publication feedback.
 - [tools.norm](tools.norm): initial file tools and the live tool catalog the Agent edits.
 - [module.norm](module.norm): dependency declarations.
 - [Agent library](https://github.com/normlanguage/agent): request loop, session storage, Skill loading, tools and MCP.
-- [Runtime publication API](../../stdlib/std/runtime/updates.norm): update transactions and diagnostics.
+- [Runtime publication API](../../stdlib/std/runtime/updates.norm): the `Runtime` object, update transactions and diagnostics.
 - [Language reference](../../../docs/zh/spec/language-spec.md): source syntax and semantics.
 - [Standard library](../../../docs/zh/stdlib/overview.md): available capabilities.
 

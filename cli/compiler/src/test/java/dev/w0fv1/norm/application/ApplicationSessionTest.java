@@ -17,6 +17,7 @@ import dev.w0fv1.norm.runtime.NormRuntime;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -119,6 +120,8 @@ class ApplicationSessionTest {
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
         var events = session.subscribeUpdates();
+        var callbackKinds = new CopyOnWriteArrayList<ExecutionUpdateEventKind>();
+        var callback = session.onUpdate(event -> callbackKinds.add(event.kind()));
         try (var batch = session.beginBatch()) {
           assertThrows(IllegalStateException.class, session::beginBatch);
           assertThrows(IllegalStateException.class, session::requestUpdate);
@@ -145,8 +148,14 @@ class ApplicationSessionTest {
           var publishedEvent = events.next(java.time.Duration.ofSeconds(30)).orElseThrow();
           assertEquals(ExecutionUpdateEventKind.PUBLISHED, publishedEvent.kind());
           assertTrue(publishedEvent.result().orElseThrow().changes().declarations().size() >= 1);
+          long callbackDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+          while (!callbackKinds.contains(ExecutionUpdateEventKind.PUBLISHED)
+              && System.nanoTime() < callbackDeadline) Thread.sleep(10);
+          assertTrue(
+              callbackKinds.contains(ExecutionUpdateEventKind.PUBLISHED), callbackKinds::toString);
         }
         events.close();
+        callback.close();
         assertEquals(1, revisions.get());
         assertSame(
             contexts.getFirst().updates().orElseThrow(),

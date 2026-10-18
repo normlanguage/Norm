@@ -17,6 +17,7 @@ public final class IntrinsicDispatcher {
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
+      case SYSTEM_CURRENT, SYSTEM_RUNTIME -> SystemIntrinsicDispatcher.resolve(intrinsic);
       case RUNTIME_STATUS,
           RUNTIME_LATEST,
           RUNTIME_BEGIN,
@@ -25,8 +26,7 @@ public final class IntrinsicDispatcher {
           RUNTIME_PREVIEW_BATCH,
           RUNTIME_COMMIT,
           RUNTIME_CLOSE,
-          RUNTIME_SUBSCRIBE,
-          RUNTIME_NEXT ->
+          RUNTIME_ON_UPDATE ->
           RuntimeUpdateIntrinsicDispatcher.resolve(intrinsic);
       case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
       case STATE_MIGRATION_CONTAINS,

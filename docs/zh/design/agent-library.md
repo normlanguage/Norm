@@ -11,6 +11,8 @@ description: Norm Agent 库与 OpenAI 协议库的职责边界及会话存储扩
 
 MCP 通过 `agent.McpToolProvider` 接入 Agent 的同一工具目录。`agent.McpClient` 使用 JSON-RPC HTTP 传输发现 `tools/list`，并把 `tools/call` 路由回 MCP 服务；Agent 每轮重新发现工具，所以服务端新增或移除工具会进入下一轮请求。
 
+Agent 不持有运行时、热载、状态迁移或源代码发布能力；这些能力属于应用从系统取得的 `Runtime` 对象。应用可以把运行时操作封装成普通工具或工具作用域，再交给 Agent 调用。
+
 公开声明的唯一来源是库源码：
 
 - [Agent 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/agent)

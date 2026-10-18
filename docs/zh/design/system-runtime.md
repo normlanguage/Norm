@@ -164,4 +164,4 @@ Java 参数、返回值与回调载体转换归属 [`JavaValueAdapter`](https://
 
 每一步保持编译、执行和相关测试通过，并在进入下一步前删除被新结构替代的入口。
 
-- 源码发布接口：[`std.runtime`](../../../norm/stdlib/std/runtime/updates.norm)；宿主能力：[`ExecutionUpdates`](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/ExecutionUpdates.java)。
+- 源码发布接口：从 [`std.system.currentSystem`](../../../norm/stdlib/std/system/runtime.norm) 取得 [`std.runtime.Runtime`](../../../norm/stdlib/std/runtime/updates.norm)；宿主能力：[`ExecutionUpdates`](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/ExecutionUpdates.java)。

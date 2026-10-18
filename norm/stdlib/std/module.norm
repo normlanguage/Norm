@@ -46,6 +46,7 @@ Module module() {
       "text.builders",
       "text.normalization",
       "system.exceptions",
+      "system.runtime",
       "time.core",
       "validation.constraints",
       "xml.xml",

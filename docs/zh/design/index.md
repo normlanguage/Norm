@@ -37,6 +37,6 @@ Runtime: execution contracts → Truffle → platform adapter
 - [Vaadin 适配计划与落地方案](/zh/design/vaadin-integration)：普通字段响应页面、独立 Jetty、Spring 集成与分阶段验收；
 - [编译器引导计划](/zh/design/bootstrap-plan)：自举边界。
 - [应用启动性能](/zh/design/startup-performance)：源码运行基线、制品复用边界与验收。
-- [运行时更新工具](/zh/design/runtime-update-tool-261018)：结构化热载结果、事件订阅和标准库入口。
+- [运行时更新工具](/zh/design/runtime-update-tool-261018)：Runtime 对象、结构化热载结果、回调事件和标准库入口。
 
 性能目标只记录可验证预算，不从架构反推未经测量的性能结论。当前对外能力见 [Status](/zh/status)。

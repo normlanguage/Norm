@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -132,6 +133,22 @@ final class LiveApplicationSession implements AutoCloseable {
     }
   }
 
+  ExecutionUpdateSubscription onUpdate(
+      long afterSequence, Consumer<ExecutionUpdateEvent> listener) {
+    if (afterSequence < 0) throw new IllegalArgumentException("afterSequence must not be negative");
+    Objects.requireNonNull(listener, "listener");
+    synchronized (gate) {
+      if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      var subscription = new EventSubscription(listener);
+      eventHistory.stream()
+          .filter(event -> event.sequence() > afterSequence)
+          .forEach(subscription.events::offer);
+      subscriptions.add(subscription);
+      subscription.start();
+      return subscription;
+    }
+  }
+
   private void emit(
       ExecutionUpdateEventKind kind,
       Optional<ExecutionUpdateResult> result,
@@ -162,6 +179,32 @@ final class LiveApplicationSession implements AutoCloseable {
   private final class EventSubscription implements ExecutionUpdateSubscription {
     private final LinkedBlockingQueue<ExecutionUpdateEvent> events = new LinkedBlockingQueue<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final Consumer<ExecutionUpdateEvent> listener;
+    private Thread callbackThread;
+
+    private EventSubscription() {
+      this(null);
+    }
+
+    private EventSubscription(Consumer<ExecutionUpdateEvent> listener) {
+      this.listener = listener;
+    }
+
+    private void start() {
+      if (listener != null)
+        callbackThread =
+            Thread.ofVirtual().name("norm-runtime-update-callback").start(this::dispatch);
+    }
+
+    private void dispatch() {
+      try {
+        while (!closed.get()) listener.accept(events.take());
+      } catch (InterruptedException exception) {
+        Thread.currentThread().interrupt();
+      } catch (RuntimeException failure) {
+        close();
+      }
+    }
 
     @Override
     public Optional<ExecutionUpdateEvent> poll() {
@@ -183,6 +226,8 @@ final class LiveApplicationSession implements AutoCloseable {
         subscriptions.remove(this);
       }
       events.clear();
+      if (callbackThread != null && callbackThread != Thread.currentThread())
+        callbackThread.interrupt();
     }
   }
 

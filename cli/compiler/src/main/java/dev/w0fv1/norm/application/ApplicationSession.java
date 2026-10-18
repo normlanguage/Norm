@@ -131,6 +131,17 @@ public final class ApplicationSession implements AutoCloseable {
     return updates.subscribe(afterSequence);
   }
 
+  public ExecutionUpdateSubscription onUpdate(
+      Consumer<dev.w0fv1.norm.execution.ExecutionUpdateEvent> listener) {
+    return onUpdate(0, listener);
+  }
+
+  public ExecutionUpdateSubscription onUpdate(
+      long afterSequence, Consumer<dev.w0fv1.norm.execution.ExecutionUpdateEvent> listener) {
+    if (updates == null) throw new IllegalStateException("application compilation failed");
+    return updates.onUpdate(afterSequence, listener);
+  }
+
   public void cancel() {
     cancellation.set(true);
   }

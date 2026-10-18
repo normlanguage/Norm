@@ -1,7 +1,6 @@
 package self_extending_agent
 
 import agent.Agent
-import agent.AgentSession
 import agent.Skill
 import agent.ToolScope
 import std.application.applicationDirectory
@@ -9,17 +8,20 @@ import std.application.arguments
 import std.application.environmentVariable
 import std.core.Exception
 import std.io.print
+import std.runtime.Runtime
 import std.runtime.UpdateBatch
 import std.runtime.UpdateOutcome
 import std.runtime.RuntimeDiagnostic
-import std.runtime.beginUpdate
-import std.runtime.runtimeStatus
+import std.system.currentSystem
 
-class RuntimeContext {
+class RuntimeStatusProvider {
+  Runtime runtime
   String? previous = null
 
+  RuntimeStatusProvider(Runtime runtime) { this.runtime = runtime }
+
   String? context() {
-    var status = runtimeStatus()
+    var status = runtime.status()
     String text = "Runtime status: published revision " + status.publishedRevision.toString()
       + "; active revision " + status.activeRevision.toString()
     for String location : status.pendingLocations { text = text + "\nPending: " + location }
@@ -32,7 +34,9 @@ class RuntimeContext {
 class SourceUpdate implements ToolScope {
   UpdateBatch batch
 
-  SourceUpdate() { this.batch = beginUpdate() }
+  SourceUpdate(Runtime runtime) {
+    this.batch = runtime.beginUpdate()
+  }
 
   public String? complete() {
     var result = batch.commit()
@@ -56,7 +60,13 @@ class SourceUpdate implements ToolScope {
   public Void close() { batch.close() }
 }
 
-ToolScope beginSourceUpdate() { return SourceUpdate() }
+class SourceUpdateFactory {
+  Runtime runtime
+
+  SourceUpdateFactory(Runtime runtime) { this.runtime = runtime }
+
+  ToolScope begin() { return SourceUpdate(runtime: runtime) }
+}
 
 Void main() {
   String key = environmentVariable(name: "OPENAI_API_KEY") ?? throw Exception(message: "OPENAI_API_KEY is required")
@@ -79,14 +89,15 @@ Fix rejected source using the diagnostics before using the new tool. A published
 Continue until you invoke the capability you added and finish the task.
 """
   var skill = Skill("https://raw.githubusercontent.com/normlanguage/Norm-Skill/main/SKILL.md")
-  var runtime = RuntimeContext()
+  var runtime = currentSystem().runtime()
+  var statusProvider = RuntimeStatusProvider(runtime: runtime)
+  var sourceUpdates = SourceUpdateFactory(runtime: runtime)
   var agent = Agent(apiKey: key, model: model, endpoint: endpoint, instruction: instructions,
-    skills: [skill], tools: tools(),
-    beginToolScope: beginSourceUpdate.function,
-    contextProvider: runtime.context)
+    skills: [skill], tools: tools(), toolProvider: tools,
+    beginToolScope: sourceUpdates.begin,
+    contextProvider: statusProvider.context)
   agent.onText { print(text: text) }
-  var session = AgentSession()
-  var response = agent.chat(inputs[0], session: session)
+  var response = agent.chat(inputs[0])
   printLine("")
 }
 

@@ -4,6 +4,33 @@ import std.annotation.Document
 import std.core.Exception
 import std.io.Resource
 
+@Document(description: "Provides the current source execution's runtime update capability.")
+public class Runtime {
+  @Document(description: "Reports live source execution state.")
+  public RuntimeStatus status() { __runtimeStatus<RuntimeStatus>() }
+
+  @Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
+  public UpdateResult? latestUpdate() {
+    var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()
+    if completion != null { return completeUpdate(completion) }
+    return null
+  }
+
+  @Document(description: "Starts a publication batch for related source and dependency edits.")
+  public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
+
+  @Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
+  public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
+
+  @Document(description: "Compiles current sources and returns all before and after changes without publishing them.")
+  public UpdatePreview previewUpdate() { completePreview(__runtimePreview<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
+
+  @Document(description: "Subscribes a callback to runtime update transitions.")
+  public UpdateSubscription onUpdate(Void callback(RuntimeUpdateEvent event)) {
+    __runtimeOnUpdate<UpdateSubscription, RuntimeUpdateEvent>(callback: callback)
+  }
+}
+
 @Document(description: "Distinguishes successful publication, unchanged sources, invalid code and host compilation failure.")
 public enum UpdateOutcome { Published, Unchanged, Rejected, Failed }
 
@@ -105,22 +132,3 @@ public class UpdateBatch implements Resource {
   @Document(description: "Releases publication suppression. Closing an already completed batch has no effect.")
   public Void close() { __runtimeClose(batch: this) }
 }
-
-@Document(description: "Reports live source execution state. Unavailable in executions without a source update coordinator.")
-public RuntimeStatus runtimeStatus() { __runtimeStatus<RuntimeStatus>() }
-
-@Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
-public UpdateResult? latestUpdate() {
-  var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()
-  if completion != null { return completeUpdate(completion) }
-  return null
-}
-
-@Document(description: "Starts a publication batch for related source and dependency edits.")
-public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
-
-@Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
-public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
-
-@Document(description: "Compiles current sources and returns all before and after changes without publishing them.")
-public UpdatePreview previewUpdate() { completePreview(__runtimePreview<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
