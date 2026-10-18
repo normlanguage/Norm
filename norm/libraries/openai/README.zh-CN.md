@@ -41,6 +41,8 @@ var response = agent.chat("计算 19 加 23")
 
 `Client.generate` 只请求一次模型；`Agent.chat` 自动执行工具并继续请求模型。通过 `session: AgentSession()` 保留会话，后续 chat 传入同一个对象；省略时使用独立会话。`toolProvider` 在每轮请求前提供工具列表，该轮调用共享函数版本与参数契约快照；未通过工具契约校验的目录保留上次接受的工具，并将诊断交给模型修正。`contextProvider` 提供每轮请求前的可选上下文。`beginToolScope` 为一轮工具调用提供作用域，`ToolScope.complete()` 返回的可选文本进入模型上下文，`close()` 在所有退出路径上执行。声明与生命周期以 [agent.norm](agent.norm) 为准。
 
+Skill 从声明的 URL 加载一次后，会复用于同一次 chat 的多个工具轮次；新增 Skill 会使快照失效，下一次 chat 重新加载当前配置的 Skill。
+
 [自扩展 Agent](../../examples/self_extending_agent/README.md)建立在独立的 Agent 库之上。`Client.exchange`、`ResponseRequest`、`ToolRegistry` 保持协议层 API，供需要自行管理上下文和工具调度的应用使用。
 
 每个事件都有对应的 `onXxx` 参数，同时支持 `onEvent: (GenerationEvent event)`。同时注册时先执行 `onEvent`，再执行专用回调。模型事件由 `generate` 和 `chat` 提供；工具执行和整个任务的事件由 `chat` 提供。事件与参数类型见 [events.norm](events.norm)，生命周期入口见 [client.norm](client.norm) 和 [agent.norm](agent.norm)。错误通知不吞异常；服务端返回的失败、不完整和拒绝状态保留在 `Response` 中。

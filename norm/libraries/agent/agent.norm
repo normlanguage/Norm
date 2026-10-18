@@ -70,6 +70,9 @@ public class Agent {
   private List<McpToolProvider> mcpProviders
   private List<Skill> skills
   private Function<Void(String)>? textCallback
+  private SkillLoader skillLoader
+  private String? instructionSnapshot
+  private Boolean instructionSnapshotReady
 
   Agent(
     String apiKey,
@@ -97,10 +100,14 @@ public class Agent {
     this.mcpProviders = mcp
     this.skills = skills
     this.textCallback = null
+    this.skillLoader = SkillLoader()
+    this.instructionSnapshot = null
+    this.instructionSnapshotReady = false
   }
 
   public Agent skill(Skill value) {
     skills.add(value)
+    instructionSnapshotReady = false
     return this
   }
 
@@ -137,6 +144,8 @@ public class Agent {
     Function<Void(Response)>? onRunCompleted = null,
     Function<Void(GenerationEvent)>? onEvent = null,
     AgentSession session = AgentSession()) {
+    instructionSnapshot = null
+    instructionSnapshotReady = false
     var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: if onText == null { textCallback } else { onText }, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
     try {
       callbacks.emit(event: GenerationEvent.RunStarted(input: input))
@@ -202,11 +211,14 @@ public class Agent {
   }
 
   private String? instructionText() {
+    if instructionSnapshotReady { return instructionSnapshot }
     String? combined = instructions
     for Skill value : skills {
-      String content = SkillLoader().fetch(skill: value)
+      String content = skillLoader.fetch(skill: value)
       combined = if combined == null { content } else { combined + "\n\n" + content }
     }
+    instructionSnapshot = combined
+    instructionSnapshotReady = true
     return combined
   }
 

@@ -120,10 +120,13 @@ final class OpenAiAgentTest {
   void loadsSkillDataAtRunTimeAndSupportsFluentPluginRegistration() throws Exception {
     installLibraries();
     var failure = new AtomicReference<Throwable>();
+    var skillRequests = new AtomicInteger();
+    var requests = new AtomicInteger();
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext(
         "/skill.md",
         exchange -> {
+          skillRequests.incrementAndGet();
           byte[] body = "Use the Norm tool catalog before editing source.".getBytes(StandardCharsets.UTF_8);
           exchange.sendResponseHeaders(200, body.length);
           exchange.getResponseBody().write(body);
@@ -135,13 +138,16 @@ final class OpenAiAgentTest {
           try {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             assertTrue(body.contains("Use the Norm tool catalog before editing source."), body);
+            int request = requests.getAndIncrement();
             exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, 0);
+            String event = request == 0
+                ? "data: {\"id\":\"r1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"echo\",\"function\":{\"name\":\"echo\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n"
+                : "data: {\"id\":\"r2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\n";
             exchange
                 .getResponseBody()
                 .write(
-                    ("data: {\"id\":\"r1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\n"
-                            + "data: [DONE]\n\n")
+                    (event + "data: [DONE]\n\n")
                         .getBytes(StandardCharsets.UTF_8));
           } catch (Throwable error) {
             failure.compareAndSet(null, error);
@@ -183,6 +189,8 @@ final class OpenAiAgentTest {
               server.getAddress().getPort()));
       assertEquals("donedone\n", NormTestKit.run(entry).replace("\r\n", "\n"));
       if (failure.get() != null) throw new AssertionError(failure.get());
+      assertEquals(2, skillRequests.get());
+      assertEquals(2, requests.get());
     } finally {
       server.stop(0);
     }
