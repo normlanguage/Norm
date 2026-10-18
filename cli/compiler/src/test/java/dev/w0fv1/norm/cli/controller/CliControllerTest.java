@@ -176,15 +176,25 @@ final class CliControllerTest {
   @Test
   void continuesCliUpdateWhenProjectUpdateFails() throws IOException {
     Path module = Files.createDirectories(temporaryDirectory.resolve("failed-update"));
-    Files.writeString(module.resolve("module.norm"), "Module module() { return module(name: \"failed_update\", version: 1) }");
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"failed_update\", version: 1) }");
     var output = new StringWriter();
     var error = new StringWriter();
     boolean[] cliCalled = {false};
-    int result = new UpdateCommand(
-            out -> { cliCalled[0] = true; out.println("CLI updated"); },
-            ignored -> { throw new IOException("dependency registry unavailable"); })
-        .execute(List.of("--cli", "--project", module.toString()),
-            new PrintWriter(output), new PrintWriter(error));
+    int result =
+        new UpdateCommand(
+                out -> {
+                  cliCalled[0] = true;
+                  out.println("CLI updated");
+                },
+                ignored -> {
+                  throw new IOException("dependency registry unavailable");
+                })
+            .execute(
+                List.of("--cli", "--project", module.toString()),
+                new PrintWriter(output),
+                new PrintWriter(error));
     assertEquals(ExitCode.INPUT_ERROR, result);
     assertTrue(cliCalled[0]);
     assertTrue(output.toString().contains("CLI updated"));
@@ -194,14 +204,21 @@ final class CliControllerTest {
   @Test
   void continuesProjectUpdateWhenCliUpdateFails() throws IOException {
     Path module = Files.createDirectories(temporaryDirectory.resolve("cli-failed-update"));
-    Files.writeString(module.resolve("module.norm"), "Module module() { return module(name: \"cli_failed_update\", version: 1) }");
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"cli_failed_update\", version: 1) }");
     var output = new StringWriter();
     var error = new StringWriter();
-    int result = new UpdateCommand(
-            ignored -> { throw new IOException("package manager unavailable"); },
-            ignored -> new UpdateCommand.ProjectLoaderResult(List.of()))
-        .execute(List.of("--cli", "--project", module.toString()),
-            new PrintWriter(output), new PrintWriter(error));
+    int result =
+        new UpdateCommand(
+                ignored -> {
+                  throw new IOException("package manager unavailable");
+                },
+                ignored -> new UpdateCommand.ProjectLoaderResult(List.of()))
+            .execute(
+                List.of("--cli", "--project", module.toString()),
+                new PrintWriter(output),
+                new PrintWriter(error));
     assertEquals(ExitCode.INPUT_ERROR, result);
     assertTrue(output.toString().contains("Project dependencies are already up to date"));
     assertTrue(error.toString().contains("package manager unavailable"));

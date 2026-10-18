@@ -20,14 +20,18 @@ final class RunCommandTest {
   @ValueSource(strings = {"main.norm", "application.norm"})
   void runsCurrentModuleAndForwardsArguments(String file) throws Exception {
     Path module = Files.createDirectories(directory.resolve("Norm-agent"));
-    Files.writeString(module.resolve("module.norm"),
+    Files.writeString(
+        module.resolve("module.norm"),
         "Module module() { return module(name: \"sample\", version: 1) }");
-    Files.writeString(module.resolve(file),
+    Files.writeString(
+        module.resolve(file),
         "package sample import std.application.arguments Void main() { printLine(arguments()[0]) }");
     var output = new StringWriter();
     var error = new StringWriter();
-    int result = new RunCommand(module).execute(List.of("--debug", "--", "hello"),
-        new PrintWriter(output), new PrintWriter(error));
+    int result =
+        new RunCommand(module)
+            .execute(
+                List.of("--debug", "--", "hello"), new PrintWriter(output), new PrintWriter(error));
     assertEquals(ExitCode.SUCCESS, result, error.toString());
     assertEquals("hello" + System.lineSeparator(), output.toString());
     assertTrue(error.toString().contains("Starting application"), error.toString());
@@ -36,25 +40,30 @@ final class RunCommandTest {
   @Test
   void bareRunAndExplicitDirectorySelectTheSameEntry() throws Exception {
     Path module = Files.createDirectories(directory.resolve("sample"));
-    Files.writeString(module.resolve("module.norm"),
+    Files.writeString(
+        module.resolve("module.norm"),
         "Module module() { return module(name: \"sample\", version: 1) }");
-    Files.writeString(module.resolve("application.norm"),
+    Files.writeString(
+        module.resolve("application.norm"),
         "package sample Void main() { printLine(\"selected\") }");
     for (List<String> arguments : List.of(List.<String>of(), List.of("."))) {
       var output = new StringWriter();
       var error = new StringWriter();
-      int result = new RunCommand(module).execute(arguments,
-          new PrintWriter(output), new PrintWriter(error));
+      int result =
+          new RunCommand(module)
+              .execute(arguments, new PrintWriter(output), new PrintWriter(error));
       assertEquals(ExitCode.SUCCESS, result, error.toString());
       assertEquals("selected" + System.lineSeparator(), output.toString());
       assertEquals("", error.toString());
     }
   }
+
   @Test
   void reportsMissingDefaultEntryInsteadOfUsageError() {
     var error = new StringWriter();
-    int result = new RunCommand(directory).execute(List.of(),
-        new PrintWriter(new StringWriter()), new PrintWriter(error));
+    int result =
+        new RunCommand(directory)
+            .execute(List.of(), new PrintWriter(new StringWriter()), new PrintWriter(error));
     assertEquals(ExitCode.INPUT_ERROR, result);
     assertTrue(error.toString().contains("NORM-CLI-0004"), error.toString());
   }
@@ -62,8 +71,12 @@ final class RunCommandTest {
   @Test
   void rejectsMultiplePaths() {
     var error = new StringWriter();
-    int result = new RunCommand(directory).execute(List.of("one.norm", "two.norm"),
-        new PrintWriter(new StringWriter()), new PrintWriter(error));
+    int result =
+        new RunCommand(directory)
+            .execute(
+                List.of("one.norm", "two.norm"),
+                new PrintWriter(new StringWriter()),
+                new PrintWriter(error));
     assertEquals(ExitCode.USAGE_ERROR, result);
   }
 }

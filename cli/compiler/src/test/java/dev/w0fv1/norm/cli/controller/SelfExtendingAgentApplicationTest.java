@@ -128,7 +128,10 @@ final class SelfExtendingAgentApplicationTest {
             JsonArray calls = new JsonArray();
             if (round == 0) {
               calls.add(
-                  writeCall(0, app.resolve("extra.norm"), "package self_extending_agent\nInteger broken( {"));
+                  writeCall(
+                      0,
+                      app.resolve("extra.norm"),
+                      "package self_extending_agent\nInteger broken( {"));
             } else if (round == 1) {
               assertTrue(request.toString().contains("Rejected"), request.toString());
               if (!jarDependency) {
@@ -269,4 +272,3 @@ final class SelfExtendingAgentApplicationTest {
     return call;
   }
 }
-
