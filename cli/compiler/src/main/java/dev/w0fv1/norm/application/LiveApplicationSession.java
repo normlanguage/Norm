@@ -1,10 +1,16 @@
 package dev.w0fv1.norm.application;
 
 import dev.w0fv1.norm.core.ArtifactId;
+import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
+import dev.w0fv1.norm.execution.ExecutionUpdateEvent;
+import dev.w0fv1.norm.execution.ExecutionUpdateEventKind;
 import dev.w0fv1.norm.execution.ExecutionUpdateResult;
+import dev.w0fv1.norm.execution.ExecutionUpdateSubscription;
 import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.execution.LiveExecutionStatus;
+import dev.w0fv1.norm.execution.RuntimeChangeAnalyzer;
+import dev.w0fv1.norm.execution.RuntimeChangeSet;
 import dev.w0fv1.norm.project.ProjectInputSnapshot;
 import dev.w0fv1.norm.project.ProjectLoadException;
 import java.io.IOException;
@@ -14,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -33,6 +41,10 @@ final class LiveApplicationSession implements AutoCloseable {
   private final InputChangeMonitor monitor;
   private final AtomicBoolean closed = new AtomicBoolean();
   private final ArrayDeque<Request> requests = new ArrayDeque<>();
+  private final ArrayDeque<ExecutionUpdateEvent> eventHistory = new ArrayDeque<>();
+  private final java.util.Set<EventSubscription> subscriptions = new java.util.HashSet<>();
+  private long eventSequence;
+  private CoreArtifact publishedArtifact;
   private Long batch;
   private long epoch;
   private ProjectInputSnapshot inputs;
@@ -43,6 +55,7 @@ final class LiveApplicationSession implements AutoCloseable {
 
   LiveApplicationSession(
       ProjectInputSnapshot inputs,
+      CoreArtifact publishedArtifact,
       LiveExecution execution,
       CandidateCompiler compiler,
       Consumer<String> progress,
@@ -50,6 +63,8 @@ final class LiveApplicationSession implements AutoCloseable {
       throws IOException {
     this.compiler = compiler;
     this.inputs = inputs;
+    this.publishedArtifact =
+        java.util.Objects.requireNonNull(publishedArtifact, "publishedArtifact");
     completedInputs = inputs;
     this.execution = execution;
     this.progress = progress;
@@ -70,6 +85,73 @@ final class LiveApplicationSession implements AutoCloseable {
 
   Optional<ExecutionUpdateResult> latest() {
     return Optional.ofNullable(latest);
+  }
+
+  ExecutionUpdateSubscription subscribe(long afterSequence) {
+    if (afterSequence < 0) throw new IllegalArgumentException("afterSequence must not be negative");
+    synchronized (gate) {
+      if (closed.get()) throw new IllegalStateException("update coordinator is closed");
+      var subscription = new EventSubscription();
+      eventHistory.stream()
+          .filter(event -> event.sequence() > afterSequence)
+          .forEach(subscription.events::offer);
+      subscriptions.add(subscription);
+      return subscription;
+    }
+  }
+
+  private void emit(
+      ExecutionUpdateEventKind kind,
+      Optional<ExecutionUpdateResult> result,
+      LiveExecutionStatus current) {
+    synchronized (gate) {
+      if (closed.get()) return;
+      var event = new ExecutionUpdateEvent(++eventSequence, kind, current, result);
+      eventHistory.addLast(event);
+      while (eventHistory.size() > 256) eventHistory.removeFirst();
+      subscriptions.forEach(subscription -> subscription.events.offer(event));
+    }
+  }
+
+  private void emitResult(ExecutionUpdateResult result) {
+    emit(
+        switch (result.outcome()) {
+          case PUBLISHED -> ExecutionUpdateEventKind.PUBLISHED;
+          case UNCHANGED -> ExecutionUpdateEventKind.UNCHANGED;
+          case REJECTED -> ExecutionUpdateEventKind.REJECTED;
+          case FAILED -> ExecutionUpdateEventKind.FAILED;
+        },
+        Optional.of(result),
+        result.status());
+    if (!result.status().pendingLocations().isEmpty())
+      emit(ExecutionUpdateEventKind.ADOPTION_PENDING, Optional.of(result), result.status());
+  }
+
+  private final class EventSubscription implements ExecutionUpdateSubscription {
+    private final LinkedBlockingQueue<ExecutionUpdateEvent> events = new LinkedBlockingQueue<>();
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    @Override
+    public Optional<ExecutionUpdateEvent> poll() {
+      return Optional.ofNullable(events.poll());
+    }
+
+    @Override
+    public Optional<ExecutionUpdateEvent> next(Duration timeout) throws InterruptedException {
+      if (timeout.isNegative()) throw new IllegalArgumentException("timeout must not be negative");
+      if (closed.get()) return Optional.empty();
+      var event = events.poll(timeout.toNanos(), TimeUnit.NANOSECONDS);
+      return closed.get() ? Optional.empty() : Optional.ofNullable(event);
+    }
+
+    @Override
+    public void close() {
+      if (!closed.compareAndSet(false, true)) return;
+      synchronized (gate) {
+        subscriptions.remove(this);
+      }
+      events.clear();
+    }
   }
 
   dev.w0fv1.norm.execution.ExecutionUpdates.Batch beginBatch() {
@@ -127,6 +209,7 @@ final class LiveApplicationSession implements AutoCloseable {
       epoch++;
       var result = new CompletableFuture<ExecutionUpdateResult>();
       requests.addLast(new Request(result, force));
+      emit(ExecutionUpdateEventKind.REQUESTED, Optional.empty(), execution.status());
       return result;
     }
   }
@@ -146,6 +229,7 @@ final class LiveApplicationSession implements AutoCloseable {
                     try {
                       var current = execution.status();
                       if (!status.equals(current)) {
+                        boolean wasPending = !status.pendingLocations().isEmpty();
                         if (!current.pendingLocations().isEmpty())
                           diagnostics.accept(
                               "info[NORM-LIVE-0003]: Runtime revision "
@@ -155,6 +239,11 @@ final class LiveApplicationSession implements AutoCloseable {
                         else if (!status.pendingLocations().isEmpty())
                           progress.accept("Completed pending runtime transitions");
                         status = current;
+                        if (wasPending && current.pendingLocations().isEmpty())
+                          emit(
+                              ExecutionUpdateEventKind.ADOPTED,
+                              Optional.ofNullable(latest),
+                              current);
                       }
                       boolean ready;
                       synchronized (gate) {
@@ -189,6 +278,7 @@ final class LiveApplicationSession implements AutoCloseable {
                           continue;
                         latest = result;
                         completed = result;
+                        emitResult(result);
                         for (Request request : captured)
                           if (request.result() != null) request.result().complete(result);
                         if (result.outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
@@ -213,8 +303,10 @@ final class LiveApplicationSession implements AutoCloseable {
                               Optional.empty(),
                               execution.status(),
                               List.of(),
-                              Optional.ofNullable(exception.getMessage()));
+                              Optional.ofNullable(exception.getMessage()),
+                              RuntimeChangeSet.empty());
                       latest = result;
+                      emitResult(result);
                       for (Request request : captured)
                         if (request.result() != null) request.result().complete(result);
                     }
@@ -236,13 +328,15 @@ final class LiveApplicationSession implements AutoCloseable {
                 latest.candidate(),
                 execution.status(),
                 latest.diagnostics(),
-                latest.failure())
+                latest.failure(),
+                latest.changes())
             : new ExecutionUpdateResult(
                 ExecutionUpdateResult.Outcome.UNCHANGED,
                 Optional.empty(),
                 execution.status(),
                 List.of(),
-                Optional.empty());
+                Optional.empty(),
+                RuntimeChangeSet.empty());
       }
     }
     ApplicationCandidate candidate;
@@ -271,11 +365,13 @@ final class LiveApplicationSession implements AutoCloseable {
               Optional.empty(),
               execution.status(),
               candidate.result().diagnostics(),
-              Optional.empty());
+              Optional.empty(),
+              RuntimeChangeSet.empty());
         }
         var revision = candidate.revision().orElseThrow();
         var identity =
             Optional.of(ArtifactId.forArtifact(revision.artifact(), "norm-source-live-v1"));
+        var changes = new RuntimeChangeAnalyzer().compare(publishedArtifact, revision.artifact());
         try {
           execution.update(revision);
         } catch (IllegalArgumentException exception) {
@@ -285,15 +381,18 @@ final class LiveApplicationSession implements AutoCloseable {
               identity,
               execution.status(),
               candidate.result().diagnostics(),
-              Optional.ofNullable(exception.getMessage()));
+              Optional.ofNullable(exception.getMessage()),
+              changes);
         }
         transferred = true;
+        publishedArtifact = revision.artifact();
         return new ExecutionUpdateResult(
             ExecutionUpdateResult.Outcome.PUBLISHED,
             identity,
             execution.status(),
             candidate.result().diagnostics(),
-            Optional.empty());
+            Optional.empty(),
+            changes);
       }
     } finally {
       if (!transferred) candidate.close();
@@ -303,11 +402,15 @@ final class LiveApplicationSession implements AutoCloseable {
   @Override
   public void close() throws IOException {
     if (!closed.compareAndSet(false, true)) return;
+    List<EventSubscription> activeSubscriptions;
     synchronized (gate) {
       for (Request request : requests) if (request.result() != null) request.result().cancel(false);
       requests.clear();
       batch = null;
+      activeSubscriptions = List.copyOf(subscriptions);
+      subscriptions.clear();
     }
+    activeSubscriptions.forEach(EventSubscription::close);
     try {
       monitor.close();
     } finally {

@@ -24,24 +24,38 @@ public value RuntimeStatus {
   List<String> pendingLocations
 }
 
+@Document(description: "Describes one declaration changed by a source publication. Before and after contain the stable semantic shape of the declaration.")
+public value RuntimeChange {
+  String kind
+  String declarationKind
+  String identity
+  String? before
+  String? after
+  String source
+  Integer startOffset
+  Integer endOffset
+}
+
 @Document(description: "Reports publication independently from adoption by existing activations. Pending locations can remain after successful publication.")
 public value UpdateResult {
   UpdateOutcome outcome
   Long revision
   List<String> pendingLocations
   List<RuntimeDiagnostic> diagnostics
+  List<RuntimeChange> changes
   String? failure
 }
 
-private value UpdateCompletion<D> {
+private value UpdateCompletion<D, C> {
   String outcome
   Long revision
   List<String> pendingLocations
   List<D> diagnostics
+  List<C> changes
   String? failure
 }
 
-private UpdateResult completeUpdate(UpdateCompletion<RuntimeDiagnostic> completion) {
+private UpdateResult completeUpdate(UpdateCompletion<RuntimeDiagnostic, RuntimeChange> completion) {
   UpdateOutcome outcome = switch completion.outcome {
     case "PUBLISHED" { break UpdateOutcome.Published }
     case "UNCHANGED" { break UpdateOutcome.Unchanged }
@@ -50,13 +64,14 @@ private UpdateResult completeUpdate(UpdateCompletion<RuntimeDiagnostic> completi
     case _ { throw Exception(message: "Unknown runtime publication outcome") }
   }
   return UpdateResult(outcome: outcome, revision: completion.revision,
-    pendingLocations: completion.pendingLocations, diagnostics: completion.diagnostics, failure: completion.failure)
+    pendingLocations: completion.pendingLocations, diagnostics: completion.diagnostics,
+    changes: completion.changes, failure: completion.failure)
 }
 
 @Document(description: "Suppresses automatic publication until commit or close. Closing without commit releases suppression; it does not undo filesystem writes.")
 public class UpdateBatch implements Resource {
   @Document(description: "Publishes the complete source tree when it changes. Unchanged sources preserve their previous outcome. Waits for compilation, while existing activations may still be pending.")
-  public UpdateResult commit() { completeUpdate(__runtimeCommit<UpdateCompletion<RuntimeDiagnostic>>(batch: this)) }
+  public UpdateResult commit() { completeUpdate(__runtimeCommit<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>(batch: this)) }
 
   @Document(description: "Releases publication suppression. Closing an already completed batch has no effect.")
   public Void close() { __runtimeClose(batch: this) }
@@ -67,7 +82,7 @@ public RuntimeStatus runtimeStatus() { __runtimeStatus<RuntimeStatus>() }
 
 @Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
 public UpdateResult? latestUpdate() {
-  var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic>>()
+  var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()
   if completion != null { return completeUpdate(completion) }
   return null
 }
@@ -76,4 +91,4 @@ public UpdateResult? latestUpdate() {
 public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
 
 @Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
-public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic>>()) }
+public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }

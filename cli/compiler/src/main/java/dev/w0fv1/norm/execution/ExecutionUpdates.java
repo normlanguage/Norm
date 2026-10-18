@@ -10,6 +10,12 @@ public interface ExecutionUpdates {
 
   CompletableFuture<ExecutionUpdateResult> request();
 
+  default ExecutionUpdateSubscription subscribe() {
+    return subscribe(0);
+  }
+
+  ExecutionUpdateSubscription subscribe(long afterSequence);
+
   Batch beginBatch();
 
   interface Batch extends AutoCloseable {
