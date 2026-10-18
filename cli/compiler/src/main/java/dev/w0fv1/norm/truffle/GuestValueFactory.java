@@ -77,6 +77,7 @@ final class GuestValueFactory {
               new FieldContract(YamlAbi.FIELD_OFFSET_ORDINAL, YamlAbi.FIELD_OFFSET_NAME),
               new FieldContract(YamlAbi.FIELD_LINE_ORDINAL, YamlAbi.FIELD_LINE_NAME),
               new FieldContract(YamlAbi.FIELD_COLUMN_ORDINAL, YamlAbi.FIELD_COLUMN_NAME)));
+  private final AnnotationRuntime annotations;
   private final Map<Key, AggregatePlan> aggregates;
   private final Map<DefinitionId, AggregatePlan> aggregatesByDefinition;
   private final Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces;
@@ -86,7 +87,9 @@ final class GuestValueFactory {
   GuestValueFactory(
       List<AggregatePlan> aggregatePlans,
       Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces,
-      List<EnumPlan> enumPlans) {
+      List<EnumPlan> enumPlans,
+      AnnotationRuntime annotations) {
+    this.annotations = java.util.Objects.requireNonNull(annotations);
     Map<Key, AggregatePlan> indexedAggregates = new LinkedHashMap<>();
     for (AggregatePlan plan : aggregatePlans) {
       if (indexedAggregates.putIfAbsent(Key.of(plan.nominal()), plan) != null) {
@@ -181,7 +184,7 @@ final class GuestValueFactory {
                 ExceptionAbi.PACKAGE_NAME,
                 ExceptionAbi.TYPE_NAME));
     if (exception != null && value.objectInfo.ancestors().contains(exception.info().definition())) {
-      Object field = value.fields[ExceptionAbi.MESSAGE_FIELD_ORDINAL];
+      Object field = value.rawField(ExceptionAbi.MESSAGE_FIELD_ORDINAL);
       String message = field instanceof String text ? text : value.objectInfo.name();
       RuntimeException host = new NormJavaException(message, value);
       value.attachHost(host);
@@ -397,7 +400,7 @@ final class GuestValueFactory {
   RuntimeValues.OpaqueValue opaque(CoreType type, Object value, String displayName) {
     CoreType concrete = nonNullable(type);
     if (concrete.equals(CoreType.ANY)) {
-      return new RuntimeValues.OpaqueValue(concrete, value, displayName);
+      return new RuntimeValues.OpaqueValue(concrete, value, displayName, null, annotations);
     }
     return new RuntimeValues.OpaqueValue(
         concrete, value, displayName, requireHostObjectInfo(concrete));
@@ -431,7 +434,7 @@ final class GuestValueFactory {
       throw new IllegalStateException("enum variant is unavailable: " + variant);
     }
     return new RuntimeValues.EnumValue(
-        plan.definition(), concrete, plan.nominal().name(), variant, payload);
+        plan.definition(), concrete, plan.nominal().name(), variant, payload, annotations);
   }
 
   JarBindingEnumValue javaEnumArgument(RuntimeValues.EnumValue value) {
@@ -492,14 +495,21 @@ final class GuestValueFactory {
     if (reifiedArguments.size() != plan.reifiedTypeCount()) {
       throw new IllegalStateException("runtime aggregate type argument count is inconsistent");
     }
-    Object[] callArguments = new Object[arguments.length + reifiedArguments.size() + 2];
-    callArguments[0] = execution;
-    callArguments[1] = value;
-    System.arraycopy(arguments, 0, callArguments, 2, arguments.length);
-    for (int index = 0; index < reifiedArguments.size(); index++) {
-      callArguments[arguments.length + index + 2] = reifiedArguments.get(index);
+    var initializer = plan.initializer(arguments.length);
+    var bindings = execution.liveBindings();
+    var owner = plan.info().annotations().version();
+    try (var scope = bindings == null || owner == null ? null : bindings.pin(owner)) {
+      initializer
+          .target()
+          .call(
+              execution,
+              value,
+              ConstructionArguments.supplied(
+                  initializer.parameters().count(),
+                  java.util.stream.IntStream.range(0, arguments.length).toArray(),
+                  arguments,
+                  reifiedArguments.toArray()));
     }
-    plan.initializer(arguments.length).call(callArguments);
     return value;
   }
 
@@ -553,7 +563,8 @@ final class GuestValueFactory {
     if (!plan.variants().contains(variant)) {
       throw new IllegalStateException("runtime enum variant is absent: " + name + "." + variant);
     }
-    return new RuntimeValues.EnumValue(plan.definition(), plan.type(), name, variant, List.of());
+    return new RuntimeValues.EnumValue(
+        plan.definition(), plan.type(), name, variant, List.of(), annotations);
   }
 
   private static <T> T require(
@@ -717,16 +728,19 @@ final class GuestValueFactory {
       initializers = List.copyOf(initializers);
     }
 
-    CallTarget initializer(int parameterCount) {
+    Initializer initializer(int parameterCount) {
       List<Initializer> matches =
           initializers.stream()
-              .filter(initializer -> initializer.parameterCount() == parameterCount)
+              .filter(
+                  initializer ->
+                      initializer.parameters().count() == parameterCount
+                          || parameterCount == 0 && initializer.parameters().acceptsEmpty())
               .toList();
       if (matches.size() != 1) {
         throw new IllegalStateException(
             "runtime aggregate constructor is not uniquely identified by parameter count");
       }
-      return matches.getFirst().target();
+      return matches.getFirst();
     }
 
     static AggregatePlan create(
@@ -745,12 +759,10 @@ final class GuestValueFactory {
     }
   }
 
-  record Initializer(CallTarget target, int parameterCount) {
+  record Initializer(CallTarget target, dev.w0fv1.norm.core.CoreConstructorParameters parameters) {
     Initializer {
       Objects.requireNonNull(target, "target");
-      if (parameterCount < 0) {
-        throw new IllegalArgumentException("initializer parameter count must not be negative");
-      }
+      Objects.requireNonNull(parameters, "parameters");
     }
   }
 

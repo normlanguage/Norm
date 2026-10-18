@@ -21,7 +21,8 @@ final class ValueObservations {
         primary = failure;
         throw failure;
       } finally {
-        complete(notifications, primary);
+        Throwable failure = primary;
+        RuntimeValues.afterStateCommit(() -> complete(notifications, failure));
       }
     };
   }
@@ -64,7 +65,7 @@ final class ValueObservations {
           case RuntimeValues.StackValue stack -> stack.values;
           case RuntimeValues.QueueValue queue -> queue.values;
           case RuntimeValues.DequeValue deque -> deque.values;
-          case RuntimeValues.PairValue pair -> java.util.Arrays.asList(pair.first, pair.second);
+          case RuntimeValues.PairValue pair -> java.util.Arrays.asList(pair.first(), pair.second());
           default -> List.of();
         };
     for (var child : children) subscribeTree(child, observer, releases);

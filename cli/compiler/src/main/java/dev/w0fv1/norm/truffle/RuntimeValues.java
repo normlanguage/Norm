@@ -15,12 +15,10 @@ import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.math.BigInteger;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +36,9 @@ final class RuntimeValues {
       Object[] captures,
       Object[] receiverTypeArguments,
       Object[] reifiedArguments,
-      CoreType functionType) {
+      CoreType functionType,
+      AnnotationRuntime annotations,
+      HostAdapters adapters) {
     Closure {
       Objects.requireNonNull(target, "target");
       sourceDeclaration = Objects.requireNonNull(sourceDeclaration, "sourceDeclaration");
@@ -46,6 +46,68 @@ final class RuntimeValues {
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
       Objects.requireNonNull(functionType, "functionType");
+      if (sourceDeclaration.isPresent()) Objects.requireNonNull(annotations, "annotations");
+    }
+
+    Closure(
+        CallTarget target,
+        Optional<DefinitionOccurrenceId> sourceDeclaration,
+        boolean unbound,
+        Object receiver,
+        Object[] captures,
+        Object[] receiverTypeArguments,
+        Object[] reifiedArguments,
+        CoreType functionType,
+        AnnotationRuntime annotations) {
+      this(
+          target,
+          sourceDeclaration,
+          unbound,
+          receiver,
+          captures,
+          receiverTypeArguments,
+          reifiedArguments,
+          functionType,
+          annotations,
+          new HostAdapters());
+      if (annotations != null) annotations.retain(this);
+    }
+
+    Object hostAdapter(Class<?> type, java.util.function.Supplier<Object> factory) {
+      return adapters.get(type, factory);
+    }
+
+    Closure snapshot(ExecutionState execution) {
+      return execution.liveBindings() == null
+          ? snapshot()
+          : execution.liveBindings().snapshot(this);
+    }
+
+    Closure snapshot() {
+      if (sourceDeclaration.isEmpty()) return this;
+      return new Closure(
+          new RevisionFunctionRootNode(target, annotations().version()).getCallTarget(),
+          sourceDeclaration,
+          unbound,
+          receiver,
+          captures,
+          receiverTypeArguments,
+          reifiedArguments,
+          functionType,
+          annotations());
+    }
+
+    ReflectionBinding reflectionBinding() {
+      boolean frozen =
+          target instanceof com.oracle.truffle.api.RootCallTarget root
+              && root.getRootNode() instanceof RevisionFunctionRootNode;
+      return new ReflectionBinding(annotations(), frozen);
+    }
+
+    public AnnotationRuntime annotations() {
+      if (annotations == null)
+        throw new IllegalArgumentException("host function has no Norm metadata");
+      return annotations;
     }
 
     Closure(
@@ -57,7 +119,8 @@ final class RuntimeValues {
         Object[] captures,
         Object[] receiverTypeArguments,
         Object[] reifiedArguments,
-        CoreType functionType) {
+        CoreType functionType,
+        AnnotationRuntime annotations) {
       this(
           virtualSlot == null
               ? target
@@ -73,12 +136,20 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          functionType);
+          functionType,
+          annotations);
     }
 
     DefinitionOccurrenceId declaration() {
       return sourceDeclaration.orElseThrow(
           () -> new IllegalArgumentException("host function has no Norm declaration"));
+    }
+
+    LiveBindings.Version snapshotVersion() {
+      return target instanceof com.oracle.truffle.api.RootCallTarget root
+              && root.getRootNode() instanceof RevisionFunctionRootNode snapshot
+          ? snapshot.version()
+          : null;
     }
 
     Closure(
@@ -90,7 +161,8 @@ final class RuntimeValues {
         Object[] captures,
         Object[] receiverTypeArguments,
         Object[] reifiedArguments,
-        CoreType functionType) {
+        CoreType functionType,
+        AnnotationRuntime annotations) {
       this(
           target,
           Optional.of(declaration),
@@ -100,7 +172,8 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          functionType);
+          functionType,
+          annotations);
     }
 
     Closure(
@@ -111,7 +184,8 @@ final class RuntimeValues {
         Object receiver,
         Object[] captures,
         Object[] receiverTypeArguments,
-        Object[] reifiedArguments) {
+        Object[] reifiedArguments,
+        AnnotationRuntime annotations) {
       this(
           target,
           declaration,
@@ -121,7 +195,16 @@ final class RuntimeValues {
           captures,
           receiverTypeArguments,
           reifiedArguments,
-          CoreType.DYNAMIC);
+          CoreType.DYNAMIC,
+          annotations);
+    }
+  }
+
+  static final class HostAdapters {
+    private final Map<Class<?>, Object> values = new java.util.IdentityHashMap<>();
+
+    synchronized Object get(Class<?> type, java.util.function.Supplier<Object> factory) {
+      return values.computeIfAbsent(type, ignored -> factory.get());
     }
   }
 
@@ -148,38 +231,44 @@ final class RuntimeValues {
     public boolean sameLocation(ReferenceValue other) {
       return other instanceof LocalReference local
           && frame == local.frame
-          && binding.slot() == local.binding.slot();
+          && binding.sameLocation(local.binding);
     }
 
     @Override
     public int locationHash() {
-      return 31 * System.identityHashCode(frame) + binding.slot();
+      return 31 * System.identityHashCode(frame) + binding.locationHash();
     }
   }
 
-  record FieldReference(ObjectValue receiver, int field) implements ReferenceValue {
+  record FieldReference(ObjectValue receiver, FieldKey field, AggregateInfo view)
+      implements ReferenceValue {
     FieldReference {
       Objects.requireNonNull(receiver, "receiver");
-      if (field < 0 || field >= receiver.fields.length) {
-        throw new IllegalArgumentException("field reference is outside its receiver");
-      }
+      Objects.requireNonNull(field, "field");
+      Objects.requireNonNull(view, "view");
+    }
+
+    FieldReference(ObjectValue receiver, FieldKey field) {
+      this(receiver, field, receiver.selectedInfo());
     }
 
     @Override
     public Object read() {
-      return receiver.readField(field);
+      return receiver.readField(field, view, null);
     }
 
     @Override
     public boolean sameLocation(ReferenceValue other) {
       return other instanceof FieldReference reference
           && receiver == reference.receiver
-          && field == reference.field;
+          && field.equals(reference.field)
+          && receiver.state.sameLocation(view, reference.view, receiver.type(), field);
     }
 
     @Override
     public int locationHash() {
-      return 31 * System.identityHashCode(receiver) + field;
+      return 31 * System.identityHashCode(receiver)
+          + receiver.state.locationHash(view, receiver.type(), field);
     }
   }
 
@@ -216,15 +305,16 @@ final class RuntimeValues {
         deque.values.forEach(item -> result.values.addLast(copy(item)));
         yield result;
       }
-      case PairValue pair -> new PairValue(pair.type, copy(pair.first), copy(pair.second));
+      case PairValue pair -> new PairValue(pair.type, copy(pair.first()), copy(pair.second()));
       case EnumValue enumValue ->
           new EnumValue(
               enumValue.definition,
               enumValue.type,
               enumValue.enumName,
               enumValue.variantKey,
-              copyList(enumValue.payload));
-      case BuilderValue builder -> new BuilderValue(builder.type, builder.value.toString());
+              enumValue.payload,
+              enumValue.annotations);
+      case BuilderValue builder -> new BuilderValue(builder.type, builder.value().toString());
       case NativeIteratorValue iterator -> iterator;
       case OpaqueValue opaque ->
           new OpaqueValue(
@@ -237,15 +327,18 @@ final class RuntimeValues {
 
   @TruffleBoundary
   static ObjectValue copyObject(ObjectValue object) {
-    ObjectValue result = new ObjectValue(object.objectInfo, object.type);
-    for (int index = 0; index < object.fields.length; index++) {
-      result.fields[index] = copy(object.fields[index]);
-    }
-    return result;
+    var source = object.state().copySource(object.selectedInfo(), object.type());
+    var cells = new LinkedHashMap<FieldKey, Object>();
+    source.values().forEach((key, value) -> cells.put(key, copy(value)));
+    var configuration = new LinkedHashMap<FieldKey, Object>();
+    object
+        .configurationFor(source.info())
+        .forEach((key, value) -> configuration.put(key, copy(value)));
+    return new ObjectValue(source.info(), source.type(), cells, configuration);
   }
 
-  private static boolean isValueObject(ObjectValue object) {
-    return object.type instanceof CoreType.Declared declared
+  static boolean isValueObject(ObjectValue object) {
+    return object.type() instanceof CoreType.Declared declared
         && declared.category() == CoreValueCategory.VALUE;
   }
 
@@ -270,10 +363,11 @@ final class RuntimeValues {
       case DequeValue value ->
           equalLists(new ArrayList<>(value.values), new ArrayList<>(((DequeValue) right).values));
       case PairValue value ->
-          equal(value.first, ((PairValue) right).first)
-              && equal(value.second, ((PairValue) right).second);
+          equal(value.first(), ((PairValue) right).first())
+              && equal(value.second(), ((PairValue) right).second());
       case EnumValue value -> value.sameValue((EnumValue) right);
-      case BuilderValue value -> value.value.toString().contentEquals(((BuilderValue) right).value);
+      case BuilderValue value ->
+          value.value().toString().contentEquals(((BuilderValue) right).value());
       case RangeValue value ->
           value.start == ((RangeValue) right).start
               && value.end == ((RangeValue) right).end
@@ -312,15 +406,22 @@ final class RuntimeValues {
       case StackValue item -> orderedHash(0x53544143, new ArrayList<>(item.values));
       case QueueValue item -> orderedHash(0x51554555, new ArrayList<>(item.values));
       case DequeValue item -> orderedHash(0x44455155, new ArrayList<>(item.values));
-      case PairValue item -> 31 * hash(item.first) + hash(item.second);
+      case PairValue item -> 31 * hash(item.first()) + hash(item.second());
       case EnumValue item -> item.valueHash();
-      case BuilderValue item -> item.value.toString().hashCode();
+      case BuilderValue item -> item.value().toString().hashCode();
       case RangeValue item -> Objects.hash(item.start, item.end, item.step);
       case OpaqueValue item -> item.valueHash();
       case OpaqueResource item -> System.identityHashCode(item.hostValue());
       case ObjectValue item ->
           isValueObject(item)
-              ? orderedHash(31 * 0x56414c55 + item.type.hashCode(), List.of(item.fields))
+              ? orderedHash(
+                  31 * 0x56414c55 + item.type().hashCode(),
+                  item.cells().keySet().stream()
+                      .sorted(
+                          java.util.Comparator.comparing((FieldKey key) -> key.owner().toString())
+                              .thenComparing(FieldKey::name))
+                      .map(item::rawField)
+                      .toList())
               : System.identityHashCode(item);
       case ReferenceValue item -> item.locationHash();
       default -> value.hashCode();
@@ -374,7 +475,7 @@ final class RuntimeValues {
       case QueueValue queue -> queue.values.size();
       case DequeValue deque -> deque.values.size();
       case RangeValue range -> range.size();
-      case BuilderValue builder -> builder.value.length();
+      case BuilderValue builder -> builder.value().length();
       default -> throw new IllegalStateException("value has no size");
     };
   }
@@ -394,7 +495,8 @@ final class RuntimeValues {
       Object[] captures,
       Object[] receiverTypeArguments,
       Object[] reifiedArguments,
-      CoreType functionType) {
+      CoreType functionType,
+      AnnotationRuntime annotations) {
     return new Closure(
         target,
         declaration,
@@ -404,7 +506,8 @@ final class RuntimeValues {
         captures,
         receiverTypeArguments,
         reifiedArguments,
-        functionType);
+        functionType,
+        annotations);
   }
 
   @TruffleBoundary
@@ -413,8 +516,9 @@ final class RuntimeValues {
       CoreType type,
       String enumName,
       String variantKey,
-      Object[] payload) {
-    return new EnumValue(definition, type, enumName, variantKey, List.of(payload));
+      Object[] payload,
+      AnnotationRuntime annotations) {
+    return new EnumValue(definition, type, enumName, variantKey, List.of(payload), annotations);
   }
 
   static CoreType runtimeType(Object value) {
@@ -448,7 +552,7 @@ final class RuntimeValues {
       case NativeIteratorValue item -> item.type;
       case OpaqueValue item -> item.type;
       case OpaqueResource item -> item.type;
-      case ObjectValue item -> item.type;
+      case ObjectValue item -> item.type();
       case EnumValue item -> item.type;
       case Closure item -> item.functionType();
       default -> throw new IllegalStateException("interface receiver has no builtin type");
@@ -487,16 +591,28 @@ final class RuntimeValues {
     }
   }
 
-  record ClassValue(CoreType type, CoreType reflectedType, AnnotationRuntime annotations) {
+  record ClassValue(CoreType type, CoreType reflectedType, ReflectionBinding binding) {
     ClassValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(reflectedType, "reflectedType");
-      Objects.requireNonNull(annotations, "annotations");
+      Objects.requireNonNull(binding, "binding");
+    }
+
+    ClassValue(CoreType type, CoreType reflectedType, AnnotationRuntime annotations) {
+      this(type, reflectedType, new ReflectionBinding(annotations, false));
+    }
+
+    AnnotationRuntime annotations() {
+      return binding.annotations();
+    }
+
+    ClassValue snapshot() {
+      return new ClassValue(type, reflectedType, binding.snapshot());
     }
 
     @Override
     public String toString() {
-      return annotations.name(reflectedType);
+      return annotations().name(reflectedType);
     }
   }
 
@@ -507,15 +623,45 @@ final class RuntimeValues {
       String name,
       int index,
       CoreType fieldType,
-      AnnotationRuntime annotations) {
+      ReflectionBinding binding) {
     FieldValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(ownerType, "ownerType");
       Objects.requireNonNull(owner, "owner");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(fieldType, "fieldType");
-      Objects.requireNonNull(annotations, "annotations");
+      Objects.requireNonNull(binding, "binding");
       if (index < 0) throw new IllegalArgumentException("field index must not be negative");
+    }
+
+    FieldValue(
+        CoreType type,
+        CoreType ownerType,
+        DefinitionOccurrenceId owner,
+        String name,
+        int index,
+        CoreType fieldType,
+        AnnotationRuntime annotations) {
+      this(
+          type,
+          ownerType,
+          owner,
+          name,
+          index,
+          fieldType,
+          new ReflectionBinding(annotations, false));
+    }
+
+    AnnotationRuntime annotations() {
+      return binding.annotations();
+    }
+
+    FieldValue snapshot() {
+      return new FieldValue(type, ownerType, owner, name, index, fieldType, binding.snapshot());
+    }
+
+    FieldKey key() {
+      return new FieldKey(owner.representative(), name);
     }
   }
 
@@ -523,12 +669,28 @@ final class RuntimeValues {
       CoreType type,
       CoreType ownerType,
       DefinitionOccurrenceId declaration,
-      AnnotationRuntime annotations) {
+      ReflectionBinding binding) {
     ConstructorValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(ownerType, "ownerType");
       Objects.requireNonNull(declaration, "declaration");
-      Objects.requireNonNull(annotations, "annotations");
+      Objects.requireNonNull(binding, "binding");
+    }
+
+    ConstructorValue(
+        CoreType type,
+        CoreType ownerType,
+        DefinitionOccurrenceId declaration,
+        AnnotationRuntime annotations) {
+      this(type, ownerType, declaration, new ReflectionBinding(annotations, false));
+    }
+
+    AnnotationRuntime annotations() {
+      return binding.annotations();
+    }
+
+    ConstructorValue snapshot() {
+      return new ConstructorValue(type, ownerType, declaration, binding.snapshot());
     }
   }
 
@@ -640,7 +802,7 @@ final class RuntimeValues {
 
     ArrayValue(CoreType type, List<Object> values) {
       this.type = type;
-      this.values = values;
+      this.values = RuntimeCollections.list(values);
     }
   }
 
@@ -654,13 +816,13 @@ final class RuntimeValues {
 
     ListValue(CoreType type, List<Object> values) {
       this.type = type;
-      this.values = values;
+      this.values = RuntimeCollections.list(values);
     }
   }
 
   static final class MapValue extends ContainerValue {
     final CoreType type;
-    final Map<RuntimeKey, Object> values = new LinkedHashMap<>();
+    final Map<RuntimeKey, Object> values = RuntimeCollections.map();
 
     MapValue(CoreType type) {
       this.type = type;
@@ -669,7 +831,7 @@ final class RuntimeValues {
 
   static final class SetValue extends ContainerValue {
     final CoreType type;
-    final java.util.Set<RuntimeKey> values = new LinkedHashSet<>();
+    final java.util.Set<RuntimeKey> values = RuntimeCollections.set();
 
     SetValue(CoreType type) {
       this.type = type;
@@ -678,7 +840,7 @@ final class RuntimeValues {
 
   static final class StackValue extends ContainerValue {
     final CoreType type;
-    final Deque<Object> values = new ArrayDeque<>();
+    final Deque<Object> values = RuntimeCollections.deque();
 
     StackValue(CoreType type) {
       this.type = type;
@@ -687,7 +849,7 @@ final class RuntimeValues {
 
   static final class QueueValue extends ContainerValue {
     final CoreType type;
-    final Deque<Object> values = new ArrayDeque<>();
+    final Deque<Object> values = RuntimeCollections.deque();
 
     QueueValue(CoreType type) {
       this.type = type;
@@ -696,7 +858,7 @@ final class RuntimeValues {
 
   static final class DequeValue extends ContainerValue {
     final CoreType type;
-    final Deque<Object> values = new ArrayDeque<>();
+    final Deque<Object> values = RuntimeCollections.deque();
 
     DequeValue(CoreType type) {
       this.type = type;
@@ -705,7 +867,7 @@ final class RuntimeValues {
 
   static final class BuilderValue extends ContainerValue {
     final CoreType type;
-    final StringBuilder value;
+    private final RuntimeCollections.Storage<StringBuilder> state;
 
     BuilderValue(CoreType type) {
       this(type, "");
@@ -713,30 +875,64 @@ final class RuntimeValues {
 
     BuilderValue(CoreType type, String value) {
       this.type = Objects.requireNonNull(type, "type");
-      this.value = new StringBuilder(value);
+      state =
+          new RuntimeCollections.Storage<>(
+              new StringBuilder(value),
+              builder -> new StringBuilder(builder.toString()),
+              (target, source) -> {
+                target.setLength(0);
+                target.append(source);
+              });
     }
 
     @Override
     public String toString() {
-      return value.toString();
+      return value().toString();
+    }
+
+    String value() {
+      return state.read().toString();
+    }
+
+    StringBuilder writable() {
+      return state.write();
     }
   }
 
   static final class PairValue extends ContainerValue {
     final CoreType type;
-    Object first;
-    Object second;
+    private final RuntimeCollections.Storage<Object[]> state;
 
     PairValue(CoreType type, Object first, Object second) {
       this.type = type;
-      this.first = first;
-      this.second = second;
+      state =
+          new RuntimeCollections.Storage<>(
+              new Object[] {first, second},
+              Object[]::clone,
+              (target, source) -> System.arraycopy(source, 0, target, 0, 2));
+    }
+
+    Object first() {
+      return state.read()[0];
+    }
+
+    Object second() {
+      return state.read()[1];
+    }
+
+    void first(Object value) {
+      state.write()[0] = value;
+    }
+
+    void second(Object value) {
+      state.write()[1] = value;
     }
   }
 
   static final class NativeIteratorValue {
     final CoreType type;
     final Iterator<Object> iterator;
+    private boolean active = true;
 
     NativeIteratorValue(CoreType elementType, Iterator<Object> iterator) {
       type =
@@ -746,6 +942,16 @@ final class RuntimeValues {
               CoreValueCategory.IDENTITY,
               CoreNullability.NON_NULL);
       this.iterator = Objects.requireNonNull(iterator, "iterator");
+    }
+
+    boolean hasNext() {
+      boolean available = iterator.hasNext();
+      if (!available) active = false;
+      return available;
+    }
+
+    boolean active() {
+      return active;
     }
   }
 
@@ -775,6 +981,9 @@ final class RuntimeValues {
       this.value = Objects.requireNonNull(value, "value");
       this.displayName = Objects.requireNonNull(displayName, "displayName");
       this.aggregateInfo = aggregateInfo;
+      if (aggregateInfo != null && aggregateInfo.annotations() != null)
+        aggregateInfo.annotations().retain(this);
+      else if (owner instanceof AnnotationRuntime annotations) annotations.retain(this);
     }
 
     boolean sameValue(OpaqueValue other) {
@@ -829,6 +1038,8 @@ final class RuntimeValues {
       this.host = resource.hostValue();
       this.displayName = Objects.requireNonNull(displayName, "displayName");
       this.aggregateInfo = aggregateInfo;
+      if (aggregateInfo != null && aggregateInfo.annotations() != null)
+        aggregateInfo.annotations().retain(this);
     }
 
     @Override
@@ -851,19 +1062,34 @@ final class RuntimeValues {
     private final String enumName;
     private final String variantKey;
     private final List<Object> payload;
+    private final AnnotationRuntime annotations;
 
     EnumValue(
         DefinitionId definition,
         CoreType type,
         String enumName,
         String variantKey,
-        List<Object> payload) {
+        List<Object> payload,
+        AnnotationRuntime annotations) {
       this.definition = Objects.requireNonNull(definition, "definition");
       this.type = Objects.requireNonNull(type, "type");
       this.enumName = Objects.requireNonNull(enumName, "enumName");
       this.variantKey = Objects.requireNonNull(variantKey, "variantKey");
       if (variantKey.isBlank()) throw new IllegalArgumentException("variant key must not be blank");
       this.payload = List.copyOf(copyList(payload));
+      this.annotations = annotations;
+    }
+
+    AnnotationRuntime annotations() {
+      return annotations;
+    }
+
+    List<Object> payloadValues() {
+      return payload;
+    }
+
+    EnumValue rebuildPayload(List<Object> values) {
+      return new EnumValue(definition, type, enumName, variantKey, values, annotations);
     }
 
     DefinitionId definition() {
@@ -989,6 +1215,14 @@ final class RuntimeValues {
     public int hashCode() {
       return hash(value);
     }
+
+    boolean requiresSchemaReindex() {
+      return switch (value) {
+        case ObjectValue object -> isValueObject(object);
+        case ContainerValue _, EnumValue _ -> true;
+        default -> false;
+      };
+    }
   }
 
   sealed interface DispatchTarget
@@ -1046,6 +1280,8 @@ final class RuntimeValues {
     Map<DefinitionId, DispatchTarget> dispatch();
 
     java.util.Set<DefinitionId> ancestors();
+
+    AnnotationRuntime annotations();
   }
 
   record AggregateInfo(
@@ -1054,8 +1290,29 @@ final class RuntimeValues {
       int fieldCount,
       List<FieldPlan> fields,
       Map<DefinitionId, DispatchTarget> dispatch,
-      java.util.Set<DefinitionId> ancestors)
+      java.util.Set<DefinitionId> ancestors,
+      AnnotationRuntime annotations,
+      StateViewLeases stateViews)
       implements ObjectInfo {
+    AggregateInfo(
+        DefinitionId definition,
+        String name,
+        int fieldCount,
+        List<FieldPlan> fields,
+        Map<DefinitionId, DispatchTarget> dispatch,
+        java.util.Set<DefinitionId> ancestors,
+        AnnotationRuntime annotations) {
+      this(
+          definition,
+          name,
+          fieldCount,
+          fields,
+          dispatch,
+          ancestors,
+          annotations,
+          new StateViewLeases());
+    }
+
     AggregateInfo {
       fields = List.copyOf(fields);
       if (fields.size() != fieldCount) {
@@ -1074,44 +1331,310 @@ final class RuntimeValues {
     }
   }
 
+  static final class StateViewLeases {
+    private final java.util.Set<RuntimeObjectState.ViewMap> views =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    synchronized void retain(RuntimeObjectState.ViewMap view) {
+      views.add(view);
+    }
+  }
+
   record FieldPlan(
       DefinitionOccurrenceId owner,
       String name,
       int index,
       boolean publicField,
-      List<CoreInterceptor> interceptors) {
+      List<CoreInterceptor> interceptors,
+      CoreType type,
+      Optional<CallTarget> initializer) {
     FieldPlan {
       Objects.requireNonNull(owner, "owner");
       Objects.requireNonNull(name, "name");
       if (index < 0) throw new IllegalArgumentException("field index must not be negative");
       interceptors = List.copyOf(interceptors);
+      Objects.requireNonNull(type, "type");
+      initializer = Objects.requireNonNull(initializer, "initializer");
+    }
+
+    FieldPlan project(List<CoreType> parentArguments) {
+      var projected =
+          initializer.map(
+              target ->
+                  (CallTarget)
+                      new com.oracle.truffle.api.nodes.RootNode(null) {
+                        @Override
+                        public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
+                          var incoming = frame.getArguments();
+                          var outgoing = new Object[parentArguments.size() + 2];
+                          outgoing[0] = incoming[0];
+                          outgoing[1] = incoming[1];
+                          for (int index = 0; index < parentArguments.size(); index++)
+                            outgoing[index + 2] =
+                                parentArguments
+                                    .get(index)
+                                    .substitute(parameter -> (CoreType) incoming[parameter + 2]);
+                          return target.call(outgoing);
+                        }
+                      }.getCallTarget());
+      return new FieldPlan(
+          owner,
+          name,
+          index,
+          publicField,
+          interceptors,
+          type.substitute(parentArguments::get),
+          projected);
+    }
+
+    FieldKey key() {
+      return new FieldKey(owner.representative(), name);
+    }
+  }
+
+  record FieldKey(DefinitionId owner, String name) {
+    FieldKey {
+      Objects.requireNonNull(owner);
+      Objects.requireNonNull(name);
+    }
+  }
+
+  static <T> T stateView(RuntimeCollections.Storage<T> storage) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration == null ? storage.original() : migration.view(storage);
+  }
+
+  static <T> T stateWrite(RuntimeCollections.Storage<T> storage) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration == null ? storage.original() : migration.write(storage);
+  }
+
+  static void afterStateCommit(Runnable effect) {
+    RuntimeStateTransaction current = RuntimeStateTransaction.current();
+    if (current == null) effect.run();
+    else current.afterCommit(effect);
+  }
+
+  static RuntimeObjectState.CellValue stateCellView(RuntimeObjectState.Cell cell) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration == null ? cell.value : migration.cellView(cell);
+  }
+
+  static void stateCellWrite(RuntimeObjectState.Cell cell, RuntimeObjectState.CellValue value) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    if (migration == null) cell.value = value;
+    else migration.writeCell(cell, value);
+  }
+
+  static Map<FieldKey, Object> stateStorage(Map<FieldKey, Object> cells) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration == null ? cells : migration.storage(cells);
+  }
+
+  static RuntimeObjectState.ViewMap stateView(RuntimeObjectState state) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration == null ? state.current() : migration.objectView(state);
+  }
+
+  static boolean migrating(GuestCallbackScheduler scheduler) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+    return migration != null
+        && migration.execution() != null
+        && migration.execution().callbacks() == scheduler;
+  }
+
+  static RuntimeStateTransaction prepareState(Iterable<Object> roots, ExecutionState execution) {
+    RuntimeStateTransaction migration = RuntimeStateTransaction.open(execution);
+    try {
+      migration.include(roots);
+      return migration;
+    } catch (RuntimeException | Error failure) {
+      migration.close();
+      throw failure;
+    }
+  }
+
+  static class StateMigrationFailure extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    StateMigrationFailure(String message) {
+      super(message);
+    }
+  }
+
+  static final class StateMigrationPending extends StateMigrationFailure {
+    private static final long serialVersionUID = 1L;
+
+    StateMigrationPending(String message) {
+      super(message);
     }
   }
 
   static final class ObjectValue {
     final ObjectInfo objectInfo;
-    final CoreType type;
-    final Object[] fields;
+    private final CoreType birthType;
+    private final RuntimeObjectState state;
+    final Map<FieldKey, Object> configuration;
     Object hostValue;
+    AggregateInfo hostSchema;
     boolean dispatchToHost;
     FieldObservations observations;
 
-    Object readField(int field) {
-      if (observations != null) observations.read(field);
-      return fields[field];
+    CoreType type(AggregateInfo view) {
+      return state.type(view, birthType);
     }
 
-    void fieldChanged(int field, Object previous) {
+    CoreType type() {
+      var execution = RuntimeValueExecution.current();
+      var view = execution == null ? selectedInfo() : info(execution);
+      return state.type(view, birthType);
+    }
+
+    Object readField(int field) {
+      return readField(((AggregateInfo) objectInfo).fields().get(field).key(), null);
+    }
+
+    Object rawField(int field) {
+      return rawField(((AggregateInfo) objectInfo).fields().get(field).key());
+    }
+
+    Object rawField(FieldKey field) {
+      return rawField(field, selectedInfo());
+    }
+
+    void writeRawField(int field, Object value) {
+      writeRawField(((AggregateInfo) objectInfo).fields().get(field).key(), value);
+    }
+
+    void writeRawField(FieldKey field, Object value) {
+      writeRawField(field, value, selectedInfo());
+    }
+
+    FieldKey fieldKey(int index) {
+      return cells().keySet().stream().skip(index).findFirst().orElseThrow();
+    }
+
+    Object readField(FieldKey field, ExecutionState execution) {
+      return readField(field, execution == null ? selectedInfo() : info(execution), execution);
+    }
+
+    Object readField(FieldKey field, AggregateInfo view, ExecutionState execution) {
+      if (execution != null) ensureLayout(view, execution);
+      Map<FieldKey, Object> selected = state.view(view, type());
+      if (!selected.containsKey(field) && !configurationFor(view).containsKey(field))
+        throw new IllegalArgumentException("object field is absent: " + field);
+      if (observations != null) afterStateCommit(() -> observations.read(field, view));
+      return configurationFor(view).containsKey(field)
+          ? storage(configuration).get(field)
+          : selected.get(field);
+    }
+
+    Object rawField(FieldKey field, AggregateInfo view) {
+      Map<FieldKey, Object> selected = state.view(view, type());
+      return configurationFor(view).containsKey(field)
+          ? storage(configuration).get(field)
+          : selected.get(field);
+    }
+
+    void writeRawField(FieldKey field, Object value, AggregateInfo view) {
+      var selected = (RuntimeObjectState.ViewMap) state.view(view, type());
+      selected.checkWrite(field, value);
+      if (configurationFor(view).containsKey(field)) storage(configuration).put(field, value);
+      else selected.put(field, value);
+    }
+
+    Map<FieldKey, Object> configurationFor(AggregateInfo view) {
+      var values = new LinkedHashMap<FieldKey, Object>();
+      storage(configuration)
+          .forEach(
+              (key, value) -> {
+                if (state.sameFieldType((AggregateInfo) objectInfo, view, type(), key))
+                  values.put(key, value);
+              });
+      return values;
+    }
+
+    private AggregateInfo selectedInfo() {
+      RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+      if (migration != null) return migration.objectInfo(this);
+      var execution = RuntimeValueExecution.current();
+      return execution == null ? state.currentInfo() : info(execution);
+    }
+
+    AggregateInfo info(ExecutionState execution) {
+      if (execution != null) {
+        AggregateInfo current = execution.runtime().aggregateInfo(objectInfo.definition());
+        if (current != null) return current;
+      }
+      return (AggregateInfo) objectInfo;
+    }
+
+    private Map<FieldKey, Object> storage(Map<FieldKey, Object> values) {
+      RuntimeStateTransaction migration = RuntimeStateTransaction.current();
+      return migration == null ? values : migration.storage(values);
+    }
+
+    void ensureField(FieldKey key, ExecutionState execution) {
+      ensureLayout(info(execution), execution);
+      if (!state.view(info(execution), type()).containsKey(key)
+          && !configurationFor(info(execution)).containsKey(key))
+        throw new StateMigrationFailure("object field is absent: " + key);
+    }
+
+    void ensureLayout(AggregateInfo view, ExecutionState execution) {
+      RuntimeStateTransaction current = RuntimeStateTransaction.current();
+      if (current != null) {
+        current.prepare(this, view);
+        return;
+      }
+      if (state.schemaMatches(view, type())
+          && view.fields().stream().allMatch(field -> cells().containsKey(field.key()))) return;
+      try (RuntimeStateTransaction migration = prepareState(List.of(), execution)) {
+        migration.prepare(this, view);
+        migration.commit();
+      }
+    }
+
+    void fieldChanged(FieldKey field, Object previous, AggregateInfo view) {
       if (observations != null) {
-        observations.bind(field);
-        if (!equal(previous, fields[field])) observations.changed(field, previous, fields[field]);
+        afterStateCommit(
+            () -> {
+              observations.bind(field, view);
+              Object current = rawField(field, view);
+              if (!equal(previous, current)) observations.changed(field, view, previous, current);
+            });
       }
     }
 
     ObjectValue(ObjectInfo objectInfo, CoreType type) {
+      this(objectInfo, type, new LinkedHashMap<>(), new LinkedHashMap<>());
+      ((AggregateInfo) objectInfo)
+          .fields()
+          .forEach(field -> cells().putIfAbsent(field.key(), null));
+    }
+
+    ObjectValue(
+        ObjectInfo objectInfo,
+        CoreType type,
+        Map<FieldKey, Object> cells,
+        Map<FieldKey, Object> configuration) {
       this.objectInfo = objectInfo;
-      this.type = type;
-      fields = new Object[objectInfo.fieldCount()];
+      this.birthType = type;
+      this.state = RuntimeObjectState.shared((AggregateInfo) objectInfo, type, cells);
+      this.configuration = configuration;
+      if (objectInfo.annotations() != null) objectInfo.annotations().retain(this);
+    }
+
+    Map<FieldKey, Object> stateCells() {
+      return cells();
+    }
+
+    RuntimeObjectState state() {
+      return state;
+    }
+
+    Map<FieldKey, Object> cells() {
+      return state.view(selectedInfo(), type());
     }
 
     void attachHost(Object value) {
@@ -1120,13 +1643,15 @@ final class RuntimeValues {
       if (hostValue != null)
         throw new IllegalStateException("runtime object already has a host value");
       hostValue = value;
+      hostSchema = selectedInfo();
     }
 
     private boolean sameValue(ObjectValue other) {
       return isValueObject(this)
           && isValueObject(other)
-          && type.equals(other.type)
-          && equalLists(List.of(fields), List.of(other.fields));
+          && type().equals(other.type())
+          && cells().keySet().equals(other.cells().keySet())
+          && cells().keySet().stream().allMatch(key -> equal(rawField(key), other.rawField(key)));
     }
   }
 }

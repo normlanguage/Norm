@@ -27,6 +27,7 @@ public final class ExecutionContext {
   private final Optional<java.nio.file.Path> applicationDirectory;
   private final JarBindingRuntime jarBindingRuntime;
   private final SystemPlatform platform;
+  private final Optional<ExecutionUpdates> updates;
 
   private ExecutionContext(Builder builder) {
     input = Objects.requireNonNull(builder.input, "input");
@@ -44,6 +45,7 @@ public final class ExecutionContext {
     applicationDirectory = Optional.ofNullable(builder.applicationDirectory);
     jarBindingRuntime = Objects.requireNonNull(builder.jarBindingRuntime, "jarBindingRuntime");
     platform = Objects.requireNonNull(builder.platform, "platform");
+    updates = Optional.ofNullable(builder.updates);
   }
 
   public static Builder builder() {
@@ -155,12 +157,24 @@ public final class ExecutionContext {
     return new Builder(this).jarBindingRuntime(value).build();
   }
 
+  public ExecutionContext withCancellation(BooleanSupplier value) {
+    return new Builder(this).cancellation(value).build();
+  }
+
   public ExecutionContext withJavaApplicationEntrypoint(JavaApplicationEntrypoint value) {
     return new Builder(this).javaApplicationEntrypoint(value).build();
   }
 
   public ExecutionContext withApplicationPackage(String value) {
     return new Builder(this).applicationPackage(value).build();
+  }
+
+  public Optional<ExecutionUpdates> updates() {
+    return updates;
+  }
+
+  public ExecutionContext withUpdates(ExecutionUpdates value) {
+    return new Builder(this).updates(value).build();
   }
 
   public static final class Builder {
@@ -180,6 +194,7 @@ public final class ExecutionContext {
     private java.nio.file.Path applicationDirectory;
     private JarBindingRuntime jarBindingRuntime = JarBindingRuntime.unavailable();
     private SystemPlatform platform = SystemPlatform.unavailable();
+    private ExecutionUpdates updates;
 
     private Builder() {}
 
@@ -199,6 +214,7 @@ public final class ExecutionContext {
       applicationDirectory = context.applicationDirectory.orElse(null);
       jarBindingRuntime = context.jarBindingRuntime;
       platform = context.platform;
+      updates = context.updates.orElse(null);
     }
 
     public Builder input(InputStream value) {
@@ -268,6 +284,11 @@ public final class ExecutionContext {
 
     public Builder platform(SystemPlatform value) {
       platform = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder updates(ExecutionUpdates value) {
+      updates = Objects.requireNonNull(value, "value");
       return this;
     }
 

@@ -1,0 +1,22 @@
+package agent
+
+import std.json.JsonValue
+import std.json.parseJson
+import std.json.writeJson
+
+public interface SessionStore {
+  JsonValue load()
+  Void save(JsonValue value)
+}
+
+public class JsonSessionStore implements SessionStore {
+  private String state
+
+  JsonSessionStore(String initialState = "[]") {
+    this.state = initialState
+  }
+
+  public JsonValue load() { return parseJson(value: state) }
+
+  public Void save(JsonValue value) { this.state = writeJson(value: value) }
+}

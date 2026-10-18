@@ -36,37 +36,59 @@ final class CoreAnnotationVerifier {
       if (definition instanceof CoreDefinition.Aggregate aggregate
           && occurrence.role() == CoreDefinitionRole.AGGREGATE) {
         for (CoreField field : aggregate.fields()) {
-          for (CoreInterceptor interceptor : field.interceptors()) {
+          for (int interceptorIndex = 0;
+              interceptorIndex < field.interceptors().size();
+              interceptorIndex++) {
+            var interceptor = field.interceptors().get(interceptorIndex);
             matchInterceptor(
                 program,
+                authoring,
                 occurrence.id(),
                 AnnotationTarget.FIELD,
                 new IndexedKey(occurrence.id(), field.ordinal()),
                 interceptor,
+                CoreAnnotationPath.ROOT
+                    .child(CoreAnnotationPath.Kind.FIELD, field.ordinal())
+                    .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex),
                 applications,
                 matched);
           }
         }
       }
       if (!(definition instanceof CoreDefinition.Callable callable)) continue;
-      for (CoreInterceptor interceptor : callable.interceptors()) {
+      var callableTarget =
+          occurrence.role() == CoreDefinitionRole.CONSTRUCTOR
+              ? AnnotationTarget.CONSTRUCTOR
+              : AnnotationTarget.FUNCTION;
+      for (int interceptorIndex = 0;
+          interceptorIndex < callable.interceptors().size();
+          interceptorIndex++) {
+        var interceptor = callable.interceptors().get(interceptorIndex);
         matchInterceptor(
             program,
+            authoring,
             occurrence.id(),
-            AnnotationTarget.FUNCTION,
-            new DefinitionKey(AnnotationTarget.FUNCTION, occurrence.id()),
+            callableTarget,
+            new DefinitionKey(callableTarget, occurrence.id()),
             interceptor,
+            CoreAnnotationPath.ROOT.child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex),
             applications,
             matched);
       }
       for (int index = 0; index < callable.parameters().size(); index++) {
-        for (CoreInterceptor interceptor : callable.parameters().get(index).interceptors()) {
+        var interceptors = callable.parameters().get(index).interceptors();
+        for (int interceptorIndex = 0; interceptorIndex < interceptors.size(); interceptorIndex++) {
+          var interceptor = interceptors.get(interceptorIndex);
           matchInterceptor(
               program,
+              authoring,
               occurrence.id(),
               AnnotationTarget.PARAMETER,
               new IndexedKey(occurrence.id(), index),
               interceptor,
+              CoreAnnotationPath.ROOT
+                  .child(CoreAnnotationPath.Kind.PARAMETER, index)
+                  .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex),
               applications,
               matched);
         }
@@ -98,10 +120,12 @@ final class CoreAnnotationVerifier {
 
   private static void matchInterceptor(
       CoreProgram program,
+      CoreAuthoringMap authoring,
       DefinitionOccurrenceId owner,
       AnnotationTarget target,
       Object targetKey,
       CoreInterceptor interceptor,
+      CoreAnnotationPath path,
       Map<ApplicationKey, CoreAnnotationApplication> applications,
       Set<ApplicationKey> matched) {
     DefinitionId annotationId = resolve(program, owner.representative(), interceptor.annotation());
@@ -117,10 +141,44 @@ final class CoreAnnotationVerifier {
       }
       return;
     }
-    if (application == null || !application.values().equals(interceptor.values())) {
+    var configured =
+        interceptor.values().stream()
+            .map(
+                value ->
+                    CoreRewriter.resolveAnnotationValue(
+                        value,
+                        link ->
+                            new DefinitionReference.External(
+                                resolve(program, owner.representative(), link))))
+            .toList();
+    if (application == null || !application.values().equals(configured)) {
       throw new IllegalArgumentException(
           "stored behavior annotation must match its declaration interceptor");
     }
+    var definitionOwner = new CoreAnnotationReferenceSite.Definition(owner);
+    var metadataOwner = new CoreAnnotationReferenceSite.Metadata(application.id());
+    var definitionSite = new CoreAnnotationReferenceSite(definitionOwner, path);
+    var metadataSite = new CoreAnnotationReferenceSite(metadataOwner, CoreAnnotationPath.ROOT);
+    if (!authoring
+        .annotationTarget(definitionSite)
+        .equals(authoring.annotationTarget(metadataSite)))
+      throw new IllegalArgumentException(
+          "annotation and interceptor declaration bindings disagree");
+    CoreAnnotationSites.references(interceptor.values())
+        .forEach(
+            (valuePath, ignored) -> {
+              var steps = new ArrayList<>(path.steps());
+              steps.addAll(valuePath.steps());
+              if (!authoring
+                  .annotationTarget(
+                      new CoreAnnotationReferenceSite(
+                          definitionOwner, new CoreAnnotationPath(steps)))
+                  .equals(
+                      authoring.annotationTarget(
+                          new CoreAnnotationReferenceSite(metadataOwner, valuePath))))
+                throw new IllegalArgumentException(
+                    "annotation and interceptor value bindings disagree");
+            });
     matched.add(key);
   }
 
@@ -257,7 +315,8 @@ final class CoreAnnotationVerifier {
         (CoreDefinition.Aggregate) program.definition(annotationId).orElseThrow();
     DefinitionId protocol =
         switch (application.target().kind()) {
-          case FUNCTION -> functionInterceptor == null ? null : functionInterceptor.interfaceId();
+          case FUNCTION, CONSTRUCTOR ->
+              functionInterceptor == null ? null : functionInterceptor.interfaceId();
           case PARAMETER ->
               parameterInterceptor == null ? null : parameterInterceptor.interfaceId();
           case FIELD -> fieldInterceptor == null ? null : fieldInterceptor.interfaceId();

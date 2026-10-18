@@ -1,0 +1,79 @@
+package std.runtime
+
+import std.annotation.Document
+import std.core.Exception
+import std.io.Resource
+
+@Document(description: "Distinguishes successful publication, unchanged sources, invalid code and host compilation failure.")
+public enum UpdateOutcome { Published, Unchanged, Rejected, Failed }
+
+@Document(description: "Reports a compiler diagnostic without parsing formatted output.")
+public value RuntimeDiagnostic {
+  String code
+  String severity
+  String message
+  String source
+  Integer startOffset
+  Integer endOffset
+}
+
+@Document(description: "Reports the latest published revision and active locations awaiting adoption.")
+public value RuntimeStatus {
+  Long publishedRevision
+  Long activeRevision
+  List<String> pendingLocations
+}
+
+@Document(description: "Reports publication independently from adoption by existing activations. Pending locations can remain after successful publication.")
+public value UpdateResult {
+  UpdateOutcome outcome
+  Long revision
+  List<String> pendingLocations
+  List<RuntimeDiagnostic> diagnostics
+  String? failure
+}
+
+private value UpdateCompletion<D> {
+  String outcome
+  Long revision
+  List<String> pendingLocations
+  List<D> diagnostics
+  String? failure
+}
+
+private UpdateResult completeUpdate(UpdateCompletion<RuntimeDiagnostic> completion) {
+  UpdateOutcome outcome = switch completion.outcome {
+    case "PUBLISHED" { break UpdateOutcome.Published }
+    case "UNCHANGED" { break UpdateOutcome.Unchanged }
+    case "REJECTED" { break UpdateOutcome.Rejected }
+    case "FAILED" { break UpdateOutcome.Failed }
+    case _ { throw Exception(message: "Unknown runtime publication outcome") }
+  }
+  return UpdateResult(outcome: outcome, revision: completion.revision,
+    pendingLocations: completion.pendingLocations, diagnostics: completion.diagnostics, failure: completion.failure)
+}
+
+@Document(description: "Suppresses automatic publication until commit or close. Closing without commit releases suppression; it does not undo filesystem writes.")
+public class UpdateBatch implements Resource {
+  @Document(description: "Publishes the complete source tree when it changes. Unchanged sources preserve their previous outcome. Waits for compilation, while existing activations may still be pending.")
+  public UpdateResult commit() { completeUpdate(__runtimeCommit<UpdateCompletion<RuntimeDiagnostic>>(batch: this)) }
+
+  @Document(description: "Releases publication suppression. Closing an already completed batch has no effect.")
+  public Void close() { __runtimeClose(batch: this) }
+}
+
+@Document(description: "Reports live source execution state. Unavailable in executions without a source update coordinator.")
+public RuntimeStatus runtimeStatus() { __runtimeStatus<RuntimeStatus>() }
+
+@Document(description: "Returns the most recent automatic or requested compilation result, or null before any update completes.")
+public UpdateResult? latestUpdate() {
+  var completion = __runtimeLatest<UpdateCompletion<RuntimeDiagnostic>>()
+  if completion != null { return completeUpdate(completion) }
+  return null
+}
+
+@Document(description: "Starts a publication batch for related source and dependency edits.")
+public UpdateBatch beginUpdate() { __runtimeBegin<UpdateBatch>() }
+
+@Document(description: "Requests compilation of current sources and waits only for publication, never for running activations to finish adopting it.")
+public UpdateResult publishUpdate() { completeUpdate(__runtimePublish<UpdateCompletion<RuntimeDiagnostic>>()) }

@@ -22,7 +22,21 @@ public record PreparedApplication(
     return PortableObjectCodec.read(directory.resolve(ENTRY), PreparedApplication.class);
   }
 
-  public void execute(Path directory, ExecutionContext context) {
+  public JvmJarBindingRuntime openRuntime(Path directory) {
+    try (var assets = dev.w0fv1.norm.execution.RevisionResources.own(() -> {})) {
+      return openRuntime(directory, assets);
+    }
+  }
+
+  public JvmJarBindingRuntime openRuntime(
+      Path directory, dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+    return openRuntime(directory, assets, new JvmJarBindingRuntime.Realm());
+  }
+
+  public JvmJarBindingRuntime openRuntime(
+      Path directory,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets,
+      JvmJarBindingRuntime.Realm realm) {
     Path root = directory.toAbsolutePath().normalize();
     var paths =
         classpath.stream()
@@ -35,7 +49,11 @@ public record PreparedApplication(
                   return path;
                 })
             .toList();
-    try (var runtime = JvmJarBindingRuntime.prepared(program.bindings(), paths, moduleRoots)) {
+    return JvmJarBindingRuntime.prepared(program.bindings(), paths, moduleRoots, assets, realm);
+  }
+
+  public void execute(Path directory, ExecutionContext context) {
+    try (var runtime = openRuntime(directory)) {
       new NormRuntime()
           .execute(
               program.artifact(),

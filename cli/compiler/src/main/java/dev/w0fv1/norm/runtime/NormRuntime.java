@@ -4,6 +4,7 @@ import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.execution.LiveExecution;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import java.io.PrintWriter;
@@ -28,6 +29,16 @@ public final class NormRuntime implements ExecutionBackend {
   public void run(CoreArtifact program, ExecutionContext context) {
     Objects.requireNonNull(program, "program");
     execute(program, context);
+  }
+
+  @Override
+  public LiveExecution prepareLive(CoreArtifact artifact) {
+    return backend.prepareLive(artifact);
+  }
+
+  @Override
+  public LiveExecution prepareLive(dev.w0fv1.norm.execution.ExecutionRevision revision) {
+    return backend.prepareLive(revision);
   }
 
   @Override

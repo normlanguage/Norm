@@ -13,6 +13,7 @@ public final class CoreAuthoringMap {
   private final List<CoreDefinitionOccurrence> occurrences;
   private final Map<DefinitionOccurrenceId, CoreDefinitionOccurrence> occurrencesById;
   private final Optional<DefinitionOccurrenceId> entryPoint;
+  private final Map<CoreAnnotationReferenceSite, DefinitionOccurrenceId> annotationReferences;
 
   public CoreAuthoringMap(
       List<CoreDefinitionOccurrence> occurrences, DefinitionOccurrenceId entryPoint) {
@@ -21,6 +22,13 @@ public final class CoreAuthoringMap {
 
   public CoreAuthoringMap(
       List<CoreDefinitionOccurrence> occurrences, Optional<DefinitionOccurrenceId> entryPoint) {
+    this(occurrences, entryPoint, Map.of());
+  }
+
+  public CoreAuthoringMap(
+      List<CoreDefinitionOccurrence> occurrences,
+      Optional<DefinitionOccurrenceId> entryPoint,
+      Map<CoreAnnotationReferenceSite, DefinitionOccurrenceId> annotationReferences) {
     this.occurrences =
         Objects.requireNonNull(occurrences, "occurrences").stream()
             .sorted(java.util.Comparator.comparing(CoreDefinitionOccurrence::id))
@@ -33,6 +41,14 @@ public final class CoreAuthoringMap {
       }
     }
     this.occurrencesById = Map.copyOf(indexed);
+    this.annotationReferences = Map.copyOf(annotationReferences);
+    for (var reference : this.annotationReferences.entrySet()) {
+      if (reference.getKey().owner() instanceof CoreAnnotationReferenceSite.Definition definition
+          && !indexed.containsKey(definition.occurrence()))
+        throw new IllegalArgumentException("annotation reference owner is absent");
+      if (!indexed.containsKey(reference.getValue()))
+        throw new IllegalArgumentException("annotation reference target is absent");
+    }
     this.entryPoint = Objects.requireNonNull(entryPoint, "entryPoint");
     if (entryPoint.isPresent() && !occurrencesById.containsKey(entryPoint.orElseThrow())) {
       throw new IllegalArgumentException("entry occurrence is absent");
@@ -121,7 +137,23 @@ public final class CoreAuthoringMap {
   }
 
   public CoreAuthoringMap withEntryPoint(DefinitionOccurrenceId entryPoint) {
-    return new CoreAuthoringMap(occurrences, entryPoint);
+    return new CoreAuthoringMap(occurrences, Optional.of(entryPoint), annotationReferences);
+  }
+
+  public CoreAuthoringMap withAnnotationReferences(
+      Map<CoreAnnotationReferenceSite, DefinitionOccurrenceId> references) {
+    return new CoreAuthoringMap(occurrences, entryPoint, references);
+  }
+
+  public Map<CoreAnnotationReferenceSite, DefinitionOccurrenceId> annotationReferences() {
+    return annotationReferences;
+  }
+
+  public DefinitionOccurrenceId annotationTarget(CoreAnnotationReferenceSite site) {
+    var target = annotationReferences.get(site);
+    if (target == null)
+      throw new IllegalArgumentException("annotation authoring reference is absent at " + site);
+    return target;
   }
 
   public Optional<CoreDefinitionOccurrence> occurrence(DefinitionOccurrenceId id) {

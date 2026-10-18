@@ -21,10 +21,13 @@ final class RuntimeProgramTest {
         "Function<List<T>(T)> singleton<T>() { return (T value) { List<T> result = List<>() result.add(value) return result } } Void main() { Function<List<Integer>(Integer)> make = singleton<Integer>() List<Integer> values = make(7) printLine(values[0]) }"
       })
   void projectsCallableSignaturesWithoutChangingCanonicalDefinitions(String source) {
-    var core = NormTestKit.compile(source).output().orElseThrow().artifact().program();
-    var runtime = RuntimeProgram.from(core);
+    var artifact = NormTestKit.compile(source).output().orElseThrow().artifact();
+    var core = artifact.program();
+    var identity = dev.w0fv1.norm.core.CoreRuntimeIdentity.create(artifact);
+    var runtime = RuntimeProgram.from(artifact, identity);
     for (var record : core.definitions()) {
-      if (record.definition() instanceof CoreDefinition.Callable callable) {
+      var normalized = identity.definition(record.id(), record.definition());
+      if (normalized instanceof CoreDefinition.Callable callable) {
         var signature = runtime.callable(record.id()).orElseThrow();
         assertEquals(callable.receiverType(), signature.receiverType());
         assertEquals(callable.parameterTypes(), signature.parameterTypes());
@@ -33,9 +36,9 @@ final class RuntimeProgramTest {
         assertEquals(callable.typeParameters().size(), signature.typeParameterCount());
         assertEquals(callable.receiverTypeParameterCount(), signature.receiverTypeParameterCount());
         assertTrue(runtime.structure(record.id()).isEmpty());
-        assertSame(callable, core.definition(record.id()).orElseThrow());
+        assertSame(record.definition(), core.definition(record.id()).orElseThrow());
       } else {
-        assertSame(record.definition(), runtime.structure(record.id()).orElseThrow());
+        assertEquals(normalized, runtime.structure(record.id()).orElseThrow());
         assertTrue(runtime.callable(record.id()).isEmpty());
         if (record.definition() instanceof CoreDefinition.Aggregate aggregate
             && aggregate.kind() == CoreAggregateKind.ANNOTATION) {
@@ -47,11 +50,12 @@ final class RuntimeProgramTest {
         }
       }
       assertEquals(
-          record.id(),
+          identity.id(record.id()),
           runtime.resolve(
               record.id(), new DefinitionReference.RecursiveMember(record.id().memberIndex())));
       var external = new DefinitionReference.External(record.id());
-      assertEquals(core.resolve(record.id(), external), runtime.resolve(record.id(), external));
+      assertEquals(
+          identity.id(core.resolve(record.id(), external)), runtime.resolve(record.id(), external));
       var absent =
           new DefinitionReference.External(
               new DefinitionId(record.id().group(), Integer.MAX_VALUE));

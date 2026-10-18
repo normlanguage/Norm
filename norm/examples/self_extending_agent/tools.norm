@@ -1,0 +1,22 @@
+package self_extending_agent
+
+import openai.Tool
+import openai.ToolParameter
+import std.filesystem.Path
+import std.filesystem.readText
+import std.filesystem.writeTextAtomic
+import std.io.TextEncoding
+
+@Tool(name: "read_file", description: "Read a UTF-8 file at the given path")
+String readFile(@ToolParameter(description: "File path") String path) {
+  return readText(path: Path(value: path), encoding: TextEncoding.Utf8, maximumBytes: 1048576)
+}
+
+@Tool(name: "write_file", description: "Create or replace a UTF-8 file, creating parent directories")
+String writeFile(@ToolParameter(description: "File path") String path,
+  @ToolParameter(description: "Complete file content") String content) {
+  writeTextAtomic(path: Path(value: path), text: content, encoding: TextEncoding.Utf8)
+  return "Saved " + path
+}
+
+List<Function<?>> tools() { return [readFile.function, writeFile.function] }

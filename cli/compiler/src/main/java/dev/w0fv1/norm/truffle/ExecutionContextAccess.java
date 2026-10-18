@@ -11,7 +11,19 @@ final class ExecutionContextAccess {
     if (arguments.length == 0 || !(arguments[0] instanceof ExecutionState state)) {
       throw new IllegalStateException("execution state argument is absent");
     }
-    return state;
+    if (state.liveBindings() == null) return state;
+    ExecutionContext context = state.liveBindings().context(state.context());
+    GuestValueFactory values = state.runtime().values();
+    return context == state.context() && values == state.values()
+        ? state
+        : new ExecutionState(
+            context,
+            state.annotationExecution(),
+            values,
+            state.resources(),
+            state.callbacks(),
+            state.contexts(),
+            state.liveBindings());
   }
 
   static ExecutionContext get(VirtualFrame frame) {

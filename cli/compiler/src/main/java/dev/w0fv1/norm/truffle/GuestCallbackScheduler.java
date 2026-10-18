@@ -9,14 +9,18 @@ final class GuestCallbackScheduler implements AutoCloseable {
   private final ReentrantLock execution = new ReentrantLock(true);
   private final ThreadLocal<Integer> hostDepth = ThreadLocal.withInitial(() -> 0);
   private volatile boolean closed;
+  private volatile Thread migrationOwner;
+  private int migrationDepth;
 
   GuestCallbackScheduler() {
     execution.lock();
   }
 
   Object invoke(Supplier<Object> operation) {
+    requireMigrationOwner();
     execution.lock();
     try {
+      requireMigrationOwner();
       if (closed) throw new IllegalStateException("Norm execution is closed");
       return operation.get();
     } finally {
@@ -24,18 +28,48 @@ final class GuestCallbackScheduler implements AutoCloseable {
     }
   }
 
+  MigrationScope migrationScope() {
+    requireOwner();
+    requireMigrationOwner();
+    migrationOwner = Thread.currentThread();
+    migrationDepth++;
+    return new MigrationScope();
+  }
+
+  final class MigrationScope implements AutoCloseable {
+    private boolean closed;
+
+    @Override
+    public void close() {
+      if (closed) return;
+      requireOwner();
+      requireMigrationOwner();
+      closed = true;
+      if (--migrationDepth == 0) migrationOwner = null;
+    }
+  }
+
+  private void requireMigrationOwner() {
+    Thread owner = migrationOwner;
+    if (owner != null && owner != Thread.currentThread())
+      throw new RuntimeValues.StateMigrationFailure(
+          "Asynchronous guest callbacks are not allowed during state migration");
+  }
+
   <T, E extends Throwable> T hostCall(HostOperation<T, E> operation) throws E {
     requireOwner();
-    int depth = execution.getHoldCount();
-    int previousHostDepth = hostDepth.get();
-    hostDepth.set(previousHostDepth + 1);
-    for (int index = 0; index < depth; index++) execution.unlock();
-    try {
-      return operation.run();
-    } finally {
-      if (previousHostDepth == 0) hostDepth.remove();
-      else hostDepth.set(previousHostDepth);
-      for (int index = 0; index < depth; index++) execution.lock();
+    try (var migration = RuntimeValues.migrating(this) ? migrationScope() : null) {
+      int depth = execution.getHoldCount();
+      int previousHostDepth = hostDepth.get();
+      hostDepth.set(previousHostDepth + 1);
+      for (int index = 0; index < depth; index++) execution.unlock();
+      try {
+        return operation.run();
+      } finally {
+        if (previousHostDepth == 0) hostDepth.remove();
+        else hostDepth.set(previousHostDepth);
+        for (int index = 0; index < depth; index++) execution.lock();
+      }
     }
   }
 

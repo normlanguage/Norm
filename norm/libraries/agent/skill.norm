@@ -1,0 +1,56 @@
+package agent
+
+import openai.OpenAiException
+import std.http.HttpClient
+import std.http.HttpResponse
+import std.http.Uri
+import std.http.get
+import std.http.systemHttpClient
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.readAll
+import std.time.Duration
+import std.time.duration
+
+public class Skill {
+  public String name
+  public String url
+
+  Skill(String url) {
+    if url.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill URL must not be blank") }
+    this.name = url
+    this.url = url
+  }
+
+  Skill(String name, String url) {
+    if name.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill name must not be blank") }
+    if url.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill URL must not be blank") }
+    this.name = name
+    this.url = url
+  }
+}
+
+class SkillLoader {
+  String fetch(
+    Skill skill,
+    HttpClient client = systemHttpClient(),
+    Duration timeout = duration(seconds: 30, nanoseconds: 0)
+  ) {
+    HttpResponse response = client.send(request: get(uri: Uri(value: skill.url)), timeout: timeout)
+    try {
+      Integer status = response.status().code
+      if status < 200 || status >= 300 {
+        throw OpenAiException(
+          code: "OPENAI-SKILL-HTTP",
+          message: "Skill '" + skill.name + "' returned HTTP status " + status.toString()
+        )
+      }
+      return decodeText(
+        content: readAll(reader: response, maximumBytes: 1048576),
+        encoding: TextEncoding.Utf8
+      )
+    } finally {
+      response.close()
+    }
+  }
+}

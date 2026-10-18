@@ -11,6 +11,7 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
   private final FrameBinding[] parameters;
   private final SourceSection sourceSection;
   private final DefinitionOccurrenceId occurrence;
+  private final java.util.Optional<dev.w0fv1.norm.core.CoreConstructorParameters> constructor;
   @Child private StatementNode body;
 
   FunctionRootNode(
@@ -19,11 +20,13 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
       DefinitionOccurrenceId occurrence,
       FrameDescriptor frameDescriptor,
       FrameBinding[] parameters,
+      java.util.Optional<dev.w0fv1.norm.core.CoreConstructorParameters> constructor,
       SourceSection sourceSection) {
     super(language, frameDescriptor);
     this.name = name;
     this.occurrence = occurrence;
     this.parameters = parameters;
+    this.constructor = constructor;
     this.sourceSection = sourceSection;
   }
 
@@ -34,15 +37,23 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
 
   @Override
   public Object execute(VirtualFrame frame) {
-    Object[] arguments = frame.getArguments();
-    for (int index = 0; index < parameters.length; index++) {
-      parameters[index].write(frame, arguments[index + 1]);
-    }
-    try {
-      body.executeVoid(frame);
-      return 0L;
-    } catch (ControlFlow.Return returned) {
-      return RuntimeValues.copy(returned.value);
+    try (var valueScope = RuntimeValueExecution.enter(ExecutionContextAccess.state(frame))) {
+      Object[] arguments = frame.getArguments();
+      if (constructor.isPresent())
+        ConstructionArguments.from(frame).bind(frame, parameters, constructor.orElseThrow());
+      else
+        for (int index = 0; index < parameters.length; index++)
+          parameters[index].write(frame, arguments[index + 1]);
+      LiveBindings bindings = ExecutionContextAccess.state(frame).liveBindings();
+      if (bindings != null) bindings.enter(frame);
+      try {
+        body.executeVoid(frame);
+        return 0L;
+      } catch (ControlFlow.Return returned) {
+        return RuntimeValues.copy(returned.value);
+      } finally {
+        if (bindings != null) bindings.leave(frame);
+      }
     }
   }
 

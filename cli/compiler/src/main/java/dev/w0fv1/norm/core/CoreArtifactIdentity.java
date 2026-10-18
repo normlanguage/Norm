@@ -55,6 +55,7 @@ final class CoreArtifactIdentity {
 
   static byte[] debug(CoreArtifact artifact) {
     CanonicalWriter writer = new CanonicalWriter().writeTag("debug-info");
+    writer.writeBytes(binding(artifact));
     Map<String, SourceFile> documents = documents(artifact);
     Map<String, Integer> documentIndexes = new HashMap<>();
     writer.writeInt(documents.size());
@@ -99,6 +100,57 @@ final class CoreArtifactIdentity {
     return writer.toByteArray();
   }
 
+  static byte[] binding(CoreArtifact artifact) {
+    var writer = new CanonicalWriter().writeTag("execution-binding");
+    writer.writeBytes(linkage(artifact));
+    writer.writeInt(artifact.authoring().occurrences().size());
+    for (var occurrence : artifact.authoring().occurrences()) {
+      writeOccurrence(writer, occurrence.id());
+      writer.writeString(occurrence.origin().definitionName());
+      writer.writeBoolean(occurrence.origin().declarationIdentity().isPresent());
+      occurrence.origin().declarationIdentity().ifPresent(writer::writeString);
+      writer.writeInt(occurrence.origin().localNames().size());
+      occurrence.origin().localNames().entrySet().stream()
+          .sorted(Map.Entry.comparingByKey())
+          .forEach(entry -> writer.writeInt(entry.getKey()).writeString(entry.getValue()));
+      writer.writeTag(occurrence.role().name()).writeInt(occurrence.references().size());
+      occurrence.references().entrySet().stream()
+          .sorted(Map.Entry.comparingByKey())
+          .forEach(
+              entry -> {
+                writer.writeInt(entry.getKey());
+                writeOccurrence(writer, entry.getValue());
+              });
+    }
+    var references =
+        artifact.authoring().annotationReferences().entrySet().stream()
+            .map(
+                entry -> {
+                  var site = new CanonicalWriter();
+                  switch (entry.getKey().owner()) {
+                    case CoreAnnotationReferenceSite.Definition definition -> {
+                      site.writeTag("definition");
+                      writeOccurrence(site, definition.occurrence());
+                    }
+                    case CoreAnnotationReferenceSite.Metadata metadata -> {
+                      site.writeTag("metadata");
+                      var id = metadata.application();
+                      site.writeString(id.source().identity()).writeInt(id.ordinal());
+                    }
+                  }
+                  site.writeInt(entry.getKey().path().steps().size());
+                  for (var step : entry.getKey().path().steps())
+                    site.writeTag(step.kind().name()).writeInt(step.index());
+                  writeOccurrence(site, entry.getValue());
+                  return site.toByteArray();
+                })
+            .sorted(Arrays::compareUnsigned)
+            .toList();
+    writer.writeInt(references.size());
+    references.forEach(writer::writeBytes);
+    return writer.toByteArray();
+  }
+
   static void writeDefinition(CanonicalWriter writer, DefinitionId definition) {
     writer.writeBytes(definition.group().hash().bytes()).writeInt(definition.memberIndex());
   }
@@ -111,6 +163,12 @@ final class CoreArtifactIdentity {
   private static byte[] encodeOrigin(
       CoreDefinitionOrigin origin, Map<String, Integer> documentIndexes) {
     CanonicalWriter writer = new CanonicalWriter();
+    writer.writeBoolean(origin.declarationIdentity().isPresent());
+    origin.declarationIdentity().ifPresent(writer::writeString);
+    writer.writeInt(origin.localNames().size());
+    origin.localNames().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(entry -> writer.writeInt(entry.getKey()).writeString(entry.getValue()));
     writeSpanDocument(
             writer.writeString(origin.definitionName()), origin.rootSpan(), documentIndexes)
         .writeInt(origin.rootSpan().startOffset())

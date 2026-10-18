@@ -661,7 +661,7 @@ final class DeclarationAnalyzer {
 
   private record ParentMethod(Syntax.FunctionDecl method, AggregateView view) {}
 
-  void validateFields(Syntax.AggregateDecl aggregateDecl, ExpressionChecker expressionChecker) {
+  void validateFields(Syntax.AggregateDecl aggregateDecl) {
     try (var aggregateScope =
         resolution.enterParameters(
             typeResolver.aggregateTypeParameters(aggregateDecl),
@@ -680,11 +680,6 @@ final class DeclarationAnalyzer {
         }
         if (field.defaultValue().isPresent()) {
           if (declarationPolicies.constructorInput(field)) defaultFieldSeen = true;
-          SemanticType expected = typeResolver.resolveType(field.type(), resolution.parameters());
-          typeResolver.requireType(
-              expected,
-              expressionChecker.typeOf(field.defaultValue().orElseThrow(), expected),
-              field.defaultValue().orElseThrow().span());
         } else if (declarationPolicies.constructorInput(field) && defaultFieldSeen) {
           diagnostics.error(
               INVALID_CALL, "required field follows a default field", field.nameSpan());

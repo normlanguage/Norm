@@ -25,6 +25,7 @@ module dev.w0fv1.norm {
   requires org.apache.maven.resolver.transport.file;
   requires org.apache.maven.resolver.util;
   requires org.apache.commons.codec;
+  requires org.apache.commons.collections4;
   requires org.apache.commons.compress;
   requires org.apache.commons.logging;
   requires org.apache.httpcomponents.httpclient;
@@ -33,6 +34,8 @@ module dev.w0fv1.norm {
   requires org.codehaus.plexus.util;
   requires org.slf4j;
   requires org.objectweb.asm;
+  requires org.objectweb.asm.commons;
+  requires org.objectweb.asm.tree;
   requires org.junit.platform.launcher;
   requires org.junit.platform.engine;
   requires org.objenesis;

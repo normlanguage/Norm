@@ -1,0 +1,223 @@
+package agent
+import openai.Client
+import openai.GenerationCallbacks
+import openai.GenerationEvent
+import openai.Message
+import openai.OpenAiException
+import openai.Response
+import openai.ResponseInput
+import openai.ResponseRequest
+import openai.ResponseStatus
+import openai.ToolCall
+import openai.ToolCatalog
+import openai.ToolRegistry
+import openai.ToolFailure
+import openai.ToolResult
+import openai.ToolDefinition
+
+
+import std.core.Exception
+import std.json.JsonValue
+import std.json.writeJson
+
+public class AgentSession {
+  private SessionStore store
+
+  AgentSession(SessionStore store = JsonSessionStore()) {
+    this.store = store
+  }
+
+  public Void append(JsonValue item) {
+    List<JsonValue> history = this.items()
+    history.add(item)
+    store.save(value: JsonValue.Array(values: history))
+  }
+
+  public List<JsonValue> items() {
+    switch store.load() {
+      case Array(List<JsonValue> values) { break values }
+      case Object(Map<String, JsonValue> value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case String(String value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Number(String value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Boolean(Boolean value) { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+      case Null { throw OpenAiException(code: "OPENAI-SESSION-STORE", message: "Session store must contain a JSON array") }
+    }
+  }
+
+  public Void addContext(String text) {
+    Map<String, JsonValue> message = Map<>()
+    message.put(key: "role", value: JsonValue.String(value: "user"))
+    message.put(key: "content", value: JsonValue.String(value: text))
+    this.append(item: JsonValue.Object(fields: message))
+  }
+}
+
+public interface ToolScope {
+  String? complete()
+  Void close()
+}
+
+public class Agent {
+  private Client client
+  private String? instructions
+  private List<Function<?>> tools
+  private Function<List<Function<?>>()>? toolProvider
+  private Function<ToolScope()>? beginToolScope
+  private Function<String?()>? contextProvider
+  private ToolCatalog catalog = ToolCatalog()
+  private Integer maximumRounds
+  private Integer maximumOutputTokens
+  private List<McpToolProvider> mcpProviders
+  private List<Skill> skills
+  private Function<Void(String)>? textCallback
+
+  Agent(
+    String apiKey,
+    String model,
+    String endpoint,
+    String? instruction = null,
+    List<Skill> skills = [],
+    List<Function<?>> tools = [],
+    Integer maximumRounds = 64,
+    Integer maximumOutputTokens = 8192,
+    Function<List<Function<?>>()>? toolProvider = null,
+    Function<ToolScope()>? beginToolScope = null,
+    Function<String?()>? contextProvider = null,
+    List<McpToolProvider> mcp = []
+  ) {
+    if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
+    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
+    this.instructions = instruction
+    this.tools = tools
+    this.toolProvider = toolProvider
+    this.beginToolScope = beginToolScope
+    this.contextProvider = contextProvider
+    this.maximumRounds = maximumRounds
+    this.maximumOutputTokens = maximumOutputTokens
+    this.mcpProviders = mcp
+    this.skills = skills
+    this.textCallback = null
+  }
+
+  public Agent skill(Skill value) {
+    skills.add(value)
+    return this
+  }
+
+  public Agent skill(String url) {
+    return this.skill(value: Skill(url: url))
+  }
+
+  public Agent tool(Function<?> value) {
+    tools.add(value)
+    return this
+  }
+
+  public Agent mcp(McpToolProvider value) {
+    mcpProviders.add(value)
+    return this
+  }
+
+  public Agent onText(Void callback(String text)) {
+    textCallback = callback
+    return this
+  }
+
+  public Response chat(String input, Function<Void(String)>? onResponseStarted = null,
+    Function<Void(String)>? onMessageStarted = null,
+    Function<Void(String)>? onText = null,
+    Function<Void(Message)>? onMessageCompleted = null,
+    Function<Void(ToolCall)>? onToolCallReceived = null,
+    Function<Void(ToolCall)>? onToolStarted = null,
+    Function<Void(ToolResult)>? onToolCompleted = null,
+    Function<Void(ToolFailure)>? onToolFailed = null,
+    Function<Void(Response)>? onResponseCompleted = null,
+    Function<Void(Exception)>? onFailed = null,
+    Function<Void(String)>? onRunStarted = null,
+    Function<Void(Response)>? onRunCompleted = null,
+    Function<Void(GenerationEvent)>? onEvent = null,
+    AgentSession session = AgentSession()) {
+    var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: if onText == null { textCallback } else { onText }, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
+    try {
+      callbacks.emit(event: GenerationEvent.RunStarted(input: input))
+      session.addContext(text: input)
+      for Integer round : range(start: 0, end: maximumRounds) {
+        if contextProvider != null {
+          String? context = contextProvider()
+          if context != null { session.addContext(text: context) }
+        }
+        var registry = catalog.refresh(tools: if toolProvider == null { tools } else { toolProvider() })
+        String? rejection = catalog.rejection()
+        if rejection != null { session.addContext(text: rejection) }
+        List<ToolDefinition> definitions = registry.definitions()
+        for McpToolProvider provider : mcpProviders {
+          for ToolDefinition definition : provider.definitions() { definitions.add(definition) }
+        }
+        var response = client.exchange(request: ResponseRequest(model: client.defaultModel(), input: ResponseInput.Items(values: session.items()),
+          instructions: this.instructionText(), tools: definitions, maximumOutputTokens: maximumOutputTokens), callbacks: callbacks)
+        if response.status != ResponseStatus.Completed || response.refusal != null || response.calls.isEmpty() {
+          for JsonValue item : response.output { session.append(item: item) }
+          callbacks.emit(event: GenerationEvent.RunCompleted(response: response))
+          return response
+        }
+        Map<String, Boolean> identifiers = Map<>()
+        for ToolCall call : response.calls {
+          if call.callId.isBlank || identifiers.containsKey(key: call.callId) {
+            throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Duplicate or empty tool call identifier")
+          }
+          identifiers.put(key: call.callId, value: true)
+        }
+        for JsonValue item : response.output { session.append(item: item) }
+        ToolScope? scope = if beginToolScope == null { null } else { beginToolScope() }
+        try {
+          for ToolCall call : response.calls {
+            callbacks.emit(event: GenerationEvent.ToolStarted(call: call))
+            String output = ""
+            Boolean succeeded = false
+            try { output = this.invokeTool(call: call, registry: registry) succeeded = true }
+            catch Exception error {
+              callbacks.emit(event: GenerationEvent.ToolFailed(failure: ToolFailure(call: call, error: error)))
+              Map<String, JsonValue> failure = Map<>()
+              failure.put(key: "error", value: JsonValue.String(value: error.message))
+              output = writeJson(value: JsonValue.Object(fields: failure))
+            }
+            if succeeded { callbacks.emit(event: GenerationEvent.ToolCompleted(result: ToolResult(call: call, output: output))) }
+            Map<String, JsonValue> result = Map<>()
+            result.put(key: "type", value: JsonValue.String(value: "function_call_output"))
+            result.put(key: "call_id", value: JsonValue.String(value: call.callId))
+            result.put(key: "output", value: JsonValue.String(value: output))
+            session.append(item: JsonValue.Object(fields: result))
+          }
+          if scope != null {
+            String? feedback = scope.complete()
+            if feedback != null { session.addContext(text: feedback) }
+          }
+        } finally { if scope != null { scope.close() } }
+      }
+      throw OpenAiException(code: "OPENAI-TOOL-LIMIT", message: "The run reached its model request limit")
+    } catch Exception error {
+      callbacks.emit(event: GenerationEvent.Failed(error: error))
+      throw error
+    }
+  }
+
+  private String? instructionText() {
+    String? combined = instructions
+    for Skill value : skills {
+      String content = SkillLoader().fetch(skill: value)
+      combined = if combined == null { content } else { combined + "\n\n" + content }
+    }
+    return combined
+  }
+
+  private String invokeTool(ToolCall call, ToolRegistry registry) {
+    try { return registry.invoke(call: call) }
+    catch OpenAiException error {
+      if error.code != "OPENAI-UNKNOWN-TOOL" { throw error }
+      for McpToolProvider provider : mcpProviders {
+        if provider.supports(name: call.name) { return provider.invoke(call: call) }
+      }
+      throw error
+    }
+  }
+}

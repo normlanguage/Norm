@@ -19,6 +19,10 @@ final class Lexer {
       new DiagnosticCode("NORM-LEXER-0005");
   private static final DiagnosticCode INVALID_CODE_POINT = new DiagnosticCode("NORM-LEXER-0006");
   private static final DiagnosticCode INVALID_NUMBER = new DiagnosticCode("NORM-LEXER-0007");
+  private static final DiagnosticCode MULTILINE_OPENING_DELIMITER =
+      new DiagnosticCode("NORM-LEXER-0008");
+  private static final DiagnosticCode MULTILINE_CLOSING_DELIMITER =
+      new DiagnosticCode("NORM-LEXER-0009");
 
   private final SourceFile source;
   private final DiagnosticBag diagnostics;
@@ -189,6 +193,12 @@ final class Lexer {
     boolean multiline = startsWith("\"\"");
     if (multiline) offset += 2;
     String delimiter = multiline ? "\"\"\"" : "\"";
+    if (multiline && !hasLineBreakAfterOpeningDelimiter(offset)) {
+      diagnostics.error(
+          MULTILINE_OPENING_DELIMITER,
+          "multiline string opening delimiter must be followed by a line break",
+          new SourceSpan(source, start, offset));
+    }
     StringBuilder value = new StringBuilder();
     int textStart = offset;
     boolean interpolated = false;
@@ -196,7 +206,14 @@ final class Lexer {
       int characterStart = offset;
       int character = advanceCodePoint();
       if (character == '"' && (!multiline || startsWith("\"\""))) {
-        if (multiline) offset += 2;
+        int delimiterEnd = multiline ? offset + 2 : offset;
+        if (multiline && !isLineOnlyDelimiter(characterStart, delimiterEnd)) {
+          diagnostics.error(
+              MULTILINE_CLOSING_DELIMITER,
+              "multiline string closing delimiter must be alone on its line",
+              new SourceSpan(source, characterStart, delimiterEnd));
+        }
+        if (multiline) offset = delimiterEnd;
         if (interpolated) {
           addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());
           tokens.add(
@@ -405,6 +422,38 @@ final class Lexer {
 
   private boolean startsWith(String value) {
     return source.text().startsWith(value, offset);
+  }
+
+  private boolean hasLineBreakAfterOpeningDelimiter(int delimiterEnd) {
+    int cursor = delimiterEnd;
+    while (cursor < source.length() && isHorizontalWhitespace(source.text().charAt(cursor))) {
+      cursor++;
+    }
+    return cursor < source.length() && isLineBreak(source.text().charAt(cursor));
+  }
+
+  private boolean isLineOnlyDelimiter(int delimiterStart, int delimiterEnd) {
+    int lineStart = delimiterStart;
+    while (lineStart > 0 && !isLineBreak(source.text().charAt(lineStart - 1))) {
+      lineStart--;
+    }
+    for (int cursor = lineStart; cursor < delimiterStart; cursor++) {
+      if (!isHorizontalWhitespace(source.text().charAt(cursor))) return false;
+    }
+    for (int cursor = delimiterEnd; cursor < source.length(); cursor++) {
+      char character = source.text().charAt(cursor);
+      if (isLineBreak(character)) return true;
+      if (!isHorizontalWhitespace(character)) return false;
+    }
+    return true;
+  }
+
+  private static boolean isHorizontalWhitespace(char character) {
+    return character == ' ' || character == '\t';
+  }
+
+  private static boolean isLineBreak(char character) {
+    return character == '\n' || character == '\r';
   }
 
   private void addSimple(TokenKind kind, int start) {

@@ -19,6 +19,7 @@ import java.util.Optional;
 final class Analyzer {
   private final SemanticAnalysisContext context;
   private final TypeResolver typeResolver;
+  private final DeclarationPolicyResolver policies;
   private final BodyAnalyzer bodies;
   private final DeclarationAnalyzer declarations;
   private final DeclarationAnalysis declarationAnalysis;
@@ -32,7 +33,7 @@ final class Analyzer {
             context.resolution,
             context.model,
             context.diagnostics);
-    var policies =
+    policies =
         new DeclarationPolicyResolver(
             context.declarations, context.resolution, typeResolver, diagnostics);
     declarations =
@@ -143,7 +144,8 @@ final class Analyzer {
           for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
             if (reuse(aggregateDecl.span(), reusableDeclarations)) continue;
             typeResolver.validateTypeParameterNames(aggregateDecl.typeParameters());
-            declarations.validateFields(aggregateDecl, bodies.expressionChecker);
+            declarations.validateFields(aggregateDecl);
+            bodies.analyzeFieldDefaults(aggregateDecl);
             bodies.analyzeImplicitSuperCall(aggregateDecl);
             for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
               bodies.analyzeConstructor(constructor, aggregateDecl);
@@ -163,6 +165,7 @@ final class Analyzer {
               context.resolution,
               context.scope,
               typeResolver,
+              policies,
               bodies.expressionChecker);
       annotationChecker.validateAnnotationSchemas();
       annotationChecker.validateAnnotationApplications();

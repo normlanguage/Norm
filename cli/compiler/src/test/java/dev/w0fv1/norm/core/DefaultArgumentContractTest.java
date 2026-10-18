@@ -15,6 +15,16 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class DefaultArgumentContractTest {
   @Test
+  void resolvesRecursiveFieldDefaultTypesWithinTheirOwningAggregate() {
+    var library =
+        compile("class Node { Node? next = null } Void main() { printLine(Node().next == null) }");
+    var artifact = library.withEntryPoint(library.namespace().occurrence("", "main").orElseThrow());
+    var output = new java.io.StringWriter();
+    new dev.w0fv1.norm.runtime.NormRuntime().run(artifact, new java.io.PrintWriter(output));
+    assertEquals("true" + System.lineSeparator(), output.toString());
+  }
+
+  @Test
   void preservesDefaultContractsWithoutExecutingUnusedImplementations() {
     var library =
         compile(
@@ -82,7 +92,7 @@ final class DefaultArgumentContractTest {
         var target =
             ((CoreDefaultArgument.Resolved) parameter.defaultValue().orElseThrow()).occurrence();
         assertEquals(
-            CoreDefinitionRole.DEFAULT_ARGUMENT,
+            CoreDefinitionRole.DEFAULT_VALUE,
             artifact.authoring().occurrence(target).orElseThrow().role());
         assertInstanceOf(
             CoreDefinition.Callable.class,

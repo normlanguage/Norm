@@ -38,9 +38,10 @@ public final class PreparedApplicationCache {
 
   public Attempt read(Path entry) throws IOException {
     if (!JavaAnnotationProcessorPipeline.cacheableEnvironment())
-      return new Attempt(Optional.empty(), List.of());
+      return new Attempt(Optional.empty(), List.of(), ProjectInputSnapshot.empty());
     var bytes = indexes.read(key(entry));
-    if (bytes.isEmpty()) return new Attempt(Optional.empty(), List.of());
+    if (bytes.isEmpty())
+      return new Attempt(Optional.empty(), List.of(), ProjectInputSnapshot.empty());
     var cached = PortableObjectCodec.decode(bytes.orElseThrow(), Index.class);
     var initialInputs = cached.inputs();
     if (!cached.modules().isEmpty()) {
@@ -50,26 +51,29 @@ public final class PreparedApplicationCache {
               .collect(java.util.stream.Collectors.toSet());
       var files =
           cached.inputs().files().stream().filter(file -> sources.contains(file.path())).toList();
-      if (files.size() != sources.size()) return new Attempt(Optional.empty(), List.of());
+      if (files.size() != sources.size())
+        return new Attempt(Optional.empty(), List.of(), ProjectInputSnapshot.empty());
       initialInputs = new ProjectInputSnapshot(files, List.of(), cached.inputs().absent());
     }
-    if (!initialInputs.matches()) return new Attempt(Optional.empty(), List.of());
+    if (!initialInputs.matches())
+      return new Attempt(Optional.empty(), List.of(), ProjectInputSnapshot.empty());
     var evaluated = new ArrayList<ModuleEvaluation>();
     var backend = new NormRuntime();
     for (var module : cached.modules()) {
       var current = module.evaluate(backend);
       evaluated.add(current);
       if (!module.declaration().equals(current.declaration()))
-        return new Attempt(Optional.empty(), evaluated);
+        return new Attempt(Optional.empty(), evaluated, cached.inputs());
     }
     if (!cached.modules().isEmpty() && !cached.inputs().matches())
-      return new Attempt(Optional.empty(), evaluated);
+      return new Attempt(Optional.empty(), evaluated, cached.inputs());
     var content = contents.read(cached.content());
-    if (content.isEmpty()) return new Attempt(Optional.empty(), evaluated);
+    if (content.isEmpty()) return new Attempt(Optional.empty(), evaluated, cached.inputs());
     return new Attempt(
         Optional.of(
             PortableObjectCodec.decode(content.orElseThrow(), PreparedApplicationContent.class)),
-        evaluated);
+        evaluated,
+        cached.inputs());
   }
 
   public void write(
@@ -132,7 +136,9 @@ public final class PreparedApplicationCache {
   }
 
   public record Attempt(
-      Optional<PreparedApplicationContent> content, List<ModuleEvaluation> modules) {
+      Optional<PreparedApplicationContent> content,
+      List<ModuleEvaluation> modules,
+      ProjectInputSnapshot inputs) {
     public Attempt {
       modules = List.copyOf(modules);
     }

@@ -10,6 +10,7 @@ public sealed interface CoreExpression extends CoreCollectionElement
         CoreExpression.NullLiteral,
         CoreExpression.CollectionLiteral,
         CoreExpression.LocalRead,
+        CoreExpression.ParameterProvided,
         CoreExpression.Let,
         CoreExpression.FieldRead,
         CoreExpression.AddressLocal,
@@ -57,6 +58,19 @@ public sealed interface CoreExpression extends CoreCollectionElement
           || value instanceof String)) {
         throw new IllegalArgumentException("unsupported core literal value");
       }
+    }
+  }
+
+  record ParameterProvided(int nodeIndex, int parameterIndex) implements CoreExpression {
+    public ParameterProvided {
+      requireNode(nodeIndex);
+      if (parameterIndex < 0)
+        throw new IllegalArgumentException("parameter index must not be negative");
+    }
+
+    @Override
+    public CoreType type() {
+      return CoreType.BOOLEAN;
     }
   }
 

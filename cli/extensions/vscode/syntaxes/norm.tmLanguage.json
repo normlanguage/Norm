@@ -21,8 +21,8 @@
   "repository": {
     "multilineStrings": {
       "name": "string.quoted.triple.norm",
-      "begin": "\"\"\"",
-      "end": "\"\"\"",
+      "begin": "\"\"\"[ \\t]*(?=\\r?$)",
+      "end": "^[ \\t]*\"\"\"[ \\t]*(?=\\r?$)",
       "patterns": [
         { "name": "constant.character.escape.norm", "match": "\\\\." }
       ]

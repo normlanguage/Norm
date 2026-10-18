@@ -11,5 +11,5 @@ public enum CoreDefinitionRole {
   EXTENSION,
   METHOD,
   LAMBDA,
-  DEFAULT_ARGUMENT
+  DEFAULT_VALUE
 }

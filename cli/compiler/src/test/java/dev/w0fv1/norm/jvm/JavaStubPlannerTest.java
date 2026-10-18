@@ -54,6 +54,76 @@ final class JavaStubPlannerTest {
   }
 
   @Test
+  void projectsEveryPermittedTrailingConstructorOmissionWithoutDuplicateBridgeIndexEntries()
+      throws Exception {
+    var input =
+        SourceFile.of(
+            Path.of("constructor-projection.norm"),
+            "package projection import std.annotation.TypeTarget import std.annotation.RuntimeRetention annotation Projected implements TypeTarget, RuntimeRetention {} @Projected() class Required { Integer first Integer second = 2 Integer third = 3 } @Projected() class Defaulted { Integer first = 1 Integer second = 2 } @Projected() class Explicit { Explicit() {} Explicit(Integer first) {} } Void main() {}");
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession()) {
+      var result = compiler.compile(input);
+      assertTrue(result.isSuccess(), result.diagnostics().toString());
+      var projection =
+          new JavaStubPlanner()
+              .plan(
+                  result.output().orElseThrow().artifact(),
+                  List.of(),
+                  CompilationScope.anonymous(List.of(input)),
+                  input.id(),
+                  Set.of());
+      var stubs = new JavaStubRenderer().render(projection);
+      var required =
+          stubs.stream()
+              .filter(stub -> stub.binaryName().endsWith(".Required"))
+              .findFirst()
+              .orElseThrow()
+              .source();
+      assertTrue(required.contains("public Required(int first)"), required);
+      assertTrue(required.contains("public Required(int first, int second)"), required);
+      assertFalse(required.contains("public Required()"), required);
+      var defaulted =
+          stubs.stream()
+              .filter(stub -> stub.binaryName().endsWith(".Defaulted"))
+              .findFirst()
+              .orElseThrow()
+              .source();
+      assertTrue(defaulted.contains("public Defaulted()"), defaulted);
+      assertTrue(defaulted.contains("public Defaulted(int first)"), defaulted);
+      assertEquals(
+          1, defaulted.split("@dev.w0fv1.norm.bridge.NormApplicationMethod", -1).length - 1);
+      var explicit =
+          stubs.stream()
+              .filter(stub -> stub.binaryName().endsWith(".Explicit"))
+              .findFirst()
+              .orElseThrow()
+              .source();
+      assertEquals(1, explicit.split("public Explicit\\(\\)", -1).length - 1);
+    }
+  }
+
+  @Test
+  void reusesFacadeBytesWhenOnlyMethodBodiesChange() throws Exception {
+    var before = new JavaStubRenderer().render(plan());
+    var changedSource =
+        SourceFile.of(source.path(), source.text().replace("\"child\"", "\"updated\""));
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession()) {
+      var result = compiler.compile(changedSource);
+      assertTrue(result.isSuccess(), result.diagnostics().toString());
+      var changed =
+          new JavaStubPlanner()
+              .plan(
+                  result.output().orElseThrow().artifact(),
+                  List.of(),
+                  CompilationScope.anonymous(List.of(changedSource)),
+                  changedSource.id(),
+                  Set.of());
+      assertEquals(before, new JavaStubRenderer().render(changed));
+    }
+  }
+
+  @Test
   void preservesNestedNullableListTypesInJavaMethodSignatures() {
     var parent =
         plan().types().stream()

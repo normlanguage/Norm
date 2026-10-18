@@ -18,14 +18,12 @@ import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
-import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,6 +33,26 @@ import java.util.WeakHashMap;
 
 public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
+  public static final class Realm implements AutoCloseable {
+    private final JavaRealmPool components = new JavaRealmPool();
+
+    private ClassLoader open(
+        java.util.Collection<Path> paths,
+        List<String> moduleRoots,
+        dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+      try {
+        return components.open(List.copyOf(paths), moduleRoots, assets);
+      } catch (IOException exception) {
+        throw new JarBindingRuntimeException("cannot prepare Java linkage components", exception);
+      }
+    }
+
+    @Override
+    public void close() {
+      components.close();
+    }
+  }
+
   private static final Duration CLASS_LOADER_RETIREMENT_TIMEOUT = Duration.ofSeconds(5);
   private final Map<String, BoundCall> calls;
   private final ClassCatalog classes;
@@ -59,6 +77,26 @@ public final class JvmJarBindingRuntime
     this(link(bindings), applicationClassLoader(classpath, applicationClasspath), true);
   }
 
+  public JvmJarBindingRuntime(
+      List<ResolvedJarBinding> bindings,
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+    this(bindings, classpath, applicationClasspath, assets, new Realm());
+  }
+
+  public JvmJarBindingRuntime(
+      List<ResolvedJarBinding> bindings,
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets,
+      Realm realm) {
+    this(
+        link(bindings),
+        applicationClassLoader(classpath, applicationClasspath, assets, realm),
+        true);
+  }
+
   public static JvmJarBindingRuntime closedWorld(List<LinkedJarBinding> bindings) {
     return new JvmJarBindingRuntime(bindings, JvmJarBindingRuntime.class.getClassLoader(), false);
   }
@@ -66,6 +104,23 @@ public final class JvmJarBindingRuntime
   public static JvmJarBindingRuntime prepared(
       List<LinkedJarBinding> bindings, List<Path> classpath, List<String> moduleRoots) {
     return new JvmJarBindingRuntime(bindings, applicationClassLoader(classpath, moduleRoots), true);
+  }
+
+  public static JvmJarBindingRuntime prepared(
+      List<LinkedJarBinding> bindings,
+      List<Path> classpath,
+      List<String> moduleRoots,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+    return prepared(bindings, classpath, moduleRoots, assets, new Realm());
+  }
+
+  public static JvmJarBindingRuntime prepared(
+      List<LinkedJarBinding> bindings,
+      List<Path> classpath,
+      List<String> moduleRoots,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets,
+      Realm realm) {
+    return new JvmJarBindingRuntime(bindings, realm.open(classpath, moduleRoots, assets), true);
   }
 
   public static JvmJarBindingRuntime closedWorld(
@@ -142,6 +197,9 @@ public final class JvmJarBindingRuntime
     calls = new LinkedHashMap<>();
     this.applicationLoader = applicationLoader;
     this.ownsApplicationLoader = ownsApplicationLoader;
+    Thread thread = Thread.currentThread();
+    ClassLoader previousLoader = thread.getContextClassLoader();
+    thread.setContextClassLoader(applicationLoader);
     try {
       classes = new ClassCatalog(applicationLoader, classLinker.get());
       callables
@@ -161,7 +219,17 @@ public final class JvmJarBindingRuntime
         throw new JarBindingRuntimeException(invalid.getMessage(), invalid);
       }
       throw failure;
+    } finally {
+      thread.setContextClassLoader(previousLoader);
     }
+  }
+
+  @Override
+  public List<ClassLoader> applicationClassLoaders() {
+    ClassLoader loader = applicationClassLoader();
+    return loader instanceof JavaRealmPool.ViewLoader view
+        ? view.loaders(applicationTypes())
+        : List.of(loader);
   }
 
   @Override
@@ -175,6 +243,23 @@ public final class JvmJarBindingRuntime
 
   private static ClassLoader applicationClassLoader(
       JarBindingClasspath classpath, List<Path> applicationClasspath) {
+    try (var assets = dev.w0fv1.norm.execution.RevisionResources.own(() -> {})) {
+      return applicationClassLoader(classpath, applicationClasspath, assets);
+    }
+  }
+
+  private static ClassLoader applicationClassLoader(
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+    return applicationClassLoader(classpath, applicationClasspath, assets, new Realm());
+  }
+
+  private static ClassLoader applicationClassLoader(
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets,
+      Realm realm) {
     Set<Path> paths = new LinkedHashSet<>();
     applicationClasspath.stream()
         .map(Path::toAbsolutePath)
@@ -184,7 +269,7 @@ public final class JvmJarBindingRuntime
     var roots = new ArrayList<Path>(classpath.rootPaths());
     roots.addAll(applicationClasspath);
     try {
-      return applicationClassLoader(paths, JavaModulePath.inspect(roots).names());
+      return realm.open(paths, JavaModulePath.inspect(roots).names(), assets);
     } catch (IOException failure) {
       throw new JarBindingRuntimeException("cannot inspect application module roots", failure);
     }
@@ -192,50 +277,16 @@ public final class JvmJarBindingRuntime
 
   private static ClassLoader applicationClassLoader(
       java.util.Collection<Path> paths, List<String> moduleRoots) {
-    URL[] urls =
-        paths.stream()
-            .map(
-                path -> {
-                  try {
-                    return path.toUri().toURL();
-                  } catch (java.net.MalformedURLException exception) {
-                    throw new JarBindingRuntimeException(
-                        "invalid classpath entry " + path, exception);
-                  }
-                })
-            .toArray(URL[]::new);
-    var loader = new ApplicationClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
-    try {
-      var modules = JavaModulePath.select(paths, moduleRoots);
-      if (!modules.paths().isEmpty()) {
-        var finder = java.lang.module.ModuleFinder.of(modules.paths().toArray(Path[]::new));
-        var roots =
-            finder.findAll().stream()
-                .filter(
-                    reference ->
-                        reference.descriptor().packages().stream()
-                            .anyMatch(name -> !ApplicationClassLoader.parentFirst(name + ".")))
-                .map(reference -> reference.descriptor().name())
-                .sorted()
-                .toList();
-        var configuration =
-            ModuleLayer.boot()
-                .configuration()
-                .resolve(
-                    finder, java.lang.module.ModuleFinder.of(paths.toArray(Path[]::new)), roots);
-        configuration
-            .modules()
-            .forEach(module -> loader.modules.put(module.name(), module.reference()));
-        ModuleLayer.defineModules(configuration, List.of(ModuleLayer.boot()), name -> loader);
-      }
-      return loader;
-    } catch (IOException failure) {
-      close(loader);
-      throw new JarBindingRuntimeException("cannot inspect application modules", failure);
-    } catch (RuntimeException failure) {
-      close(loader);
-      throw failure;
+    try (var assets = dev.w0fv1.norm.execution.RevisionResources.own(() -> {})) {
+      return applicationClassLoader(paths, moduleRoots, assets);
     }
+  }
+
+  private static ClassLoader applicationClassLoader(
+      java.util.Collection<Path> paths,
+      List<String> moduleRoots,
+      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+    return new Realm().open(paths, moduleRoots, assets);
   }
 
   @Override
@@ -304,7 +355,14 @@ public final class JvmJarBindingRuntime
       Object[] adapted = new Object[expectedArguments];
       if (receiverCount == 1) {
         Object receiver = arguments.getFirst();
-        adapted[0] = call.classes().argument(receiver);
+        var declaration = call.callable().declaration();
+        Class<?> expected =
+            declaration.kind() == JavaCallableKind.ARRAY_LENGTH
+                    || declaration.kind() == JavaCallableKind.ARRAY_GET
+                    || declaration.kind() == JavaCallableKind.ARRAY_SET
+                ? arrayClass(declaration, call.classes().loader())
+                : call.classes().load(declaration.owner());
+        adapted[0] = compatible(expected, call.classes().argument(receiver));
       }
       for (int index = 0; index < call.callable().parameters().size(); index++) {
         adapted[index + receiverCount] =
@@ -318,6 +376,7 @@ public final class JvmJarBindingRuntime
       Object value = call.callable().target().invoke(adapted);
       if (closesResource) return JarBindingResult.ResourceClosed.INSTANCE;
       JarBindingResult result = call.callable().result().apply(call.classes(), value);
+      if (applicationLoader instanceof JavaRealmPool.ViewLoader view) view.retain(value);
       if (call.callable().ownership() == JavaResourceOwnership.BORROWED) {
         if (result instanceof JarBindingResult.ResourceReference reference)
           return new JarBindingResult.BorrowedReference(
@@ -346,7 +405,9 @@ public final class JvmJarBindingRuntime
   private static Conversion<Object> argumentAdapter(JavaBindingType type) {
     Conversion<Object> conversion =
         switch (type) {
-          case JavaArrayType ignored -> (classes, value) -> value;
+          case JavaArrayType array ->
+              (classes, value) ->
+                  compatible(classes.load(array.descriptor().replace('/', '.')), value);
           case JavaPrimitiveType primitive -> (classes, value) -> adaptPrimitive(primitive, value);
           case JavaBoxedType boxed -> {
             var primitive = boxed.primitive();
@@ -364,7 +425,7 @@ public final class JvmJarBindingRuntime
           case JavaReferenceType reference ->
               switch (reference.kind()) {
                 case CLASS, ENUM, NUMBER, OBJECT, OPAQUE, RESOURCE, STRING ->
-                    (classes, value) -> value;
+                    (classes, value) -> compatible(classes.load(reference.binaryName()), value);
               };
         };
     return (classes, value) -> {
@@ -638,6 +699,7 @@ public final class JvmJarBindingRuntime
     applicationLoader = null;
     application = dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY;
     calls.clear();
+    if (classes != null) classes.clear();
     List<Throwable> failures = new ArrayList<>();
     for (var resource : resources.reversed()) {
       try {
@@ -697,204 +759,6 @@ public final class JvmJarBindingRuntime
     }
   }
 
-  private static final class ApplicationClassLoader extends URLClassLoader {
-    private final JarResourceScope resourceArchives = new JarResourceScope();
-    private boolean resourcesClosed;
-    private final Set<java.io.InputStream> resourceStreams =
-        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-    private final Map<String, java.lang.module.ModuleReference> modules = new LinkedHashMap<>();
-    private static final Set<String> PLATFORM_PACKAGES =
-        java.lang.module.ModuleFinder.ofSystem().findAll().stream()
-            .flatMap(reference -> reference.descriptor().packages().stream())
-            .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    private static final List<String> SHARED_PACKAGES =
-        List.of("dev.w0fv1.norm.bridge.", "org.junit.", "org.opentest4j.", "org.apiguardian.");
-
-    private ApplicationClassLoader(URL[] urls, ClassLoader parent) {
-      super(urls, parent);
-    }
-
-    @Override
-    protected URL findResource(String moduleName, String name) throws IOException {
-      if (moduleName == null) return findResource(name);
-      var reference = modules.get(moduleName);
-      if (reference == null) return null;
-      try (var reader = reference.open()) {
-        var resource = reader.find(name);
-        if (resource.isEmpty()) return null;
-        return ownedResource(resource.orElseThrow().toURL());
-      }
-    }
-
-    @Override
-    protected Class<?> findClass(String moduleName, String name) {
-      try {
-        Class<?> type = loadClass(name);
-        return java.util.Objects.equals(moduleName, type.getModule().getName()) ? type : null;
-      } catch (ClassNotFoundException absent) {
-        return null;
-      }
-    }
-
-    @Override
-    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-      synchronized (getClassLoadingLock(name)) {
-        Class<?> type = findLoadedClass(name);
-        if (type == null) {
-          if (parentFirst(name)) {
-            type = super.loadClass(name, false);
-          } else {
-            type = findClass(name);
-          }
-        }
-        if (resolve) resolveClass(type);
-        return type;
-      }
-    }
-
-    @Override
-    public URL getResource(String name) {
-      URL resource = findResource(name);
-      if (resource != null) return resource;
-      var parent = parentResourceLoader(name);
-      return parent == null ? null : parent.getResource(name);
-    }
-
-    @Override
-    public URL findResource(String name) {
-      var resource = super.findResource(name);
-      return resource == null ? null : ownedResource(resource);
-    }
-
-    @Override
-    public Enumeration<URL> findResources(String name) throws IOException {
-      return Collections.enumeration(
-          Collections.list(super.findResources(name)).stream().map(this::ownedResource).toList());
-    }
-
-    @Override
-    public Enumeration<URL> getResources(String name) throws IOException {
-      LinkedHashSet<URL> resources = new LinkedHashSet<>();
-      resources.addAll(Collections.list(findResources(name)));
-      var parent = parentResourceLoader(name);
-      if (parent != null) resources.addAll(Collections.list(parent.getResources(name)));
-      return Collections.enumeration(resources);
-    }
-
-    private ClassLoader parentResourceLoader(String name) {
-      boolean service = name.startsWith("META-INF/services/");
-      String type =
-          service ? name.substring("META-INF/services/".length()) : name.replace('/', '.');
-      if (sharedParent(type)) return getParent();
-      int separator = service ? type.lastIndexOf('.') : name.lastIndexOf('/');
-      String packageName = separator < 0 ? "" : type.substring(0, separator);
-      return PLATFORM_PACKAGES.contains(packageName) ? ClassLoader.getPlatformClassLoader() : null;
-    }
-
-    private URL ownedResource(URL resource) {
-      if (!resource.getProtocol().equals("jar")) return resource;
-      try {
-        resourceArchives.retain(resource);
-        return URL.of(
-            java.net.URI.create(resource.toExternalForm()),
-            new java.net.URLStreamHandler() {
-              @Override
-              protected java.net.URLConnection openConnection(URL url) throws IOException {
-                resourceArchives.retain(resource);
-                var connection = java.net.URI.create(url.toExternalForm()).toURL().openConnection();
-                return new java.net.URLConnection(url) {
-                  @Override
-                  public void connect() throws IOException {
-                    connection.connect();
-                    connected = true;
-                  }
-
-                  @Override
-                  public java.io.InputStream getInputStream() throws IOException {
-                    synchronized (resourceStreams) {
-                      if (resourcesClosed)
-                        throw new IOException("application resource scope is closed");
-                      var stream =
-                          new java.io.FilterInputStream(connection.getInputStream()) {
-                            @Override
-                            public void close() throws IOException {
-                              try {
-                                super.close();
-                              } finally {
-                                synchronized (resourceStreams) {
-                                  resourceStreams.remove(this);
-                                }
-                              }
-                            }
-                          };
-                      resourceStreams.add(stream);
-                      return stream;
-                    }
-                  }
-
-                  @Override
-                  public int getContentLength() {
-                    return connection.getContentLength();
-                  }
-
-                  @Override
-                  public long getContentLengthLong() {
-                    return connection.getContentLengthLong();
-                  }
-
-                  @Override
-                  public String getHeaderField(String name) {
-                    return connection.getHeaderField(name);
-                  }
-                };
-              }
-            });
-      } catch (IOException failure) {
-        throw new JarBindingRuntimeException(
-            "cannot own application resource " + resource, failure);
-      }
-    }
-
-    @Override
-    public void close() throws IOException {
-      IOException failure = null;
-      synchronized (resourceStreams) {
-        resourcesClosed = true;
-        for (var stream : List.copyOf(resourceStreams)) {
-          try {
-            stream.close();
-          } catch (IOException exception) {
-            if (failure == null) failure = exception;
-            else failure.addSuppressed(exception);
-          }
-        }
-      }
-      try {
-        super.close();
-      } catch (IOException exception) {
-        if (failure == null) failure = exception;
-        else failure.addSuppressed(exception);
-      }
-      try {
-        resourceArchives.close();
-      } catch (IOException exception) {
-        if (failure == null) failure = exception;
-        else failure.addSuppressed(exception);
-      }
-      if (failure != null) throw failure;
-    }
-
-    private static boolean parentFirst(String name) {
-      int separator = name.lastIndexOf('.');
-      return sharedParent(name)
-          || (separator >= 0 && PLATFORM_PACKAGES.contains(name.substring(0, separator)));
-    }
-
-    private static boolean sharedParent(String name) {
-      return SHARED_PACKAGES.stream().anyMatch(name::startsWith);
-    }
-  }
-
   private record CallbackKey(JarBindingCallback callback, JavaCallbackType type) {
     @Override
     public boolean equals(Object other) {
@@ -928,6 +792,12 @@ public final class JvmJarBindingRuntime
       indexedReferences.forEach((type, values) -> stableReferences.put(type, List.copyOf(values)));
       references = new LinkedHashMap<>(stableReferences);
       this.enumConstants = linkedClasses.enumConstants();
+    }
+
+    private void clear() {
+      callbacks.clear();
+      classes.clear();
+      references.clear();
     }
 
     private ClassLoader loader() {
@@ -1057,16 +927,36 @@ public final class JvmJarBindingRuntime
 
   private static LinkedCall prepareCall(JavaBindingCallable callable, JavaDirectCall target) {
     return new LinkedCall(
-        callable.owner() + "." + callable.name() + callable.descriptor(),
-        callable.kind().requiresReceiver(),
-        callable.kind() == JavaCallableKind.INSTANCE_METHOD
-            && callable.name().equals("close")
-            && callable.descriptor().equals("()V"),
-        callable.ownership(),
-        callable.kind() == JavaCallableKind.ARRAY_GET,
+        callable,
         callable.parameters().stream().map(JvmJarBindingRuntime::argumentAdapter).toList(),
         resultAdapter(callable.returnType()),
         target);
+  }
+
+  private static Object compatible(Class<?> expected, Object value) {
+    if (value == null || expected.isInstance(value)) return value;
+    var types = new ArrayDeque<Class<?>>();
+    var visited = new LinkedHashSet<Class<?>>();
+    types.add(value.getClass());
+    while (!types.isEmpty()) {
+      Class<?> actual = types.removeFirst();
+      if (!visited.add(actual)) continue;
+      if (actual.getName().equals(expected.getName())) {
+        throw new JarBindingRuntimeException(
+            dev.w0fv1.norm.execution.RuntimeErrorCode.JAVA_MIGRATION_REQUIRED,
+            "MIGRATION_REQUIRED: Java value "
+                + actual.getTypeName()
+                + " belongs to a different linkage component than the current "
+                + expected.getTypeName());
+      }
+      if (actual.getSuperclass() != null) types.add(actual.getSuperclass());
+      Collections.addAll(types, actual.getInterfaces());
+    }
+    throw new JarBindingRuntimeException(
+        "Java argument expected "
+            + expected.getTypeName()
+            + " but received "
+            + value.getClass().getTypeName());
   }
 
   @FunctionalInterface
@@ -1075,14 +965,32 @@ public final class JvmJarBindingRuntime
   }
 
   private record LinkedCall(
-      String description,
-      boolean receiver,
-      boolean closesResource,
-      JavaResourceOwnership ownership,
-      boolean receiverAlias,
+      JavaBindingCallable declaration,
       List<Conversion<Object>> parameters,
       Conversion<JarBindingResult> result,
-      JavaDirectCall target) {}
+      JavaDirectCall target) {
+    String description() {
+      return declaration.owner() + "." + declaration.name() + declaration.descriptor();
+    }
+
+    boolean receiver() {
+      return declaration.kind().requiresReceiver();
+    }
+
+    boolean closesResource() {
+      return declaration.kind() == JavaCallableKind.INSTANCE_METHOD
+          && declaration.name().equals("close")
+          && declaration.descriptor().equals("()V");
+    }
+
+    JavaResourceOwnership ownership() {
+      return declaration.ownership();
+    }
+
+    boolean receiverAlias() {
+      return declaration.kind() == JavaCallableKind.ARRAY_GET;
+    }
+  }
 
   private record BoundCall(LinkedCall callable, ClassCatalog classes) {}
 }

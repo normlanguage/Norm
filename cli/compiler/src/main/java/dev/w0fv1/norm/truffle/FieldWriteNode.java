@@ -16,17 +16,30 @@ final class FieldWriteNode extends Node {
   private static final CoreType FIELD_TYPE =
       builtin("std.core.Field", List.of(CoreType.EXISTENTIAL, CoreType.EXISTENTIAL));
   private static final CoreType COMPLETION_TYPE = builtin("std.core.FunctionCompletion");
-  private final AnnotationRuntime annotations;
   @Child private AnnotationLifecycleNode lifecycle = new AnnotationLifecycleNode();
 
-  FieldWriteNode(AnnotationRuntime annotations) {
-    this.annotations = annotations;
+  void execute(
+      RuntimeValues.ObjectValue receiver,
+      RuntimeValues.FieldKey field,
+      Object value,
+      ExecutionState execution) {
+    execute(receiver, field, value, execution, receiver.info(execution));
   }
 
   void execute(
-      RuntimeValues.ObjectValue receiver, int field, Object value, ExecutionState execution) {
-    RuntimeValues.FieldPlan plan = fieldPlan(receiver, field);
-    invoke(0, receiver, plan, value, execution);
+      RuntimeValues.ObjectValue receiver,
+      RuntimeValues.FieldKey field,
+      Object value,
+      ExecutionState execution,
+      RuntimeValues.AggregateInfo view) {
+    receiver.ensureLayout(view, execution);
+    RuntimeValues.FieldPlan plan =
+        view.fields().stream()
+            .filter(candidate -> candidate.key().equals(field))
+            .findFirst()
+            .orElseThrow();
+    AnnotationRuntime runtime = view.annotations();
+    invoke(0, receiver, plan, value, execution, runtime, view);
   }
 
   private void invoke(
@@ -34,23 +47,27 @@ final class FieldWriteNode extends Node {
       RuntimeValues.ObjectValue receiver,
       RuntimeValues.FieldPlan plan,
       Object value,
-      ExecutionState execution) {
+      ExecutionState execution,
+      AnnotationRuntime annotations,
+      RuntimeValues.AggregateInfo view) {
     if (layer == interceptorCount(plan)) {
       Object stored = RuntimeValues.copy(value);
-      Object previous = receiver.fields[plan.index()];
-      receiver.fields[plan.index()] = stored;
+      Object previous = receiver.rawField(plan.key(), view);
+      receiver.writeRawField(plan.key(), stored, view);
       if (receiver.hostValue != null) {
-        writeHostField(receiver.hostValue, plan.name(), stored);
+        ClassLoader loader = execution.applicationClassLoader();
+        RuntimeValues.afterStateCommit(
+            () -> writeHostField(loader, receiver.hostValue, plan.name(), stored));
       }
-      receiver.fieldChanged(plan.index(), previous);
+      receiver.fieldChanged(plan.key(), previous, view);
       return;
     }
     CoreInterceptor interceptor = interceptor(plan, layer);
     RuntimeValues.FieldContextValue context =
         new RuntimeValues.FieldContextValue(
-            FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type, FIELD_TYPE));
+            FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type(), FIELD_TYPE));
     RuntimeValues.ObjectValue annotation =
-        annotations.fieldAnnotation(plan.owner(), plan.index(), interceptor, execution);
+        annotations.fieldAnnotation(plan.owner(), plan.index(), layer, interceptor, execution);
     Object transformed =
         lifecycle.execute(
             annotations.fieldBefore(annotation),
@@ -60,7 +77,8 @@ final class FieldWriteNode extends Node {
             new CoreType[0]);
     boolean succeeded = false;
     try {
-      invoke(layer + 1, receiver, plan, RuntimeValues.copy(transformed), execution);
+      invoke(
+          layer + 1, receiver, plan, RuntimeValues.copy(transformed), execution, annotations, view);
       succeeded = true;
     } finally {
       lifecycle.execute(
@@ -75,11 +93,6 @@ final class FieldWriteNode extends Node {
   }
 
   @TruffleBoundary
-  private static RuntimeValues.FieldPlan fieldPlan(RuntimeValues.ObjectValue receiver, int field) {
-    return ((RuntimeValues.AggregateInfo) receiver.objectInfo).fields().get(field);
-  }
-
-  @TruffleBoundary
   private static int interceptorCount(RuntimeValues.FieldPlan plan) {
     return plan.interceptors().size();
   }
@@ -90,8 +103,9 @@ final class FieldWriteNode extends Node {
   }
 
   @TruffleBoundary
-  private static void writeHostField(Object receiver, String name, Object value) {
-    JavaApplicationBridge.writeField(receiver, name, value);
+  private static void writeHostField(
+      ClassLoader loader, Object receiver, String name, Object value) {
+    JavaApplicationBridge.writeField(loader, receiver, name, value);
   }
 
   private static CoreType builtin(String identity) {

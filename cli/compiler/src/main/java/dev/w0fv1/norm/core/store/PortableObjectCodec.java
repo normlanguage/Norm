@@ -7,6 +7,10 @@ import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.CollectionSerializer;
 import com.esotericsoftware.kryo.serializers.MapSerializer;
 import com.esotericsoftware.kryo.util.DefaultInstantiatorStrategy;
+import dev.w0fv1.norm.core.CoreCompilationInput;
+import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionContent;
+import dev.w0fv1.norm.core.CoreLinkage;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -102,8 +106,45 @@ public final class PortableObjectCodec {
     kryo.addDefaultSerializer(Path.class, new PathSerializer());
     kryo.addDefaultSerializer(URI.class, new UriSerializer());
     kryo.addDefaultSerializer(Optional.class, new OptionalSerializer());
+    kryo.addDefaultSerializer(CoreDefinitionContent.class, new CoreDefinitionContentSerializer());
+    kryo.addDefaultSerializer(CoreCompilationInput.Source.class, new CoreSourceSerializer());
     kryo.addDefaultSerializer(dev.w0fv1.norm.source.SourceFile.class, new SourceFileSerializer());
     return kryo;
+  }
+
+  public static final class CoreDefinitionContentSerializer
+      extends Serializer<CoreDefinitionContent> {
+    @Override
+    public void write(Kryo kryo, Output output, CoreDefinitionContent content) {
+      kryo.writeClassAndObject(output, content.definition());
+    }
+
+    @Override
+    public CoreDefinitionContent read(
+        Kryo kryo, Input input, Class<? extends CoreDefinitionContent> type) {
+      return new CoreDefinitionContent((CoreDefinition) kryo.readClassAndObject(input));
+    }
+  }
+
+  public static final class CoreSourceSerializer extends Serializer<CoreCompilationInput.Source> {
+    @Override
+    public void write(Kryo kryo, Output output, CoreCompilationInput.Source source) {
+      kryo.writeObject(output, source.content());
+      output.writeInt(source.linkage().declarations().size(), true);
+      source.linkage().declarations().forEach(index -> output.writeInt(index, true));
+    }
+
+    @Override
+    public CoreCompilationInput.Source read(
+        Kryo kryo, Input input, Class<? extends CoreCompilationInput.Source> type) {
+      var content = kryo.readObject(input, CoreDefinitionContent.class);
+      int size = input.readInt(true);
+      if (size != content.slots())
+        throw new IllegalArgumentException("linkage must bind every content slot exactly once");
+      var declarations = new ArrayList<Integer>(size);
+      for (int index = 0; index < size; index++) declarations.add(input.readInt(true));
+      return new CoreCompilationInput.Source(content, new CoreLinkage(declarations));
+    }
   }
 
   public static final class SourceFileSerializer

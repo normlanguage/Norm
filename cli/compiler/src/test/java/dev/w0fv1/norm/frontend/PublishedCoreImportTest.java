@@ -21,6 +21,149 @@ final class PublishedCoreImportTest {
   @TempDir Path directory;
 
   @Test
+  void importsDefaultAnnotationReferencesWithoutRetainingThePublishingSessionBindings()
+      throws Exception {
+    var std = new ModuleCoordinate("std", 1);
+    var library = new ModuleCoordinate("library", 1);
+    var application = new ModuleCoordinate("application", 1);
+    var policies =
+        SourceFile.of(
+            directory.resolve("policies.norm"),
+            "package std.annotation public interface AnnotationTarget {} public interface TypeTarget extends AnnotationTarget {} public interface AnnotationRetention {} public interface RuntimeRetention extends AnnotationRetention {}");
+    var publishedSource =
+        SourceFile.of(
+            directory.resolve("published/library.norm"),
+            """
+        package library
+        import std.annotation.TypeTarget
+        import std.annotation.RuntimeRetention
+        public annotation Link implements TypeTarget, RuntimeRetention { Function<String()> action = first.function }
+        public String first() { "same" }
+        public String second() { "same" }
+        @Link() public class Original {}
+        @Link(action: second.function) public class Other {}
+        """);
+    CompiledModule published;
+    try (var compiler = new CompilerSession()) {
+      var result =
+          compiler.compileModule(
+              request(
+                      library,
+                      Map.of(std, policies, library, publishedSource),
+                      Map.of(std, Set.of(), library, Set.of(std)))
+                  .asLibrary(),
+              library);
+      assertTrue(result.compilation().isSuccess(), result.compilation().diagnostics().toString());
+      published = CompiledModule.decode(result.module().orElseThrow().encode());
+    }
+    var consumed =
+        SourceFile.of(directory.resolve("consumed/library.norm"), publishedSource.text());
+    var main =
+        SourceFile.of(
+            directory.resolve("main.norm"),
+            """
+        package application
+        import library.Link
+        import library.Original
+        import library.Other
+        @Link() class Local {}
+        Void main() {
+          printLine(Original.class.annotation<Link>()!!.action.name())
+          printLine(Other.class.annotation<Link>()!!.action.name())
+          printLine(Local.class.annotation<Link>()!!.action.name())
+        }
+        """);
+    var input =
+        request(
+            application,
+            Map.of(std, policies, library, consumed, application, main),
+            Map.of(std, Set.of(), library, Set.of(std), application, Set.of(std, library)));
+    for (int run = 0; run < 2; run++) {
+      try (var compiler =
+              CompilerSession.persistent(directory.resolve("annotation-default-cache"));
+          var fresh = new CompilerSession()) {
+        var result = compiler.compile(input, List.of(published));
+        assertTrue(result.isSuccess(), result.diagnostics().toString());
+        var expected = fresh.compile(input);
+        assertTrue(expected.isSuccess(), expected.diagnostics().toString());
+        assertEquals(
+            ArtifactId.forArtifact(expected.output().orElseThrow().artifact(), "test"),
+            ArtifactId.forArtifact(result.output().orElseThrow().artifact(), "test"));
+        var output = new java.io.StringWriter();
+        new dev.w0fv1.norm.runtime.NormRuntime()
+            .run(result.output().orElseThrow().artifact(), new java.io.PrintWriter(output));
+        assertEquals(List.of("first", "second", "first"), output.toString().lines().toList());
+      }
+    }
+  }
+
+  @Test
+  void preservesDistinctDependencyBindingsForIdenticalPublishedBodies() throws Exception {
+    var base = new ModuleCoordinate("base", 1);
+    var facade = new ModuleCoordinate("facade", 1);
+    var app = new ModuleCoordinate("application", 1);
+    var baseSource =
+        SourceFile.of(
+            directory.resolve("base.norm"),
+            "package base public Integer first() { 1 } public Integer second() { 1 }");
+    var facadeSource =
+        SourceFile.of(
+            directory.resolve("facade.norm"),
+            "package facade import base.first import base.second "
+                + "public Integer sum() { first() + second() } "
+                + "public Integer doubled() { first() + first() }");
+    CompiledModule published;
+    try (var compiler = new CompilerSession()) {
+      var result =
+          compiler.compileModule(
+              request(
+                      facade,
+                      Map.of(base, baseSource, facade, facadeSource),
+                      Map.of(base, Set.of(), facade, Set.of(base)))
+                  .asLibrary(),
+              facade);
+      assertTrue(result.compilation().isSuccess(), result.compilation().diagnostics().toString());
+      published = CompiledModule.decode(result.module().orElseThrow().encode());
+    }
+    var updatedBase =
+        SourceFile.of(
+            baseSource.path(), baseSource.text().replace("second() { 1 }", "second() { 2 }"));
+    var main =
+        SourceFile.of(
+            directory.resolve("main.norm"),
+            "package app import facade.sum import facade.doubled "
+                + "Void main() { printLine(sum()) printLine(doubled()) }");
+    var reads = Map.of(base, Set.<ModuleCoordinate>of(), facade, Set.of(base), app, Set.of(facade));
+    var cache = directory.resolve("distinct-bindings-cache");
+    for (int revision = 0; revision < 2; revision++) {
+      var entry =
+          revision == 0
+              ? main
+              : SourceFile.of(
+                  main.path(),
+                  main.text().replace("printLine(doubled())", "printLine(doubled() + 1)"));
+      var compilation =
+          request(app, Map.of(base, updatedBase, facade, facadeSource, app, entry), reads);
+      try (var compiler = CompilerSession.persistent(cache);
+          var fresh = new CompilerSession()) {
+        var result = compiler.compile(compilation, List.of(published));
+        assertTrue(result.isSuccess(), result.diagnostics().toString());
+        var expected = fresh.compile(compilation);
+        assertTrue(expected.isSuccess(), expected.diagnostics().toString());
+        var artifact = result.output().orElseThrow().artifact();
+        assertEquals(
+            ArtifactId.forArtifact(expected.output().orElseThrow().artifact(), "test"),
+            ArtifactId.forArtifact(artifact, "test"));
+        var printed = new java.io.StringWriter();
+        new dev.w0fv1.norm.runtime.NormRuntime().run(artifact, new java.io.PrintWriter(printed));
+        assertEquals(
+            "3" + System.lineSeparator() + (revision == 0 ? "2" : "3") + System.lineSeparator(),
+            printed.toString());
+      }
+    }
+  }
+
+  @Test
   void dependencyCanAddDeclarationsWithoutInvalidatingPublishedConsumers() throws Exception {
     var base = new ModuleCoordinate("base", 1);
     var facade = new ModuleCoordinate("facade", 1);

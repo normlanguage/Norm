@@ -6,7 +6,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 public record CoreDefinitionOrigin(
-    String definitionName, SourceSpan rootSpan, Map<Integer, SourceSpan> nodeSpans)
+    String definitionName,
+    SourceSpan rootSpan,
+    Map<Integer, SourceSpan> nodeSpans,
+    Optional<String> declarationIdentity,
+    Map<Integer, String> localNames)
     implements Comparable<CoreDefinitionOrigin> {
   public CoreDefinitionOrigin {
     Objects.requireNonNull(definitionName, "definitionName");
@@ -15,6 +19,26 @@ public record CoreDefinitionOrigin(
     }
     Objects.requireNonNull(rootSpan, "rootSpan");
     nodeSpans = Map.copyOf(nodeSpans);
+    declarationIdentity = Objects.requireNonNull(declarationIdentity, "declarationIdentity");
+    localNames = Map.copyOf(localNames);
+    localNames.forEach(
+        (slot, name) -> {
+          if (slot < 0 || name.isBlank())
+            throw new IllegalArgumentException("invalid named local slot");
+        });
+  }
+
+  public CoreDefinitionOrigin(
+      String definitionName, SourceSpan rootSpan, Map<Integer, SourceSpan> nodeSpans) {
+    this(definitionName, rootSpan, nodeSpans, Optional.empty(), Map.of());
+  }
+
+  public CoreDefinitionOrigin(
+      String definitionName,
+      SourceSpan rootSpan,
+      Map<Integer, SourceSpan> nodeSpans,
+      Optional<String> declarationIdentity) {
+    this(definitionName, rootSpan, nodeSpans, declarationIdentity, Map.of());
   }
 
   public Optional<SourceSpan> span(int nodeIndex) {

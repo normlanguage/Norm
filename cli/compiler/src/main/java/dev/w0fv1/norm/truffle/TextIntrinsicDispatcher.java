@@ -22,12 +22,12 @@ final class TextIntrinsicDispatcher {
                 Object first = arguments.length <= 0 ? null : arguments[0];
 
                 RuntimeValues.BuilderValue builder = (RuntimeValues.BuilderValue) receiver;
-                builder.value.append(RuntimeText.stringify(first));
+                builder.writable().append(RuntimeText.stringify(first));
                 return builder;
               });
       case BUILDER_TO_STRING ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return ((RuntimeValues.BuilderValue) receiver).value.toString();
+            return ((RuntimeValues.BuilderValue) receiver).value().toString();
           };
       case STRING_BYTE_SIZE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {

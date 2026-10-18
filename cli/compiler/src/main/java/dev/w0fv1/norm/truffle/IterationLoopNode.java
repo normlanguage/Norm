@@ -37,13 +37,14 @@ final class IterationLoopNode<C> extends Node {
     if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
       throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
     }
-    iteratorBinding.write(
-        frame, new State<>(factory.create(frame, iterable.execute(frame), this), context));
-    try {
+    var state = new State<>(factory.create(frame, iterable.execute(frame), this), context);
+    iteratorBinding.write(frame, state);
+    var bindings = ExecutionContextAccess.state(frame).liveBindings();
+    try (var lease = bindings == null ? null : bindings.retain(state)) {
       loop.execute(frame);
     } finally {
-      frame.clear(iteratorBinding.slot());
-      indexBinding.ifPresent(binding -> frame.clear(binding.slot()));
+      iteratorBinding.clear(frame);
+      indexBinding.ifPresent(binding -> binding.clear(frame));
     }
   }
 
@@ -106,7 +107,7 @@ final class IterationLoopNode<C> extends Node {
     }
   }
 
-  private static final class State<C> {
+  private static final class State<C> implements RuntimeStateRoots {
     private final Object iterator;
     private final C context;
     private int index;
@@ -114,6 +115,11 @@ final class IterationLoopNode<C> extends Node {
     State(Object iterator, C context) {
       this.iterator = iterator;
       this.context = context;
+    }
+
+    @Override
+    public java.util.List<Object> retainedValues() {
+      return context == null ? java.util.List.of(iterator) : java.util.List.of(iterator, context);
     }
   }
 }

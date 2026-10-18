@@ -44,7 +44,8 @@ final class CoreAnnotationProgramTest {
                 + "@Marker(text: \"value\") value Point {} Void main() {}");
     CoreAnnotationApplication application = artifact.metadata().annotations().getFirst();
     CoreAnnotationApplication malformed =
-        new CoreAnnotationApplication(application.annotation(), application.target(), List.of());
+        new CoreAnnotationApplication(
+            application.id(), application.annotation(), application.target(), List.of());
 
     assertThrows(
         IllegalArgumentException.class,
@@ -88,6 +89,7 @@ final class CoreAnnotationProgramTest {
             reference.virtual());
     CoreAnnotationApplication replaced =
         new CoreAnnotationApplication(
+            application.id(),
             application.annotation(),
             application.target(),
             List.of(new CoreAnnotationValue(original.type(), malformed)));
@@ -121,7 +123,7 @@ final class CoreAnnotationProgramTest {
                         CoreType.STRING, new CoreAnnotationValue.Literal("User")))));
     CoreAnnotationApplication replaced =
         new CoreAnnotationApplication(
-            application.annotation(), application.target(), List.of(malformed));
+            application.id(), application.annotation(), application.target(), List.of(malformed));
 
     assertThrows(
         IllegalArgumentException.class,

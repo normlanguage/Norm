@@ -38,6 +38,7 @@ import dev.w0fv1.norm.core.CoreDefinitionOrigin;
 import dev.w0fv1.norm.core.CoreDefinitionRole;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreField;
+import dev.w0fv1.norm.core.CoreFieldInitializer;
 import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
@@ -162,8 +163,21 @@ final class BoundCoreConverter {
                         new CoreBuildHistory.Key.Named(value.id().value()), () -> convert(value))));
     Optional<Integer> entryPointIndex =
         program.entryPoint().map(entry -> declarationIndex(entry.value()));
+    var applicationOrdinals = new LinkedHashMap<DocumentId, Integer>();
     List<AnnotationSeed> metadata =
-        program.annotationApplications().stream().map(this::annotationSeed).toList();
+        program.annotationApplications().stream()
+            .sorted(
+                java.util.Comparator.comparing(
+                        (BoundAnnotationApplication application) ->
+                            sourceCoordinates.get(application.span().source().id()))
+                    .thenComparingInt(application -> application.span().startOffset()))
+            .map(
+                application ->
+                    annotationSeed(
+                        application,
+                        applicationOrdinals.merge(application.span().source().id(), 1, Integer::sum)
+                            - 1))
+            .toList();
     return new Result(
         declarations,
         metadata,
@@ -322,9 +336,12 @@ final class BoundCoreConverter {
     }
   }
 
-  private AnnotationSeed annotationSeed(BoundAnnotationApplication application) {
+  private AnnotationSeed annotationSeed(BoundAnnotationApplication application, int ordinal) {
     BoundCoreTypeConverter types = BoundCoreTypeConverter.forMetadata(nominalTypeIndices);
     return new AnnotationSeed(
+        new dev.w0fv1.norm.core.CoreAnnotationApplicationId(
+            Objects.requireNonNull(sourceCoordinates.get(application.span().source().id())),
+            ordinal),
         declarationIndex(application.annotation().value()),
         annotationTarget(application.target()),
         application.values().stream().map(value -> annotationValue(value, types)).toList());
@@ -553,6 +570,30 @@ final class BoundCoreConverter {
                         .findFirst()
                         .orElseThrow())
             .toList();
+    var nodeSpans = new LinkedHashMap<Integer, SourceSpan>();
+    nodeSpans.put(0, declaration.span());
+    var referenceTargets = new LinkedHashMap<Integer, Integer>();
+    var initializers = new LinkedHashMap<Integer, CoreFieldInitializer>();
+    for (var field : declaration.fields()) {
+      field
+          .initializer()
+          .ifPresent(
+              target -> {
+                var factory =
+                    program.callables().stream()
+                        .filter(callable -> callable.id().equals(target))
+                        .findFirst()
+                        .orElseThrow();
+                int nodeIndex = field.ordinal() + 1;
+                int targetIndex = declarationIndex(target.value());
+                nodeSpans.put(nodeIndex, factory.span());
+                referenceTargets.put(nodeIndex, targetIndex);
+                initializers.put(
+                    field.ordinal(),
+                    new CoreFieldInitializer(
+                        nodeIndex, new PendingDefinitionReference(targetIndex)));
+              });
+    }
     CoreDefinition definition =
         new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
@@ -581,7 +622,8 @@ final class BoundCoreConverter {
                             types.convert(field.type()),
                             field.interceptors().stream()
                                 .map(interceptor -> coreInterceptor(interceptor, types))
-                                .toList()))
+                                .toList(),
+                            Optional.ofNullable(initializers.get(field.ordinal()))))
                 .toList(),
             declaration.dispatch().stream()
                 .map(
@@ -602,8 +644,8 @@ final class BoundCoreConverter {
             coreConformances(declaration.conformances(), types));
     return new Declaration(
         definition,
-        origin(declaration.name(), declaration.span(), Map.of(0, declaration.span())),
-        Map.of(),
+        origin(declaration.name(), declaration.span(), nodeSpans),
+        referenceTargets,
         new BindingSeed(
             source,
             Optional.empty(),
@@ -757,19 +799,21 @@ final class BoundCoreConverter {
           case EXTENSION -> CoreDefinitionRole.EXTENSION;
           case METHOD -> CoreDefinitionRole.METHOD;
           case LAMBDA -> CoreDefinitionRole.LAMBDA;
-          case DEFAULT_ARGUMENT -> CoreDefinitionRole.DEFAULT_ARGUMENT;
+          case DEFAULT_VALUE -> CoreDefinitionRole.DEFAULT_VALUE;
         };
     return new Declaration(
         definition,
-        origin(
+        new CoreDefinitionOrigin(
             declaration.kind() == BoundCallableKind.LAMBDA
                 ? declaration.id().value()
                 : declaration.name(),
             declaration.span(),
-            body.nodeSpans()),
+            body.nodeSpans(),
+            Optional.empty(),
+            body.localNames()),
         body.referenceTargets(),
         declaration.kind() == BoundCallableKind.CONSTRUCTOR
-                || declaration.kind() == BoundCallableKind.DEFAULT_ARGUMENT
+                || declaration.kind() == BoundCallableKind.DEFAULT_VALUE
                 || declaration.kind() == BoundCallableKind.LAMBDA
             ? Optional.empty()
             : Optional.of(
@@ -933,7 +977,10 @@ final class BoundCoreConverter {
   }
 
   record AnnotationSeed(
-      int annotationDeclaration, PendingAnnotationTarget target, List<CoreAnnotationValue> values) {
+      dev.w0fv1.norm.core.CoreAnnotationApplicationId id,
+      int annotationDeclaration,
+      PendingAnnotationTarget target,
+      List<CoreAnnotationValue> values) {
     AnnotationSeed {
       if (annotationDeclaration < 0) {
         throw new IllegalArgumentException("annotation declaration index must not be negative");
@@ -952,6 +999,7 @@ final class BoundCoreConverter {
             return link;
           };
       return new CoreAnnotationApplication(
+          id,
           definitions.get(annotationDeclaration),
           target.resolve(occurrences),
           values.stream().map(value -> resolveAnnotationValue(value, links)).toList());

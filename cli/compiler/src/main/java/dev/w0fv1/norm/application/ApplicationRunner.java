@@ -3,6 +3,7 @@ package dev.w0fv1.norm.application;
 import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.execution.ExecutionRevision;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.jvm.JavaAnnotationStub;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
@@ -17,6 +18,72 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public final class ApplicationRunner implements AutoCloseable {
+  public static ApplicationRunResult runSource(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      Consumer<String> diagnostics,
+      PreparedApplicationCache cache)
+      throws IOException {
+    try (var session = openSourceSession(entry, context, progress, diagnostics, cache)) {
+      return session.execute();
+    }
+  }
+
+  public static ApplicationSession openSourceSession(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      Consumer<String> diagnostics,
+      PreparedApplicationCache cache)
+      throws IOException {
+    progress.accept("Checking prepared application");
+    var attempt = cache.read(entry);
+    var backend = new dev.w0fv1.norm.runtime.NormRuntime();
+    var cancellation = new java.util.concurrent.atomic.AtomicBoolean();
+    var original = context;
+    var updates = new ApplicationUpdateChannel();
+    context =
+        context
+            .withUpdates(updates)
+            .withApplicationDirectory(entry.toAbsolutePath().normalize().getParent())
+            .withCancellation(() -> cancellation.get() || original.cancellation().getAsBoolean());
+    var compiler =
+        new SourceApplicationCompiler(entry, context, backend, progress, cache, attempt.modules());
+    try {
+      ExecutionRevision revision;
+      dev.w0fv1.norm.project.ProjectInputSnapshot inputs;
+      Optional<CompilationResult> compilation;
+      if (attempt.content().isPresent()) {
+        progress.accept("Reused prepared application");
+        var content = attempt.content().orElseThrow();
+        revision =
+            ApplicationRuntimeRevision.prepared(
+                content, cache.prepare(content), context, compiler.realm());
+        inputs = attempt.inputs();
+        compilation = Optional.empty();
+      } else {
+        var candidate = compiler.compile();
+        compilation = Optional.of(candidate.result());
+        revision = candidate.revision().orElse(null);
+        inputs = candidate.inputs();
+      }
+      return new ApplicationSession(
+          backend,
+          compiler,
+          compilation,
+          revision,
+          inputs,
+          cancellation,
+          progress,
+          diagnostics,
+          updates);
+    } catch (IOException | RuntimeException | Error exception) {
+      compiler.close();
+      throw exception;
+    }
+  }
+
   private final ProjectLoader projects;
   private final ApplicationCompiler compiler;
   private final ExecutionBackend backend;
@@ -70,9 +137,49 @@ public final class ApplicationRunner implements AutoCloseable {
     return run(entry, context, message -> {});
   }
 
+  public CompilationResult run(
+      Path entry, ExecutionContext context, Consumer<String> progress, Consumer<String> diagnostics)
+      throws IOException {
+    return run(entry, context, progress, null, List.of(), diagnostics);
+  }
+
+  ApplicationCandidate compileCandidate(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      PreparedApplicationCache cache,
+      List<dev.w0fv1.norm.project.ModuleEvaluation> replay,
+      dev.w0fv1.norm.jvm.JvmJarBindingRuntime.Realm realm)
+      throws IOException {
+    progress.accept("Resolving sources and dependencies: " + entry);
+    var loaded = projects.load(dev.w0fv1.norm.source.SourceFile.read(entry), List.of(), replay);
+    var sources = loaded.sources();
+    var compilation =
+        compiler.compile(
+            new ApplicationInput(
+                sources.applicationCompilationRequest(entry), Optional.of(sources)),
+            List.of(),
+            progress);
+    if (!compilation.result().isSuccess()) {
+      compilation.close();
+      return new ApplicationCandidate(compilation.result(), loaded.inputs(), Optional.empty());
+    }
+    var application = compilation.application().orElseThrow();
+    try {
+      if (cache != null)
+        cache.write(entry, application, loaded.inputs(), loaded.moduleEvaluations());
+      progress.accept("Preparing Java runtime");
+      var revision = ApplicationRuntimeRevision.compiled(application, context, realm);
+      return new ApplicationCandidate(compilation.result(), loaded.inputs(), Optional.of(revision));
+    } catch (IOException | RuntimeException | Error exception) {
+      compilation.close();
+      throw exception;
+    }
+  }
+
   public CompilationResult run(Path entry, ExecutionContext context, Consumer<String> progress)
       throws IOException {
-    return run(entry, context, progress, null);
+    return run(entry, context, progress, null, List.of());
   }
 
   public CompilationResult run(
@@ -91,29 +198,70 @@ public final class ApplicationRunner implements AutoCloseable {
       PreparedApplicationCache cache,
       List<dev.w0fv1.norm.project.ModuleEvaluation> replay)
       throws IOException {
-    progress.accept("Resolving sources and dependencies: " + entry);
-    var loaded = projects.load(dev.w0fv1.norm.source.SourceFile.read(entry), List.of(), replay);
-    var sources = loaded.sources();
-    try (var compilation =
-        compiler.compile(
-            new ApplicationInput(
-                sources.applicationCompilationRequest(entry), Optional.of(sources)),
-            List.of(),
-            progress)) {
-      if (compilation.application().isPresent()) {
-        var application = compilation.application().orElseThrow();
-        if (cache != null)
-          cache.write(entry, application, loaded.inputs(), loaded.moduleEvaluations());
-        progress.accept("Preparing Java runtime");
-        try (var runtime = application.openRuntime()) {
-          progress.accept("Starting application");
-          backend.execute(
-              compilation.result().output().orElseThrow().artifact(),
-              application.executionPlan(),
-              application.context(context).withJarBindingRuntime(runtime));
-        }
-      }
-      return compilation.result();
+    return run(
+        entry,
+        context,
+        progress,
+        cache,
+        replay,
+        message -> {
+          context.error().println(message);
+          context.error().flush();
+        });
+  }
+
+  private CompilationResult run(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      PreparedApplicationCache cache,
+      List<dev.w0fv1.norm.project.ModuleEvaluation> replay,
+      Consumer<String> diagnostics)
+      throws IOException {
+    try (var session = openSession(entry, context, progress, cache, replay, diagnostics)) {
+      session.execute();
+      return session.compilation().orElseThrow();
+    }
+  }
+
+  public ApplicationSession openSession(
+      Path entry, ExecutionContext context, Consumer<String> progress, Consumer<String> diagnostics)
+      throws IOException {
+    return openSession(entry, context, progress, null, List.of(), diagnostics);
+  }
+
+  private ApplicationSession openSession(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      PreparedApplicationCache cache,
+      List<dev.w0fv1.norm.project.ModuleEvaluation> replay,
+      Consumer<String> diagnostics)
+      throws IOException {
+    var cancellation = new java.util.concurrent.atomic.AtomicBoolean();
+    var original = context;
+    var updates = new ApplicationUpdateChannel();
+    context =
+        context
+            .withUpdates(updates)
+            .withCancellation(() -> cancellation.get() || original.cancellation().getAsBoolean());
+    var candidateCompiler =
+        new SourceApplicationCompiler(this, entry, context, progress, cache, replay);
+    try {
+      var candidate = candidateCompiler.compile();
+      return new ApplicationSession(
+          backend,
+          candidateCompiler,
+          Optional.of(candidate.result()),
+          candidate.revision().orElse(null),
+          candidate.inputs(),
+          cancellation,
+          progress,
+          diagnostics,
+          updates);
+    } catch (IOException | RuntimeException | Error exception) {
+      candidateCompiler.close();
+      throw exception;
     }
   }
 

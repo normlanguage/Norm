@@ -28,24 +28,25 @@ final class RuntimeValuesTest {
 
     assertTrue(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Renamed", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, integerResult, "Renamed", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(second, integerResult, "Result", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(second, integerResult, "Result", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, stringResult, "Result", "Ok", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, stringResult, "Result", "Ok", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Error", List.of(1))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(
+                first, integerResult, "Result", "Error", List.of(1), null)));
     assertFalse(
         RuntimeValues.equal(
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1)),
-            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(2))));
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(1), null),
+            new RuntimeValues.EnumValue(first, integerResult, "Result", "Ok", List.of(2), null)));
   }
 
   @Test
@@ -55,7 +56,7 @@ final class RuntimeValuesTest {
     payload.values.add(1);
     RuntimeValues.EnumValue value =
         new RuntimeValues.EnumValue(
-            definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(payload));
+            definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(payload), null);
 
     RuntimeValues.EnumValue copied = (RuntimeValues.EnumValue) RuntimeValues.copy(value);
     payload.values.add(2);
@@ -66,7 +67,7 @@ final class RuntimeValuesTest {
     assertEquals(
         "Result.Ok(1)",
         new RuntimeValues.EnumValue(
-                definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(1))
+                definition, resultType(CoreType.INTEGER), "Result", "Ok", List.of(1), null)
             .toString());
   }
 
@@ -104,18 +105,37 @@ final class RuntimeValuesTest {
             "Box",
             2,
             List.of(
-                new RuntimeValues.FieldPlan(occurrence, "first", 0, true, List.of()),
-                new RuntimeValues.FieldPlan(occurrence, "second", 1, true, List.of())),
+                new RuntimeValues.FieldPlan(
+                    occurrence,
+                    "first",
+                    0,
+                    true,
+                    List.of(),
+                    CoreType.INTEGER,
+                    java.util.Optional.empty()),
+                new RuntimeValues.FieldPlan(
+                    occurrence,
+                    "second",
+                    1,
+                    true,
+                    List.of(),
+                    CoreType.INTEGER,
+                    java.util.Optional.empty())),
             Map.of(),
-            java.util.Set.of(definition));
+            java.util.Set.of(definition),
+            null);
     RuntimeValues.ObjectValue receiver = new RuntimeValues.ObjectValue(info, type);
     RuntimeValues.ObjectValue otherReceiver = new RuntimeValues.ObjectValue(info, type);
-    RuntimeValues.FieldReference first = new RuntimeValues.FieldReference(receiver, 0);
-    RuntimeValues.FieldReference same = new RuntimeValues.FieldReference(receiver, 0);
-    RuntimeValues.FieldReference otherField = new RuntimeValues.FieldReference(receiver, 1);
-    RuntimeValues.FieldReference otherObject = new RuntimeValues.FieldReference(otherReceiver, 0);
+    RuntimeValues.FieldReference first =
+        new RuntimeValues.FieldReference(receiver, info.fields().get(0).key());
+    RuntimeValues.FieldReference same =
+        new RuntimeValues.FieldReference(receiver, info.fields().get(0).key());
+    RuntimeValues.FieldReference otherField =
+        new RuntimeValues.FieldReference(receiver, info.fields().get(1).key());
+    RuntimeValues.FieldReference otherObject =
+        new RuntimeValues.FieldReference(otherReceiver, info.fields().get(0).key());
 
-    receiver.fields[0] = 7;
+    receiver.writeRawField(info.fields().get(0).key(), 7);
 
     assertEquals(7, same.read());
     assertEquals(first, RuntimeValues.copy(first));

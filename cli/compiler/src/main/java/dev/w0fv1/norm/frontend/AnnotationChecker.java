@@ -42,6 +42,7 @@ final class AnnotationChecker {
       TypeResolutionState resolution,
       dev.w0fv1.norm.value.CompilationScope scope,
       TypeResolver typeResolver,
+      DeclarationPolicyResolver declarationPolicies,
       ExpressionTyping expressions) {
     this.catalog = catalog;
     this.diagnostics = diagnostics;
@@ -50,10 +51,12 @@ final class AnnotationChecker {
     this.resolution = resolution;
     this.scope = scope;
     this.typeResolver = typeResolver;
+    this.declarationPolicies = declarationPolicies;
     this.expressions = expressions;
   }
 
   private final TypeResolver typeResolver;
+  private final DeclarationPolicyResolver declarationPolicies;
   private final ExpressionTyping expressions;
   private final Set<AnnotationApplicationKey> indexedAnnotationApplications = new HashSet<>();
 
@@ -152,7 +155,9 @@ final class AnnotationChecker {
           List<AnnotationParameterInfo> parameters = new ArrayList<>();
           List<?> constructorParameters =
               declaration.constructors().isEmpty()
-                  ? declaration.fields()
+                  ? declaration.fields().stream()
+                      .filter(declarationPolicies::constructorInput)
+                      .toList()
                   : declaration.constructors().getFirst().parameters();
           for (Object parameter : constructorParameters) {
             Syntax.TypeRef typeRef =
@@ -181,7 +186,11 @@ final class AnnotationChecker {
                     Optional.ofNullable(model.declarationSymbols().get(parameter))
                         .orElseGet(() -> model.bindings().get(nameSpan)),
                     name,
-                    type));
+                    type,
+                    (parameter instanceof Syntax.FieldDecl field
+                            ? field.defaultValue()
+                            : ((Syntax.Parameter) parameter).defaultValue())
+                        .flatMap(value -> annotationConstant(value, type))));
           }
           SymbolId symbol = model.declarationSymbols().get(declaration);
           model.putAnnotationSchema(
@@ -420,13 +429,13 @@ final class AnnotationChecker {
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
-                        && site.kind() == AnnotationTarget.FUNCTION
+                        && site.kind() == callableTarget
                         && site.symbol().equals(callableId)
-                        && isInterceptor(application, AnnotationTarget.FUNCTION))
+                        && isInterceptor(application, callableTarget))
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
-            .map(parameter -> model.declarationSymbols().get(parameter))
+            .map(parameter -> model.bindings().get(parameter.nameSpan()))
             .collect(java.util.stream.Collectors.toSet());
     List<AnnotationApplication> parameterInterceptors =
         model.annotationApplications().stream()
@@ -481,6 +490,9 @@ final class AnnotationChecker {
     SymbolId symbol = model.declarationSymbols().get(declaration);
     if (symbol == null && declaration instanceof Syntax.VariableDecl variable) {
       symbol = model.bindings().get(variable.nameSpan());
+    }
+    if (symbol == null && declaration instanceof Syntax.Parameter parameter) {
+      symbol = model.bindings().get(parameter.nameSpan());
     }
     return symbol == null
         ? Optional.empty()
@@ -692,7 +704,9 @@ final class AnnotationChecker {
       for (AnnotationParameterInfo parameter : schema.parameters()) {
         Syntax.CallArgument argument = supplied.remove(parameter.name());
         if (argument == null) {
-          if (parameter.type().isNullable()) {
+          if (parameter.defaultValue().isPresent()) {
+            values.add(parameter.defaultValue().orElseThrow());
+          } else if (parameter.type().isNullable()) {
             values.add(new AnnotationValue(parameter.type(), AnnotationValue.Null.INSTANCE));
           } else {
             diagnostics.error(

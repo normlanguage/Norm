@@ -95,8 +95,8 @@ final class OpenAiClientTest {
       for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
         Files.copy(source, project.resolve(source.getFileName()));
     }
-    try (var server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
-        var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    try (var executor = Executors.newVirtualThreadPerTaskExecutor();
+        var server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
       server.setSoTimeout(30_000);
       var exchange =
           executor.submit(

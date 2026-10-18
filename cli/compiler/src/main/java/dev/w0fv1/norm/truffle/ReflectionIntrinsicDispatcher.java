@@ -24,7 +24,8 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
             return field
-                .annotations()
+                .binding()
+                .select(field.ownerType(), execution)
                 .hasFieldAnnotation(
                     field, ((RuntimeValues.ClassValue) arguments[0]).reflectedType());
           };
@@ -32,7 +33,10 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
             try {
-              return field.annotations().fieldIdentity(field, arguments[0], type);
+              return field
+                  .binding()
+                  .select(field.ownerType(), execution)
+                  .fieldIdentity(field, arguments[0], type, execution);
             } catch (IllegalArgumentException failure) {
               throw execution.values().javaException(failure, execution, location);
             }
@@ -40,20 +44,24 @@ final class ReflectionIntrinsicDispatcher {
       case FIELD_IS_PUBLIC ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-            return field.annotations().publicField(field);
+            return field.binding().select(field.ownerType(), execution).publicField(field);
           };
       case FIELD_BIND ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
             try {
-              return field.annotations().bindField(field, arguments[0], type);
+              return field
+                  .binding()
+                  .select(field.ownerType(), execution)
+                  .bindField(field, arguments[0], type);
             } catch (IllegalArgumentException failure) {
               throw execution.values().javaException(failure, execution, location);
             }
           };
       case FIELD_HANDLE_READ ->
           (receiver, arguments, type, context, location, annotations, execution) ->
-              ((AnnotationRuntime.FieldHandle) ((RuntimeValues.OpaqueValue) receiver).value).read();
+              ((AnnotationRuntime.FieldHandle) ((RuntimeValues.OpaqueValue) receiver).value)
+                  .read(execution);
       case FIELD_HANDLE_WRITE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             try {
@@ -68,7 +76,10 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
             try {
-              field.annotations().writeField(field, arguments[0], arguments[1], execution);
+              field
+                  .binding()
+                  .select(field.ownerType(), execution)
+                  .writeField(field, arguments[0], arguments[1], execution);
             } catch (IllegalArgumentException failure) {
               throw execution.values().javaException(failure, execution, location);
             }
@@ -78,7 +89,10 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
             try {
-              field.annotations().copyField(field, arguments[0], arguments[1], execution);
+              field
+                  .binding()
+                  .select(field.ownerType(), execution)
+                  .copyField(field, arguments[0], arguments[1], execution);
             } catch (IllegalArgumentException failure) {
               throw execution.values().javaException(failure, execution, location);
             }
@@ -105,22 +119,64 @@ final class ReflectionIntrinsicDispatcher {
               throw new IllegalStateException("annotation execution is unavailable");
             }
             RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-            return reflected.annotations().annotation(reflected.reflectedType(), type, execution);
+            return reflected
+                .binding()
+                .select(reflected.reflectedType(), execution)
+                .annotation(reflected.reflectedType(), type, execution);
+          };
+      case CLASS_SNAPSHOT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            var reflected = (RuntimeValues.ClassValue) receiver;
+            var selected = reflected.binding().select(reflected.reflectedType(), execution);
+            return new RuntimeValues.ClassValue(
+                reflected.type(), reflected.reflectedType(), new ReflectionBinding(selected, true));
           };
       case CLASS_FIELDS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-            return reflected.annotations().fields(reflected.reflectedType(), type);
+            var result =
+                reflected
+                    .binding()
+                    .select(reflected.reflectedType(), execution)
+                    .fields(reflected.reflectedType(), type);
+            if (!reflected.binding().frozen()) return result;
+            return new RuntimeValues.ListValue(
+                type,
+                result.values.stream()
+                    .map(field -> (Object) ((RuntimeValues.FieldValue) field).snapshot())
+                    .toList());
           };
       case CLASS_FUNCTIONS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-            return reflected.annotations().functions(reflected.reflectedType(), type);
+            var result =
+                reflected
+                    .binding()
+                    .select(reflected.reflectedType(), execution)
+                    .functions(reflected.reflectedType(), type);
+            if (!reflected.binding().frozen()) return result;
+            return new RuntimeValues.ListValue(
+                type,
+                result.values.stream()
+                    .map(function -> (Object) ((RuntimeValues.Closure) function).snapshot())
+                    .toList());
           };
       case CLASS_CONSTRUCTORS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-            return reflected.annotations().constructors(reflected.reflectedType(), type);
+            var result =
+                reflected
+                    .binding()
+                    .select(reflected.reflectedType(), execution)
+                    .constructors(reflected.reflectedType(), type);
+            if (!reflected.binding().frozen()) return result;
+            return new RuntimeValues.ListValue(
+                type,
+                result.values.stream()
+                    .map(
+                        constructor ->
+                            (Object) ((RuntimeValues.ConstructorValue) constructor).snapshot())
+                    .toList());
           };
       case FIELD_LITERAL ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -138,12 +194,12 @@ final class ReflectionIntrinsicDispatcher {
       case FIELD_TYPE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-            return new RuntimeValues.ClassValue(type, field.fieldType(), field.annotations());
+            return new RuntimeValues.ClassValue(type, field.fieldType(), field.binding());
           };
       case FIELD_OWNER ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-            return new RuntimeValues.ClassValue(type, field.ownerType(), field.annotations());
+            return new RuntimeValues.ClassValue(type, field.ownerType(), field.binding());
           };
       case FIELD_ANNOTATION ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -151,40 +207,58 @@ final class ReflectionIntrinsicDispatcher {
               throw new IllegalStateException("annotation execution is unavailable");
             }
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-            return field.annotations().fieldAnnotation(field, type, execution);
+            return field
+                .binding()
+                .select(field.ownerType(), execution)
+                .fieldAnnotation(field, type, execution);
           };
       case FIELD_READ ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
 
             RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-            return field.annotations().readField(field, first);
+            return field
+                .binding()
+                .select(field.ownerType(), execution)
+                .readField(field, first, execution);
+          };
+      case FUNCTION_SNAPSHOT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.Closure) receiver).snapshot(execution);
           };
       case FUNCTION_NAME ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.functionName(function);
+            return function.annotations().functionName(function);
           };
       case FUNCTION_OWNER ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.functionOwner(function, type);
+            Object owner = function.annotations().functionOwner(function, type);
+            return owner instanceof RuntimeValues.ClassValue reflected
+                    && function.reflectionBinding().frozen()
+                ? reflected.snapshot()
+                : owner;
           };
       case FUNCTION_PARAMETERS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-            return annotations.parameters(function, type);
+            return function.annotations().parameters(function, type);
           };
       case FUNCTION_ANNOTATION ->
-          (receiver, arguments, type, context, location, annotations, execution) ->
-              annotations.callableAnnotation((RuntimeValues.Closure) receiver, -1, type, execution);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+            return function.annotations().callableAnnotation(function, -1, type, execution);
+          };
       case PARAMETER_ANNOTATION ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
-            var parameters = annotations.callable(parameter.function()).parameters();
+            var parameters = parameter.annotations().callable(parameter.function()).parameters();
             for (int index = 0; index < parameters.size(); index++) {
               if (parameters.get(index).name().equals(parameter.name()))
-                return annotations.callableAnnotation(parameter.function(), index, type, execution);
+                return parameter
+                    .annotations()
+                    .callableAnnotation(parameter.function(), index, type, execution);
             }
             return RuntimeValues.NullValue.INSTANCE;
           };
@@ -196,7 +270,7 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
             return new RuntimeValues.ClassValue(
-                type, parameter.valueType(), parameter.annotations());
+                type, parameter.valueType(), parameter.function().reflectionBinding());
           };
       case PARAMETER_FUNCTION ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -206,7 +280,7 @@ final class ReflectionIntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             RuntimeValues.ConstructorValue constructor = (RuntimeValues.ConstructorValue) receiver;
             return new RuntimeValues.ClassValue(
-                type, constructor.ownerType(), constructor.annotations());
+                type, constructor.ownerType(), constructor.binding());
           };
       case FUNCTION_CONTEXT_FUNCTION ->
           (receiver, arguments, type, context, location, annotations, execution) -> {

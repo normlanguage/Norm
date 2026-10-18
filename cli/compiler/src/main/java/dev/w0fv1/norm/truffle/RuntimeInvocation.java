@@ -7,11 +7,47 @@ import dev.w0fv1.norm.truffle.RuntimeValues.ObjectValue;
 import java.util.Objects;
 
 final class RuntimeInvocation {
+  private static final ThreadLocal<ResultBinding> RESULT_BINDING = new ThreadLocal<>();
+
   private RuntimeInvocation() {}
 
   static Object invoke(ExecutionState execution, Closure closure, Object... arguments) {
     PreparedInvocation invocation = prepareInvocation(execution, closure, arguments);
-    return invocation.target().call(invocation.arguments());
+    var previous = RESULT_BINDING.get();
+    RESULT_BINDING.set(new ResultBinding(invocation.target(), closure.snapshotVersion()));
+    try {
+      return invocation.target().call(invocation.arguments());
+    } finally {
+      if (previous == null) RESULT_BINDING.remove();
+      else RESULT_BINDING.set(previous);
+    }
+  }
+
+  static LiveBindings.Version resultVersion(CallTarget target, LiveBindings.Version caller) {
+    var binding = RESULT_BINDING.get();
+    if (binding == null || binding.target != target || binding.consumed) return caller;
+    binding.consumed = true;
+    return binding.version == null ? caller : binding.version;
+  }
+
+  static Object adaptResult(ExecutionState execution, Object result, LiveBindings.Version version) {
+    try (var scope = execution.liveBindings().pin(version);
+        var transaction = RuntimeStateTransaction.open(execution)) {
+      var adapted = transaction.transform(result, dev.w0fv1.norm.core.CoreType.DYNAMIC);
+      transaction.commit();
+      return adapted;
+    }
+  }
+
+  private static final class ResultBinding {
+    private final CallTarget target;
+    private final LiveBindings.Version version;
+    private boolean consumed;
+
+    private ResultBinding(CallTarget target, LiveBindings.Version version) {
+      this.target = target;
+      this.version = version;
+    }
   }
 
   @TruffleBoundary
@@ -30,6 +66,31 @@ final class RuntimeInvocation {
     }
     int receiverCount = receiver == null ? 0 : 1;
     int ownerTypeArgumentCount = receiverTypeArguments.length;
+    var constructor =
+        closure
+            .sourceDeclaration()
+            .flatMap(occurrence -> closure.annotations().constructorParameters(occurrence));
+    if (constructor.isPresent()) {
+      var types = new Object[ownerTypeArgumentCount + closure.reifiedArguments().length];
+      System.arraycopy(receiverTypeArguments, 0, types, 0, ownerTypeArgumentCount);
+      System.arraycopy(
+          closure.reifiedArguments(),
+          0,
+          types,
+          ownerTypeArgumentCount,
+          closure.reifiedArguments().length);
+      return new PreparedInvocation(
+          target,
+          new Object[] {
+            execution,
+            receiver,
+            ConstructionArguments.supplied(
+                constructor.orElseThrow().count(),
+                java.util.stream.IntStream.range(0, callableArguments.length).toArray(),
+                callableArguments,
+                types)
+          });
+    }
     Object[] complete =
         new Object
             [1

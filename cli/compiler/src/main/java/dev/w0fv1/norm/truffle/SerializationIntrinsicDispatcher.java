@@ -22,9 +22,9 @@ final class SerializationIntrinsicDispatcher {
               }
               var operation = (RuntimeValues.Closure) arguments[0];
               return intrinsic == IntrinsicId.JSON_FUNCTION_SCHEMA
-                  ? JsonFunctionRuntime.schema(operation, annotations)
+                  ? JsonFunctionRuntime.schema(operation)
                   : JsonFunctionRuntime.invoke(
-                      operation, (String) arguments[1], annotations, execution, location);
+                      operation, (String) arguments[1], execution, location);
             } catch (SerializationRuntime.ShapeException failure) {
               throw JsonRuntime.shapeFailure(failure, execution, location);
             } catch (IllegalArgumentException failure) {

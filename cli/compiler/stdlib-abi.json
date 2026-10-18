@@ -1,897 +1,1205 @@
 {
-  "version": 47,
+  "version": 50,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "EXPECTED_OUTPUT_LINE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "REQUIRE_ARGUMENT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PUBLISH_MODULE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "AWAIT_CANCELLATION",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "APPLICATION_PACKAGE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "APPLICATION_DIRECTORY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_INVOKE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JAR_INVOKE_VOID",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_CREATE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_SIZE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_AT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_SLICE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_TO_ARRAY",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "IO_BYTES_JOIN",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "IO_TEXT_ENCODE_UTF8",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IO_TEXT_DECODE_UTF8",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IO_USE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_INPUT_STREAM_READ",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JAR_OUTPUT_STREAM_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_OUTPUT_STREAM_FLUSH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_STREAM_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_TASK_AWAIT",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JAR_TASK_CANCEL",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_TASK_COMPLETED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JAR_TASK_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FILE_OPEN_READ",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FILE_READER_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FILE_OPEN_WRITE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FILE_WRITER_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FILE_WRITER_FLUSH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FILE_WRITER_SYNC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FILE_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "HTTP_SEND",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "HTTP_RESPONSE_STATUS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "HTTP_RESPONSE_HEADERS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "HTTP_RESPONSE_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "HTTP_RESPONSE_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "TIME_SYSTEM_CLOCK",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TIME_CLOCK_NOW",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TO_STRING",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CLASS_LITERAL",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CLASS_NAME",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CLASS_ANNOTATION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CLASS_FIELDS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CLASS_FUNCTIONS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CLASS_CONSTRUCTORS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_LITERAL",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_NAME",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_TYPE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_OWNER",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_ANNOTATION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_READ",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FUNCTION_NAME",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FUNCTION_OWNER",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FUNCTION_PARAMETERS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "PARAMETER_NAME",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PARAMETER_TYPE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "PARAMETER_FUNCTION",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CONSTRUCTOR_OWNER",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JSON_ENCODE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JSON_DECODE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JSON_PARSE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JSON_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "XML_ENCODE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "XML_DECODE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "YAML_ENCODE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "YAML_DECODE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CONFIGURATION_PROPERTIES",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FUNCTION_CONTEXT_FUNCTION",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PARAMETER_CONTEXT_PARAMETER",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_CONTEXT_FIELD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FUNCTION_INVOCATION_PROCEED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FUNCTION_COMPLETION_SUCCEEDED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "RANGE_CONSTRUCT",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "ARRAY_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "SET_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STACK_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "QUEUE_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "DEQUE_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PAIR_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_BUILDER_CONSTRUCT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "SIZE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "IS_EMPTY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_ADD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "LIST_GET",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_REMOVE_AT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "ARRAY_FILLED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "ARRAY_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "ARRAY_REVERSED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_FILLED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_REMOVE_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "LIST_REVERSED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_PUT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "MAP_GET",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_CONTAINS_KEY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_REMOVE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "SET_ADD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "SET_CONTAINS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "SET_REMOVE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "STACK_PUSH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "STACK_POP",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "STACK_PEEK",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "QUEUE_ADD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "QUEUE_REMOVE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "QUEUE_PEEK",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "DEQUE_ADD_FIRST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "DEQUE_ADD_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "DEQUE_REMOVE_FIRST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "DEQUE_REMOVE_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "DEQUE_PEEK_FIRST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "DEQUE_PEEK_LAST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "BUILDER_APPEND",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "BUILDER_TO_STRING",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_BYTE_SIZE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_CODE_POINT_SIZE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_GRAPHEME_SIZE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_CODE_POINTS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_GRAPHEMES",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_SLICE_CODE_POINTS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_SPLIT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_BLANK",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_EMPTY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_CONTAINS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_STARTS_WITH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_ENDS_WITH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_SLICE_GRAPHEMES",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_REPLACE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_REPLACE_FIRST",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_TRIM",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_TRIM_START",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_TRIM_END",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_TO_LOWERCASE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_TO_UPPERCASE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_EQUALS_IGNORE_CASE_ASCII",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_COMPARE_CODE_POINTS",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_NORMALIZE_NFC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_NORMALIZE_NFD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_NORMALIZE_NFKC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_NORMALIZE_NFKD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_NORMALIZED_NFC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_NORMALIZED_NFD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_NORMALIZED_NFKC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STRING_IS_NORMALIZED_NFKD",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_SCALAR_VALUE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_DECIMAL_DIGIT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_LETTER",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_WHITESPACE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_UPPERCASE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_LOWERCASE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_IS_ASCII_DIGIT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CODE_POINT_ASCII_DIGIT_VALUE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PAIR_FIRST_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PAIR_FIRST_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "PAIR_SECOND_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PAIR_SECOND_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "ARRAY_INDEX_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "ARRAY_INDEX_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "LIST_INDEX_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_INDEX_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "MAP_INDEX_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_INDEX_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "ARRAY_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "LIST_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "MAP_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "SET_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "STACK_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "QUEUE_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "DEQUE_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "RANGE_ITERATOR",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "ITERATOR_HAS_NEXT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "ITERATOR_NEXT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "CONTEXT_CURRENT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CONTEXT_WITH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "OBSERVE_FIELDS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "VALUE_CLASS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CLASS_IS_VALUE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_IS_PUBLIC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "FIELD_COPY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "FIELD_HAS_ANNOTATION",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_IDENTITY",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_BIND",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FIELD_HANDLE_READ",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FIELD_HANDLE_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": true
     },
     {
       "name": "OBSERVE_FIELD",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TASK_START",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TASK_CONTINUE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TASK_TERMINATION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TASK_FROM_COMPLETION_STAGE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "TASK_JAVA_COMPLETION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "WS_CONNECT",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "WS_SEND_TEXT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "WS_SEND_BINARY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "WS_PING",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "WS_RECEIVE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "WS_FINISH",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "WS_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "WS_SUBPROTOCOL",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "DELAY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "COMPLETION_CREATE",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "COMPLETION_TASK",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "COMPLETION_SUCCEED",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "COMPLETION_FAIL",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "COMPLETION_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "APPLICATION_ARGUMENTS",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "APPLICATION_ENVIRONMENT",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "APPLICATION_WORKING_DIRECTORY",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "APPLICATION_EXIT_CODE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "CONSOLE_READ",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "CONSOLE_WRITE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "PROCESS_RUN",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "FILE_WRITE_ATOMIC",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "FUNCTION_ANNOTATION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "PARAMETER_ANNOTATION",
-      "requiresResultRuntimeType": true
+      "requiresResultRuntimeType": true,
+      "writesState": false
     },
     {
       "name": "JSON_SCHEMA",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JSON_FUNCTION_SCHEMA",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "JSON_FUNCTION_INVOKE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "RESOURCE_TRANSFER_OWNERSHIP",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
     },
     {
       "name": "RESOURCE_CLOSE",
-      "requiresResultRuntimeType": false
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_CONTAINS",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_READ",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_WRITE",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "STATE_MIGRATION_REMOVE",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "STATE_MIGRATION_COPY",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "RUNTIME_STATUS",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_LATEST",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_PUBLISH",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_BEGIN",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_COMMIT",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "RUNTIME_CLOSE",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "FUNCTION_SNAPSHOT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_TYPE",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_VARIANT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_PAYLOAD",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "STATE_MIGRATION_REPLACE",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "CLASS_SNAPSHOT",
+      "requiresResultRuntimeType": false,
+      "writesState": false
     }
   ],
   "opaqueValues": [
@@ -908,6 +1216,20 @@
       "moduleVersion": 1,
       "packageName": "std.concurrent",
       "typeName": "Task"
+    },
+    {
+      "name": "MIGRATION_STATE",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.runtime",
+      "typeName": "MigrationState"
+    },
+    {
+      "name": "UPDATE_BATCH",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.runtime",
+      "typeName": "UpdateBatch"
     }
   ],
   "runtimeShapes": [
@@ -2993,6 +3315,107 @@
         "std.core.existential"
       ],
       "nullable": false
+    },
+    "std.core.__stateMigrationRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__stateMigrationWrite/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationWrite/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field<std.core.existential,std.core.__stateMigrationWrite/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Field",
+      "name": "Field",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.existential",
+        "std.core.__stateMigrationWrite/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__runtimeStatus/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeStatus/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeLatest/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeLatest/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeLatest/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeLatest/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__runtimePublish/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimePublish/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeBegin/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeBegin/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__runtimeCommit/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__runtimeCommit/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__stateMigrationPayload/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationPayload/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__stateMigrationReplace/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__stateMigrationReplace/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Class/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Class/T"
+      ],
+      "nullable": false
     }
   },
   "builtinTypes": [
@@ -3223,6 +3646,17 @@
             "documentation": "Whether the reflected type has value semantics."
           },
           "intrinsic": "CLASS_IS_VALUE"
+        },
+        {
+          "symbol": {
+            "name": "snapshot",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Class/T>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Captures this class descriptor and its reflected members in the currently selected revision."
+          },
+          "intrinsic": "CLASS_SNAPSHOT"
         }
       ],
       "typeMembers": [],
@@ -3852,6 +4286,17 @@
             "documentation": "Reads a runtime annotation on the declaration."
           },
           "intrinsic": "FUNCTION_ANNOTATION"
+        },
+        {
+          "symbol": {
+            "name": "snapshot",
+            "kind": "METHOD",
+            "type": "std.core.Function/Signature",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Captures the currently callable revision and its metadata."
+          },
+          "intrinsic": "FUNCTION_SNAPSHOT"
         }
       ],
       "typeMembers": [],
@@ -8299,6 +8744,327 @@
         "typeParameters": []
       },
       "intrinsic": "RESOURCE_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationContains",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "field",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Managed state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_CONTAINS"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__stateMigrationRead/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "field",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Managed state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_READ"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationWrite/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "field",
+            "type": "std.core.Field<std.core.existential,std.core.__stateMigrationWrite/T>",
+            "hasDefault": false
+          },
+          {
+            "name": "value",
+            "type": "std.core.__stateMigrationWrite/T",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Managed state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationRemove",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "field",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Managed state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_REMOVE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationCopy",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "source",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "target",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Managed state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_COPY"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeStatus",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeStatus/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeStatus/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_STATUS"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeLatest",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeLatest/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeLatest/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_LATEST"
+    },
+    {
+      "symbol": {
+        "name": "__runtimePublish",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimePublish/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimePublish/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_PUBLISH"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeBegin",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeBegin/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeBegin/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_BEGIN"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeCommit",
+        "kind": "FUNCTION",
+        "type": "std.core.__runtimeCommit/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__runtimeCommit/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_COMMIT"
+    },
+    {
+      "symbol": {
+        "name": "__runtimeClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "batch",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime publication operation."
+      },
+      "intrinsic": "RUNTIME_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationType",
+        "kind": "FUNCTION",
+        "type": "std.core.Class<std.core.existential>",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_TYPE"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationVariant",
+        "kind": "FUNCTION",
+        "type": "std.core.String?",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_VARIANT"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationPayload",
+        "kind": "FUNCTION",
+        "type": "std.core.__stateMigrationPayload/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationPayload/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_PAYLOAD"
+    },
+    {
+      "symbol": {
+        "name": "__stateMigrationReplace",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__stateMigrationReplace/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "value",
+            "type": "std.core.__stateMigrationReplace/T",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Version-bound state migration operation."
+      },
+      "intrinsic": "STATE_MIGRATION_REPLACE"
     }
   ]
 }

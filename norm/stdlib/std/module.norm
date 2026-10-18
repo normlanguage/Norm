@@ -35,6 +35,8 @@ Module module() {
       "json.json",
       "math.integer",
       "process.process",
+      "runtime.migration",
+      "runtime.updates",
       "observation.fields",
       "serialization.core",
       "testing.output",

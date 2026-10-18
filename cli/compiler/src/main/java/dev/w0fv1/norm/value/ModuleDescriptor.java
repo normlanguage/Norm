@@ -63,6 +63,10 @@ public record ModuleDescriptor(
     return new ModuleDescriptor(coordinate, values, dependencies, binding);
   }
 
+  public ModuleDescriptor withBinding(JarBinding value) {
+    return new ModuleDescriptor(coordinate, exports, dependencies, Optional.of(value));
+  }
+
   private static void validateQualifiedName(String value, String role) {
     Objects.requireNonNull(value, role);
     if (value.isBlank()) throw new IllegalArgumentException(role + " name must not be blank");

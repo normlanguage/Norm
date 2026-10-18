@@ -29,7 +29,7 @@ final class MethodDispatchNode extends Node {
       Object[] arguments,
       Object[] methodTypeArguments,
       Node location) {
-    RuntimeValues.DispatchTarget target = target(receiver);
+    RuntimeValues.DispatchTarget target = target(receiver, ExecutionContextAccess.state(frame));
     if (target instanceof RuntimeValues.DispatchTarget.Intrinsic intrinsic) {
       return intrinsic
           .operation()
@@ -47,6 +47,7 @@ final class MethodDispatchNode extends Node {
             default -> receiver;
           };
       return invokeHost(
+          ExecutionContextAccess.state(frame).applicationClassLoader(),
           hostReceiver,
           host.definition(),
           arguments,
@@ -58,7 +59,13 @@ final class MethodDispatchNode extends Node {
     if (receiver instanceof RuntimeValues.ObjectValue object
         && object.dispatchToHost
         && object.hostValue != null) {
-      return invokeHost(object.hostValue, slot, arguments, object.type, methodTypeArguments);
+      return invokeHost(
+          ExecutionContextAccess.state(frame).applicationClassLoader(),
+          object.hostValue,
+          slot,
+          arguments,
+          object.type(),
+          methodTypeArguments);
     }
     CoreType receiverType = RuntimeValues.runtimeType(receiver);
     Object[] ownerTypeArguments = ownerTypeArguments(callableTarget, receiverType);
@@ -79,17 +86,19 @@ final class MethodDispatchNode extends Node {
   }
 
   @TruffleBoundary
-  private RuntimeValues.DispatchTarget target(Object receiver) {
+  private RuntimeValues.DispatchTarget target(Object receiver, ExecutionState execution) {
     if (receiver instanceof RuntimeValues.ObjectValue object) {
-      RuntimeValues.DispatchTarget target = object.objectInfo.dispatch().get(slot);
+      RuntimeValues.DispatchTarget target = object.info(execution).dispatch().get(slot);
       if (target != null) return target;
     } else if (receiver instanceof RuntimeValues.OpaqueValue opaque
         && opaque.aggregateInfo != null) {
-      RuntimeValues.DispatchTarget target = opaque.aggregateInfo.dispatch().get(slot);
+      RuntimeValues.DispatchTarget target =
+          currentInfo(opaque.aggregateInfo, execution).dispatch().get(slot);
       if (target != null) return target;
     } else if (receiver instanceof RuntimeValues.OpaqueResource resource
         && resource.aggregateInfo != null) {
-      RuntimeValues.DispatchTarget target = resource.aggregateInfo.dispatch().get(slot);
+      RuntimeValues.DispatchTarget target =
+          currentInfo(resource.aggregateInfo, execution).dispatch().get(slot);
       if (target != null) return target;
     } else {
       Map<DefinitionId, RuntimeValues.DispatchTarget> table =
@@ -102,15 +111,22 @@ final class MethodDispatchNode extends Node {
     throw new IllegalStateException("verified method dispatch slot is absent");
   }
 
+  private static RuntimeValues.AggregateInfo currentInfo(
+      RuntimeValues.AggregateInfo original, ExecutionState execution) {
+    RuntimeValues.AggregateInfo selected = execution.runtime().aggregateInfo(original.definition());
+    return selected == null ? original : selected;
+  }
+
   @TruffleBoundary
   private static Object invokeHost(
+      ClassLoader loader,
       Object receiver,
       DefinitionId definition,
       Object[] arguments,
       CoreType receiverType,
       Object[] methodTypeArguments) {
     return JavaApplicationBridge.invokeHost(
-        receiver, definition.toString(), arguments, receiverType, methodTypeArguments);
+        loader, receiver, definition.toString(), arguments, receiverType, methodTypeArguments);
   }
 
   @TruffleBoundary

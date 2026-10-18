@@ -13,10 +13,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-final class DefaultArgumentDeclarations {
+final class DefaultValueDeclarations {
   private final Map<SymbolId, Declaration> declarations = new LinkedHashMap<>();
+  private final Map<SymbolId, Factory> initializers = new LinkedHashMap<>();
+  private final Map<SymbolId, List<Optional<BoundCallableId>>> constructionDefaults =
+      new LinkedHashMap<>();
 
-  DefaultArgumentDeclarations(List<Syntax.Program> programs, SemanticModel semantics) {
+  DefaultValueDeclarations(List<Syntax.Program> programs, SemanticModel semantics) {
     for (var program : programs) {
       for (var function : program.functions()) {
         add(
@@ -30,19 +33,33 @@ final class DefaultArgumentDeclarations {
       for (var owner : program.aggregates()) {
         var symbol = semantics.symbolOf(owner.nameSpan()).orElseThrow();
         var receiver = receiver(semantics, symbol, owner.typeParameters());
+        for (var field : owner.fields()) {
+          field
+              .defaultValue()
+              .ifPresent(
+                  expression -> {
+                    var fieldSymbol = semantics.symbolOf(field.nameSpan()).orElseThrow();
+                    initializers.put(
+                        fieldSymbol.id(),
+                        new Factory(
+                            new BoundCallableId(fieldSymbol.id().value() + "/initializer"),
+                            field.name() + "/initializer",
+                            owner.typeParameters(),
+                            Optional.of(receiver),
+                            fieldSymbol.type(),
+                            expression));
+                  });
+        }
         if (owner.constructors().isEmpty()) {
-          add(
-              semantics,
-              owner.nameSpan(),
-              owner.typeParameters(),
-              List.of(),
-              Optional.empty(),
+          constructionDefaults.put(
+              symbol.id(),
               owner.fields().stream()
                   .filter(
                       field ->
                           symbol.parameters().stream()
                               .anyMatch(parameter -> parameter.name().equals(field.name())))
-                  .map(Syntax.FieldDecl::defaultValue)
+                  .map(
+                      field -> initializer(semantics.symbolOf(field.nameSpan()).orElseThrow().id()))
                   .toList());
         } else {
           for (var constructor : owner.constructors()) {
@@ -95,8 +112,27 @@ final class DefaultArgumentDeclarations {
     }
   }
 
-  List<Declaration> declarations() {
-    return List.copyOf(declarations.values());
+  List<Factory> factories() {
+    var factories = new ArrayList<Factory>();
+    for (var declaration : declarations.values()) {
+      for (int ordinal = 0; ordinal < declaration.defaults().size(); ordinal++) {
+        if (declaration.defaults().get(ordinal).isEmpty()) continue;
+        factories.add(
+            new Factory(
+                declaration.factory(ordinal),
+                declaration.symbol().name() + "/argument/" + ordinal,
+                declaration.typeParameters(),
+                declaration.receiver(),
+                declaration.symbol().parameters().get(ordinal).type(),
+                declaration.defaults().get(ordinal).orElseThrow()));
+      }
+    }
+    factories.addAll(initializers.values());
+    return List.copyOf(factories);
+  }
+
+  Optional<BoundCallableId> initializer(SymbolId field) {
+    return Optional.ofNullable(initializers.get(field)).map(Factory::id);
   }
 
   Optional<Declaration> declaration(SymbolId target) {
@@ -104,6 +140,8 @@ final class DefaultArgumentDeclarations {
   }
 
   Optional<BoundCallableId> defaultValue(SymbolId target, int parameter) {
+    if (constructionDefaults.containsKey(target))
+      return constructionDefaults.get(target).get(parameter);
     return declaration(target)
         .flatMap(
             value -> value.defaults().get(parameter).map(expression -> value.factory(parameter)));
@@ -146,6 +184,18 @@ final class DefaultArgumentDeclarations {
 
     BoundCallableId factory(int parameter) {
       return new BoundCallableId(symbol.id().value() + "/argument/" + parameter);
+    }
+  }
+
+  record Factory(
+      BoundCallableId id,
+      String name,
+      List<Syntax.TypeParameter> typeParameters,
+      Optional<SemanticType> receiver,
+      SemanticType returnType,
+      Syntax.Expression expression) {
+    Factory {
+      typeParameters = List.copyOf(typeParameters);
     }
   }
 }

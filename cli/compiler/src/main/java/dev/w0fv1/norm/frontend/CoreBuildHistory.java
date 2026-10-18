@@ -8,7 +8,7 @@ import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.PendingDefinitionReference;
 import dev.w0fv1.norm.semantic.SemanticType;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,41 +30,46 @@ record CoreBuildHistory(
   record Unit(
       CoreCompilationInput.Source source,
       Optional<CoreBindingShape> binding,
-      Map<Integer, Key> relocations) {
+      List<Key> declarations) {
     Unit {
       Objects.requireNonNull(source, "source");
       Objects.requireNonNull(binding, "binding");
-      relocations = Map.copyOf(relocations);
+      declarations = List.copyOf(declarations);
     }
 
     static Unit capture(
         CoreCompilationInput.Source source,
         Optional<CoreBindingShape> binding,
         Map<Integer, Key> declarations) {
-      var references = new LinkedHashSet<>(source.references());
-      binding.ifPresent(
-          shape ->
-              shape.mapLinks(
-                  link -> {
-                    if (link instanceof PendingDefinitionReference pending)
-                      references.add(pending.declarationIndex());
-                    return link;
-                  },
-                  value -> {
-                    references.add(((CoreDefaultArgument.Pending) value).declarationIndex());
-                    return value;
-                  }));
-      var relocations = new LinkedHashMap<Integer, Key>();
-      references.forEach(
-          index ->
-              relocations.put(
-                  index, Objects.requireNonNull(declarations.get(index), "relocation target")));
-      return new Unit(source, binding, relocations);
+      var indices = new LinkedHashMap<Integer, Integer>();
+      java.util.function.IntUnaryOperator local =
+          index -> indices.computeIfAbsent(index, ignored -> indices.size());
+      var relocated = source.relocate(local);
+      var shape =
+          binding.map(
+              value ->
+                  value.mapLinks(
+                      link ->
+                          link instanceof PendingDefinitionReference pending
+                              ? new PendingDefinitionReference(
+                                  local.applyAsInt(pending.declarationIndex()))
+                              : link,
+                      argument ->
+                          argument instanceof CoreDefaultArgument.Pending pending
+                              ? new CoreDefaultArgument.Pending(
+                                  local.applyAsInt(pending.declarationIndex()))
+                              : argument));
+      return new Unit(
+          relocated,
+          shape,
+          indices.keySet().stream()
+              .map(index -> Objects.requireNonNull(declarations.get(index), "relocation target"))
+              .toList());
     }
 
     int declarationIndex(int index, Map<Key, Integer> declarations) {
       return Objects.requireNonNull(
-          declarations.get(relocations.get(index)), "relocated declaration");
+          declarations.get(this.declarations.get(index)), "relocated declaration");
     }
   }
 

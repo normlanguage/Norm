@@ -5,7 +5,9 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationApplication;
+import dev.w0fv1.norm.core.CoreAnnotationPath;
 import dev.w0fv1.norm.core.CoreAnnotationReference;
+import dev.w0fv1.norm.core.CoreAnnotationReferenceSite;
 import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
@@ -37,6 +39,9 @@ import java.util.Map;
 import java.util.Set;
 
 final class AnnotationRuntime {
+  private final dev.w0fv1.norm.core.CoreRuntimeSchema runtimeSchema;
+  private final Map<CoreType, dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint>
+      typeFingerprints = new java.util.concurrent.ConcurrentHashMap<>();
   private final CallTarget fieldWriter;
   private final dev.w0fv1.norm.core.CoreTypeRelations typeRelations;
   private final RuntimeProgram program;
@@ -54,13 +59,41 @@ final class AnnotationRuntime {
   private Map<DefinitionId, CallTarget> callableTargets = Map.of();
   private final Map<DefinitionOccurrenceId, List<dev.w0fv1.norm.core.CoreBindingShape.Parameter>>
       callableParameters = new LinkedHashMap<>();
+  private final Map<DefinitionOccurrenceId, dev.w0fv1.norm.core.CoreConstructorParameters>
+      constructorParameters = new LinkedHashMap<>();
+
+  private final dev.w0fv1.norm.core.CoreRuntimeIdentity identity;
+  private final dev.w0fv1.norm.core.CoreAuthoringMap authoring;
+  private final Map<ApplicationKey, dev.w0fv1.norm.core.CoreAnnotationReferenceSite>
+      configurationSites = new LinkedHashMap<>();
+  private Map<DefinitionOccurrenceId, CallTarget> declarationTargets = Map.of();
+  private LiveBindings.Version version;
+  private GuestValueFactory values;
+  private final Map<ApplicationKey, RuntimeValues.ObjectValue> annotationViews =
+      new LinkedHashMap<>();
 
   AnnotationRuntime(CoreArtifact artifact) {
+    this(artifact, dev.w0fv1.norm.core.CoreRuntimeIdentity.create(artifact));
+  }
+
+  AnnotationRuntime(CoreArtifact artifact, dev.w0fv1.norm.core.CoreRuntimeIdentity identity) {
+    this.identity = identity;
+    runtimeSchema = dev.w0fv1.norm.core.CoreRuntimeSchema.create(artifact);
+    this.authoring = artifact.authoring();
+    for (var occurrence : artifact.authoring().occurrences()) {
+      if (occurrence.role() == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR) {
+        constructorParameters.put(
+            occurrence.id(),
+            dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(
+                (CoreDefinition.Callable)
+                    artifact.program().definition(occurrence.id().representative()).orElseThrow()));
+      }
+    }
     for (var binding : artifact.namespace().bindings()) {
       if (!binding.shape().parameters().isEmpty())
         callableParameters.put(binding.occurrence(), binding.shape().parameters());
     }
-    program = RuntimeProgram.from(artifact.program());
+    program = RuntimeProgram.from(artifact, identity);
     Map<JarBindingClassReference.Nominal, CoreDefinitionRecord> indexedNominals =
         new LinkedHashMap<>();
     for (CoreDefinitionRecord record : program.structures()) {
@@ -79,12 +112,19 @@ final class AnnotationRuntime {
       }
     }
     nominalStructures = Map.copyOf(indexedNominals);
-    typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(artifact.program().definitions());
+    typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(identity.definitions());
     declarations = RuntimeDeclarationIndex.from(artifact.authoring());
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
       ApplicationKey key = key(application);
-      if (key != null) indexed.put(key, application.values());
+      if (key != null) {
+        indexed.put(key, application.values().stream().map(identity::annotationValue).toList());
+        configurationSites.put(
+            key,
+            new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(
+                new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Metadata(application.id()),
+                dev.w0fv1.norm.core.CoreAnnotationPath.ROOT));
+      }
     }
     applications = Map.copyOf(indexed);
     functionInterceptor = CoreFunctionInterceptorProtocol.resolve(artifact.program()).orElse(null);
@@ -97,16 +137,17 @@ final class AnnotationRuntime {
     xml = new XmlDataFormat(serialization);
     fieldWriter =
         new com.oracle.truffle.api.nodes.RootNode(null) {
-          @Child private FieldWriteNode writer = new FieldWriteNode(AnnotationRuntime.this);
+          @Child private FieldWriteNode writer = new FieldWriteNode();
 
           @Override
           public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
             Object[] arguments = frame.getArguments();
             writer.execute(
                 (RuntimeValues.ObjectValue) arguments[1],
-                (Integer) arguments[2],
+                (RuntimeValues.FieldKey) arguments[2],
                 arguments[3],
-                (ExecutionState) arguments[0]);
+                (ExecutionState) arguments[0],
+                (RuntimeValues.AggregateInfo) arguments[4]);
             return null;
           }
         }.getCallTarget();
@@ -114,12 +155,53 @@ final class AnnotationRuntime {
 
   void initialize(
       Map<DefinitionOccurrenceId, RuntimeValues.AggregateInfo> occurrences,
-      Map<DefinitionId, CallTarget> callableTargets) {
+      Map<DefinitionOccurrenceId, CallTarget> declarationTargets) {
     Map<DefinitionId, RuntimeValues.AggregateInfo> indexed = new LinkedHashMap<>();
     occurrences.forEach(
-        (occurrence, info) -> indexed.putIfAbsent(occurrence.representative(), info));
+        (occurrence, info) -> indexed.putIfAbsent(identity.id(occurrence.representative()), info));
     aggregateInfo = Map.copyOf(indexed);
-    this.callableTargets = Map.copyOf(callableTargets);
+    this.declarationTargets = Map.copyOf(declarationTargets);
+    var targets = new LinkedHashMap<DefinitionId, CallTarget>();
+    var ambiguous = new java.util.HashSet<DefinitionId>();
+    declarationTargets.forEach(
+        (occurrence, target) -> {
+          var id = occurrence.representative();
+          if (targets.putIfAbsent(id, target) != null) ambiguous.add(id);
+        });
+    ambiguous.forEach(targets::remove);
+    this.callableTargets = Map.copyOf(targets);
+  }
+
+  dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint typeFingerprint(CoreType type) {
+    return typeFingerprints.computeIfAbsent(type, runtimeSchema::typeFingerprint);
+  }
+
+  void attachVersion(LiveBindings.Version version) {
+    this.version = version;
+  }
+
+  LiveBindings.Version version() {
+    return version;
+  }
+
+  <T> T retain(T value) {
+    if (version != null && version.revision() != null) version.revision().retain(value);
+    return value;
+  }
+
+  void initializeValues(GuestValueFactory values) {
+    this.values = java.util.Objects.requireNonNull(values);
+  }
+
+  GuestValueFactory values() {
+    return java.util.Objects.requireNonNull(values);
+  }
+
+  AnnotationRuntime forType(CoreType type, AnnotationRuntime retained) {
+    if (type instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user
+        && program.structure(resolveExternal(user.definition())).isEmpty()) return retained;
+    return this;
   }
 
   String name(CoreType type) {
@@ -184,7 +266,7 @@ final class AnnotationRuntime {
 
   CoreType jarReferenceType(
       CoreType expectedType, List<JarBindingClassReference.Nominal> candidates) {
-    CoreType.Declared expected = declared(expectedType);
+    CoreType.Declared expected = declared(program.type(expectedType));
     DefinitionId expectedId =
         expected.constructor() instanceof CoreTypeConstructor.User expectedUser
             ? resolveExternal(expectedUser.definition())
@@ -196,18 +278,7 @@ final class AnnotationRuntime {
               || record.definition() instanceof CoreDefinition.Enum)) {
         continue;
       }
-      DefinitionId runtimeDefinition =
-          declarations.occurrences(record.id()).stream()
-              .map(DefinitionOccurrenceId::representative)
-              .filter(
-                  definition ->
-                      program.structure(definition).orElseThrow()
-                              instanceof CoreDefinition.Aggregate
-                          || program.structure(definition).orElseThrow()
-                              instanceof CoreDefinition.Enum)
-              .findFirst()
-              .orElse(null);
-      if (runtimeDefinition == null) continue;
+      DefinitionId runtimeDefinition = record.id();
       CoreDefinition runtimeAggregate = program.structure(runtimeDefinition).orElseThrow();
       List<CoreType> arguments =
           typeParameterCount(runtimeAggregate) == expected.arguments().size()
@@ -344,7 +415,7 @@ final class AnnotationRuntime {
             .distinct()
             .map(
                 slot -> {
-                  RuntimeValues.DispatchTarget target = info.dispatch().get(slot);
+                  RuntimeValues.DispatchTarget target = info.dispatch().get(identity.slot(slot));
                   if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) {
                     throw new IllegalStateException("reflected function target is absent");
                   }
@@ -352,12 +423,13 @@ final class AnnotationRuntime {
                       new RuntimeValues.Closure(
                           callable.target(),
                           occurrence(slot),
-                          slot,
+                          identity.slot(slot),
                           true,
                           null,
                           new Object[0],
                           reflected.arguments().toArray(),
-                          new Object[0]);
+                          new Object[0],
+                          this);
                 })
             .toList();
     return new RuntimeValues.ListValue(listType, functions);
@@ -445,6 +517,22 @@ final class AnnotationRuntime {
         .orElseThrow(() -> new IllegalArgumentException("function declaration is not callable"));
   }
 
+  dev.w0fv1.norm.core.CoreConstructorParameters constructorParameters(DefinitionId slot) {
+    var matching =
+        constructorParameters.entrySet().stream()
+            .filter(entry -> identity.slot(entry.getKey()).equals(slot))
+            .toList();
+    if (matching.size() != 1) {
+      throw new IllegalArgumentException("Java application constructor declaration is not unique");
+    }
+    return matching.getFirst().getValue();
+  }
+
+  java.util.Optional<dev.w0fv1.norm.core.CoreConstructorParameters> constructorParameters(
+      DefinitionOccurrenceId occurrence) {
+    return java.util.Optional.ofNullable(constructorParameters.get(occurrence));
+  }
+
   java.util.Optional<DefinitionOccurrenceId> parameterDefault(
       RuntimeValues.Closure operation, int index) {
     var parameters = callableParameters.get(operation.declaration());
@@ -462,7 +550,7 @@ final class AnnotationRuntime {
     if (operation.receiver() != null) arguments.add(operation.receiver());
     java.util.Collections.addAll(arguments, operation.receiverTypeArguments());
     java.util.Collections.addAll(arguments, operation.reifiedArguments());
-    return callableTargets.get(target.representative()).call(arguments.toArray());
+    return declarationTargets.get(target).call(arguments.toArray());
   }
 
   CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
@@ -485,16 +573,21 @@ final class AnnotationRuntime {
     DefinitionId annotationId = resolveExternal(annotationUser.definition());
     ApplicationKey key =
         new ApplicationKey(
-            annotationId, AnnotationTarget.FIELD, new IndexedKey(field.owner(), field.index()));
+            annotationId,
+            AnnotationTarget.FIELD,
+            new RuntimeValues.FieldKey(identity.id(field.owner().representative()), field.name()));
     List<CoreAnnotationValue> values = applications.get(key);
     if (values == null || retention(annotationId) != AnnotationRetention.RUNTIME) {
       return RuntimeValues.NullValue.INSTANCE;
     }
-    return execution.annotationExecution().instance(key, values).value(execution);
+    return execution.annotationExecution().value(this, key, values, execution);
   }
 
-  Object readField(RuntimeValues.FieldValue field, Object receiver) {
-    return RuntimeValues.copy(fieldReceiver(field, receiver).readField(field.index()));
+  Object readField(RuntimeValues.FieldValue field, Object receiver, ExecutionState execution) {
+    var object = fieldReceiver(field, receiver);
+    var view = field.annotations().aggregateInfo(object.objectInfo.definition());
+    object.ensureLayout(view, execution);
+    return RuntimeValues.copy(object.readField(field.key(), view, execution));
   }
 
   boolean hasFieldAnnotation(RuntimeValues.FieldValue field, CoreType annotationType) {
@@ -502,7 +595,8 @@ final class AnnotationRuntime {
         || !(requested.constructor() instanceof CoreTypeConstructor.User requestedUser))
       return false;
     DefinitionId requestedId = resolveExternal(requestedUser.definition());
-    IndexedKey target = new IndexedKey(field.owner(), field.index());
+    Object target =
+        new RuntimeValues.FieldKey(identity.id(field.owner().representative()), field.name());
     for (ApplicationKey key : applications.keySet()) {
       if (key.target() != AnnotationTarget.FIELD
           || !key.definition().equals(target)
@@ -520,8 +614,8 @@ final class AnnotationRuntime {
   }
 
   RuntimeValues.OpaqueValue fieldIdentity(
-      RuntimeValues.FieldValue field, Object receiver, CoreType type) {
-    Object value = readField(field, receiver);
+      RuntimeValues.FieldValue field, Object receiver, CoreType type, ExecutionState execution) {
+    Object value = readField(field, receiver, execution);
     if (value == null || value == RuntimeValues.NullValue.INSTANCE) {
       throw new IllegalArgumentException("field identity requires a non-null value");
     }
@@ -530,7 +624,7 @@ final class AnnotationRuntime {
         new FieldIdentityKey(
             field.ownerType(),
             field.owner(),
-            field.index(),
+            field.name(),
             new RuntimeValues.RuntimeKey(RuntimeValues.copy(value))),
         "FieldIdentity");
   }
@@ -538,21 +632,21 @@ final class AnnotationRuntime {
   private record FieldIdentityKey(
       CoreType ownerType,
       DefinitionOccurrenceId owner,
-      int field,
+      String field,
       RuntimeValues.RuntimeKey value) {}
 
   RuntimeValues.OpaqueValue bindField(
       RuntimeValues.FieldValue field, Object receiver, CoreType type) {
     RuntimeValues.ObjectValue object = fieldReceiver(field, receiver);
-    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+    if (((CoreType.Declared) object.type()).category() != CoreValueCategory.IDENTITY) {
       throw new IllegalArgumentException("field binding requires a mutable class target");
     }
     return new RuntimeValues.OpaqueValue(type, new FieldHandle(field, object), "FieldHandle");
   }
 
   record FieldHandle(RuntimeValues.FieldValue field, RuntimeValues.ObjectValue receiver) {
-    Object read() {
-      return field.annotations().readField(field, receiver);
+    Object read(ExecutionState execution) {
+      return field.annotations().readField(field, receiver, execution);
     }
 
     void write(Object value, ExecutionState execution) {
@@ -563,32 +657,34 @@ final class AnnotationRuntime {
     public boolean equals(Object other) {
       return other instanceof FieldHandle handle
           && receiver == handle.receiver
-          && field.index() == handle.field.index();
+          && field.owner().equals(handle.field.owner())
+          && field.name().equals(handle.field.name());
     }
 
     @Override
     public int hashCode() {
-      return 31 * System.identityHashCode(receiver) + field.index();
+      return 31 * System.identityHashCode(receiver)
+          + java.util.Objects.hash(field.owner(), field.name());
     }
   }
 
   boolean publicField(RuntimeValues.FieldValue field) {
-    return aggregateInfo
-        .get(field.owner().representative())
-        .fields()
-        .get(field.index())
+    return aggregateInfo.get(field.owner().representative()).fields().stream()
+        .filter(plan -> plan.name().equals(field.name()))
+        .findFirst()
+        .orElseThrow()
         .publicField();
   }
 
   void copyField(
       RuntimeValues.FieldValue field, Object target, Object source, ExecutionState execution) {
-    writeField(field, target, readField(field, source), execution);
+    writeField(field, target, readField(field, source, execution), execution);
   }
 
   void writeField(
       RuntimeValues.FieldValue field, Object target, Object value, ExecutionState execution) {
     RuntimeValues.ObjectValue object = fieldReceiver(field, target);
-    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+    if (((CoreType.Declared) object.type()).category() != CoreValueCategory.IDENTITY) {
       throw new IllegalArgumentException("field writing requires a mutable class target");
     }
     if (value == RuntimeValues.NullValue.INSTANCE
@@ -596,15 +692,18 @@ final class AnnotationRuntime {
         : !typeRelations.isAssignable(field.fieldType(), RuntimeValues.runtimeType(value))) {
       throw new IllegalArgumentException("field value does not match its declared type");
     }
-    fieldWriter.call(execution, object, field.index(), value);
+    var view = field.annotations().aggregateInfo(object.objectInfo.definition());
+    try (var lease =
+        execution.liveBindings() == null ? null : execution.liveBindings().stateWrite()) {
+      fieldWriter.call(execution, object, field.key(), value, view);
+    }
   }
 
   private RuntimeValues.ObjectValue fieldReceiver(RuntimeValues.FieldValue field, Object receiver) {
-    if (!(receiver instanceof RuntimeValues.ObjectValue object)
-        || field.index() >= object.fields.length) {
+    if (!(receiver instanceof RuntimeValues.ObjectValue object)) {
       throw new IllegalArgumentException("field receiver does not match its declaring type");
     }
-    CoreType.Declared actual = declared(object.type);
+    CoreType.Declared actual = declared(object.type());
     CoreType.Declared expected = declared(field.ownerType());
     DefinitionId expectedId =
         resolveExternal(((CoreTypeConstructor.User) expected.constructor()).definition());
@@ -639,8 +738,12 @@ final class AnnotationRuntime {
     return program;
   }
 
+  boolean isAssignable(CoreType expected, CoreType actual) {
+    return typeRelations.isAssignable(expected, actual);
+  }
+
   RuntimeValues.AggregateInfo aggregateInfo(DefinitionId definition) {
-    return aggregateInfo.get(definition);
+    return aggregateInfo.get(identity.id(definition));
   }
 
   List<CoreAnnotationValue> typeAnnotationValues(DefinitionId annotation, DefinitionId type) {
@@ -651,7 +754,7 @@ final class AnnotationRuntime {
   List<CoreAnnotationValue> fieldAnnotationValues(
       DefinitionId annotation, DefinitionOccurrenceId owner, int ordinal) {
     return applications.get(
-        new ApplicationKey(annotation, AnnotationTarget.FIELD, new IndexedKey(owner, ordinal)));
+        new ApplicationKey(annotation, AnnotationTarget.FIELD, fieldKey(owner, ordinal)));
   }
 
   Object annotation(CoreType reflectedType, CoreType annotationType, ExecutionState execution) {
@@ -669,7 +772,7 @@ final class AnnotationRuntime {
     if (found == null || retention(annotationId) != AnnotationRetention.RUNTIME) {
       return RuntimeValues.NullValue.INSTANCE;
     }
-    return execution.annotationExecution().instance(found.key(), found.values()).value(execution);
+    return execution.annotationExecution().value(this, found.key(), found.values(), execution);
   }
 
   Object callableAnnotation(
@@ -684,13 +787,20 @@ final class AnnotationRuntime {
     if (retention(id) != AnnotationRetention.RUNTIME) return RuntimeValues.NullValue.INSTANCE;
     ApplicationKey key =
         parameter < 0
-            ? new ApplicationKey(id, AnnotationTarget.FUNCTION, function.declaration())
+            ? new ApplicationKey(
+                id,
+                constructorParameters.containsKey(function.declaration())
+                    ? AnnotationTarget.CONSTRUCTOR
+                    : AnnotationTarget.FUNCTION,
+                identity.key(function.declaration()))
             : new ApplicationKey(
-                id, AnnotationTarget.PARAMETER, new IndexedKey(function.declaration(), parameter));
+                id,
+                AnnotationTarget.PARAMETER,
+                new IndexedKey(identity.key(function.declaration()), parameter));
     var values = applications.get(key);
     return values == null
         ? RuntimeValues.NullValue.INSTANCE
-        : execution.annotationExecution().instance(key, values).value(execution);
+        : execution.annotationExecution().value(this, key, values, execution);
   }
 
   private TypeAnnotation typeAnnotation(DefinitionId annotationId, DefinitionId typeId) {
@@ -714,47 +824,78 @@ final class AnnotationRuntime {
   }
 
   RuntimeValues.ObjectValue functionAnnotation(
-      DefinitionOccurrenceId callable, CoreInterceptor interceptor, ExecutionState execution) {
+      DefinitionOccurrenceId callable,
+      int interceptorIndex,
+      CoreInterceptor interceptor,
+      ExecutionState execution) {
     DefinitionId annotationId = resolve(callable.representative(), interceptor.annotation());
     return behaviorAnnotation(
-        new ApplicationKey(annotationId, AnnotationTarget.FUNCTION, callable),
+        new ApplicationKey(
+            annotationId,
+            constructorParameters.containsKey(callable)
+                ? AnnotationTarget.CONSTRUCTOR
+                : AnnotationTarget.FUNCTION,
+            identity.key(callable)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(callable),
+            CoreAnnotationPath.ROOT.child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   RuntimeValues.ObjectValue parameterAnnotation(
       DefinitionOccurrenceId callable,
       int parameterIndex,
+      int interceptorIndex,
       CoreInterceptor interceptor,
       ExecutionState execution) {
     DefinitionId annotationId = resolve(callable.representative(), interceptor.annotation());
     return behaviorAnnotation(
         new ApplicationKey(
-            annotationId, AnnotationTarget.PARAMETER, new IndexedKey(callable, parameterIndex)),
+            annotationId,
+            AnnotationTarget.PARAMETER,
+            new IndexedKey(identity.key(callable), parameterIndex)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(callable),
+            CoreAnnotationPath.ROOT
+                .child(CoreAnnotationPath.Kind.PARAMETER, parameterIndex)
+                .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   RuntimeValues.ObjectValue fieldAnnotation(
       DefinitionOccurrenceId aggregate,
       int fieldIndex,
+      int interceptorIndex,
       CoreInterceptor interceptor,
       ExecutionState execution) {
     DefinitionId annotationId = resolve(aggregate.representative(), interceptor.annotation());
     return behaviorAnnotation(
-        new ApplicationKey(
-            annotationId, AnnotationTarget.FIELD, new IndexedKey(aggregate, fieldIndex)),
+        new ApplicationKey(annotationId, AnnotationTarget.FIELD, fieldKey(aggregate, fieldIndex)),
         interceptor,
+        new CoreAnnotationReferenceSite(
+            new CoreAnnotationReferenceSite.Definition(
+                new DefinitionOccurrenceId(
+                    identity.source(aggregate.representative()), aggregate.ordinal())),
+            CoreAnnotationPath.ROOT
+                .child(CoreAnnotationPath.Kind.FIELD, fieldIndex)
+                .child(CoreAnnotationPath.Kind.INTERCEPTOR, interceptorIndex)),
         execution);
   }
 
   private RuntimeValues.ObjectValue behaviorAnnotation(
-      ApplicationKey key, CoreInterceptor interceptor, ExecutionState execution) {
+      ApplicationKey key,
+      CoreInterceptor interceptor,
+      CoreAnnotationReferenceSite sourceSite,
+      ExecutionState execution) {
+    var configured = interceptor.values().stream().map(identity::annotationValue).toList();
     List<CoreAnnotationValue> metadataValues = applications.get(key);
-    if (metadataValues != null && !metadataValues.equals(interceptor.values())) {
+    if (metadataValues != null && !metadataValues.equals(configured)) {
       throw new IllegalStateException("annotation metadata and interceptor disagree");
     }
-    return execution.annotationExecution().instance(key, interceptor.values()).value(execution);
+    configurationSites.putIfAbsent(key, sourceSite);
+    return execution.annotationExecution().value(this, key, configured, execution);
   }
 
   LifecycleDispatch functionBefore(RuntimeValues.ObjectValue annotation) {
@@ -787,19 +928,22 @@ final class AnnotationRuntime {
 
   private LifecycleDispatch dispatch(
       RuntimeValues.ObjectValue annotation, DefinitionId requirement) {
-    RuntimeValues.DispatchTarget target = annotation.objectInfo.dispatch().get(requirement);
+    RuntimeValues.DispatchTarget target =
+        aggregateInfo(annotation.objectInfo.definition())
+            .dispatch()
+            .get(identity.slot(requirement));
     if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) {
       throw new IllegalStateException("annotation lifecycle dispatch is absent");
     }
     List<CoreType> concreteArguments =
-        annotation.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+        annotation.type() instanceof CoreType.Declared declared ? declared.arguments() : List.of();
     List<CoreType> receiverTypeArguments =
         callable.specializedReceiverTypeArguments()
             ? callable.receiverTypeArguments().stream()
                 .map(type -> type.substitute(concreteArguments::get))
                 .toList()
             : concreteArguments;
-    return new LifecycleDispatch(callable.target(), receiverTypeArguments);
+    return new LifecycleDispatch(callable.target(), receiverTypeArguments, version);
   }
 
   private AnnotationRetention retention(DefinitionId annotationId) {
@@ -840,23 +984,35 @@ final class AnnotationRuntime {
     return switch (application.target()) {
       case CoreAnnotationTarget.Definition target ->
           new ApplicationKey(
-              application.annotation(),
+              identity.id(application.annotation()),
               target.kind(),
               target.kind() == AnnotationTarget.FUNCTION
-                  ? target.occurrence()
-                  : target.occurrence().representative());
+                      || target.kind() == AnnotationTarget.CONSTRUCTOR
+                  ? identity.key(target.occurrence())
+                  : identity.id(target.occurrence().representative()));
       case CoreAnnotationTarget.Parameter target ->
           new ApplicationKey(
-              application.annotation(),
+              identity.id(application.annotation()),
               AnnotationTarget.PARAMETER,
-              new IndexedKey(target.callable(), target.index()));
+              new IndexedKey(identity.key(target.callable()), target.index()));
       case CoreAnnotationTarget.Field target ->
           new ApplicationKey(
-              application.annotation(),
+              identity.id(application.annotation()),
               AnnotationTarget.FIELD,
-              new IndexedKey(target.owner(), target.ordinal()));
+              fieldKey(target.owner(), target.ordinal()));
       default -> null;
     };
+  }
+
+  private RuntimeValues.FieldKey fieldKey(DefinitionOccurrenceId owner, int ordinal) {
+    var aggregate =
+        (CoreDefinition.Aggregate) program.structure(owner.representative()).orElseThrow();
+    var field =
+        aggregate.fields().stream()
+            .filter(value -> value.ordinal() == ordinal)
+            .findFirst()
+            .orElseThrow();
+    return new RuntimeValues.FieldKey(identity.id(owner.representative()), field.name());
   }
 
   private String displayName(CoreType type) {
@@ -981,9 +1137,10 @@ final class AnnotationRuntime {
   }
 
   private DefinitionOccurrenceId occurrence(DefinitionId definition) {
-    List<DefinitionOccurrenceId> occurrences = declarations.occurrences(definition);
-    if (occurrences.isEmpty()) {
-      throw new IllegalStateException("reflected declaration occurrence is absent");
+    List<DefinitionOccurrenceId> occurrences =
+        declarations.occurrences(identity.source(definition));
+    if (occurrences.size() != 1) {
+      throw new IllegalStateException("reflected declaration requires an exact occurrence");
     }
     return occurrences.getFirst();
   }
@@ -1001,8 +1158,8 @@ final class AnnotationRuntime {
     return program.resolve(owner, (DefinitionReference) link);
   }
 
-  private static DefinitionId resolveExternal(CoreDefinitionLink link) {
-    return ((DefinitionReference.External) link).definition();
+  private DefinitionId resolveExternal(CoreDefinitionLink link) {
+    return identity.id(((DefinitionReference.External) link).definition());
   }
 
   private static CoreType.Declared declared(CoreType type) {
@@ -1017,16 +1174,21 @@ final class AnnotationRuntime {
     return separator < 0 ? id.value() : id.value().substring(separator + 1);
   }
 
-  private Object runtimeValue(CoreAnnotationValue value) {
+  private Object runtimeValue(CoreAnnotationValue value, CoreAnnotationReferenceSite site) {
     return switch (value.value()) {
       case CoreAnnotationValue.Null ignored -> RuntimeValues.NullValue.INSTANCE;
       case CoreAnnotationValue.Literal literal ->
           isCodePoint(value.type())
               ? new RuntimeValues.CodePointValue((Integer) literal.value())
               : literal.value();
-      case CoreAnnotationValue.ListValue list ->
-          new RuntimeValues.ListValue(
-              value.type(), list.values().stream().map(this::runtimeValue).toList());
+      case CoreAnnotationValue.ListValue list -> {
+        var values = new ArrayList<Object>();
+        for (int index = 0; index < list.values().size(); index++)
+          values.add(
+              runtimeValue(
+                  list.values().get(index), site.child(CoreAnnotationPath.Kind.LIST_ITEM, index)));
+        yield new RuntimeValues.ListValue(value.type(), values);
+      }
       case CoreAnnotationReference reference ->
           switch (reference) {
             case CoreAnnotationReference.ClassReference classReference ->
@@ -1036,21 +1198,23 @@ final class AnnotationRuntime {
             case CoreAnnotationReference.EnumReference enumeration ->
                 enumValue(value.type(), enumeration.variant());
             case CoreAnnotationReference.CallableReference callableReference -> {
+              var occurrence = authoring.annotationTarget(site);
               DefinitionId callableId =
                   resolveExternal((DefinitionReference.External) callableReference.callable());
-              CallTarget target = callableTargets.get(callableId);
+              CallTarget target = declarationTargets.get(occurrence);
               if (target == null) {
                 throw new IllegalStateException("annotation callable reference is not initialized");
               }
               yield new RuntimeValues.Closure(
                   target,
-                  occurrence(callableId),
+                  occurrence,
                   callableReference.virtual() ? callableId : null,
                   program.callable(callableId).orElseThrow().hasReceiver(),
                   null,
                   new Object[0],
                   callableReference.receiverTypeArguments().toArray(),
-                  callableReference.reifiedArguments().toArray());
+                  callableReference.reifiedArguments().toArray(),
+                  this);
             }
           };
     };
@@ -1076,7 +1240,7 @@ final class AnnotationRuntime {
       throw new IllegalStateException("annotation enum variant is unavailable: " + variant);
     }
     return new RuntimeValues.EnumValue(
-        id, concrete, enumeration.nominalType().name(), variant, List.of());
+        id, concrete, enumeration.nominalType().name(), variant, List.of(), this);
   }
 
   private static boolean isCodePoint(CoreType type) {
@@ -1085,45 +1249,143 @@ final class AnnotationRuntime {
         && builtin.id().value().equals("std.core.CodePoint");
   }
 
-  private final class AnnotationInstance {
-    private final DefinitionId annotationId;
-    private final List<CoreAnnotationValue> values;
-    private RuntimeValues.ObjectValue value;
+  private RuntimeValues.ObjectValue createAnnotation(
+      ApplicationKey key, List<CoreAnnotationValue> configured, ExecutionState execution) {
+    DefinitionId annotationId = key.annotation();
+    CoreDefinition.Aggregate declaration = annotation(annotationId);
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(annotationId);
+    DefinitionId constructorId = resolve(annotationId, declaration.constructors().getFirst());
+    CallTarget constructor = callableTargets.get(constructorId);
+    if (info == null || constructor == null)
+      throw new IllegalStateException("annotation runtime is not initialized");
+    CoreType type =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new DefinitionReference.External(annotationId)),
+            List.of(),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    var value = new RuntimeValues.ObjectValue(info, type);
+    var site =
+        java.util.Objects.requireNonNull(
+            configurationSites.get(key), "annotation configuration authoring site");
+    Object[] arguments = new Object[configured.size()];
+    for (int index = 0; index < configured.size(); index++)
+      arguments[index] =
+          runtimeValue(configured.get(index), site.child(CoreAnnotationPath.Kind.VALUE, index));
+    try (var scope =
+        execution.liveBindings() == null || version == null
+            ? null
+            : execution.liveBindings().pin(version)) {
+      constructor.call(
+          execution,
+          value,
+          ConstructionArguments.supplied(
+              configured.size(),
+              java.util.stream.IntStream.range(0, configured.size()).toArray(),
+              arguments,
+              new Object[0]));
+    }
+    return value;
+  }
 
-    private AnnotationInstance(DefinitionId annotationId, List<CoreAnnotationValue> values) {
-      this.annotationId = annotationId;
-      this.values = List.copyOf(values);
+  private Map<RuntimeValues.FieldKey, ConfiguredValue> configuration(
+      ApplicationKey key, List<CoreAnnotationValue> configured) {
+    DefinitionId annotationId = key.annotation();
+    var declaration = annotation(annotationId);
+    var constructor =
+        program
+            .callable(resolve(annotationId, declaration.constructors().getFirst()))
+            .orElseThrow();
+    var result = new LinkedHashMap<RuntimeValues.FieldKey, ConfiguredValue>();
+    var root =
+        java.util.Objects.requireNonNull(
+            configurationSites.get(key), "annotation configuration authoring site");
+    for (int index = 0; index < configured.size(); index++)
+      result.put(
+          new RuntimeValues.FieldKey(annotationId, constructor.parameters().get(index).name()),
+          configuredValue(configured.get(index), root.child(CoreAnnotationPath.Kind.VALUE, index)));
+    return Map.copyOf(result);
+  }
+
+  private ConfiguredValue configuredValue(
+      CoreAnnotationValue value, CoreAnnotationReferenceSite site) {
+    var references = new LinkedHashMap<CoreAnnotationPath, String>();
+    authoring
+        .annotationReferences()
+        .forEach(
+            (candidate, target) -> {
+              if (candidate.owner().equals(site.owner())
+                  && candidate.path().steps().size() >= site.path().steps().size()
+                  && candidate
+                      .path()
+                      .steps()
+                      .subList(0, site.path().steps().size())
+                      .equals(site.path().steps()))
+                references.put(
+                    new CoreAnnotationPath(
+                        candidate
+                            .path()
+                            .steps()
+                            .subList(site.path().steps().size(), candidate.path().steps().size())),
+                    identity.key(target));
+            });
+    return new ConfiguredValue(value, site, Map.copyOf(references));
+  }
+
+  private record ConfiguredValue(
+      CoreAnnotationValue value,
+      CoreAnnotationReferenceSite site,
+      Map<CoreAnnotationPath, String> references) {
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof ConfiguredValue configured
+          && value.equals(configured.value)
+          && references.equals(configured.references);
     }
 
-    private RuntimeValues.ObjectValue value(ExecutionState execution) {
-      if (value != null) return value;
-      CoreDefinition.Aggregate declaration = annotation(annotationId);
-      RuntimeValues.AggregateInfo info = aggregateInfo.get(annotationId);
-      DefinitionId constructorId = resolve(annotationId, declaration.constructors().getFirst());
-      CallTarget constructor = callableTargets.get(constructorId);
-      if (info == null || constructor == null) {
-        throw new IllegalStateException("annotation runtime is not initialized");
-      }
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(value, references);
+    }
+  }
+
+  private static final class AnnotationState {
+    private final RuntimeObjectState state;
+    private final Map<RuntimeValues.AggregateInfo, Map<RuntimeValues.FieldKey, ConfiguredValue>>
+        configurations = new java.util.WeakHashMap<>();
+
+    private AnnotationState(
+        RuntimeValues.ObjectValue initial,
+        Map<RuntimeValues.FieldKey, ConfiguredValue> configured) {
+      state = initial.state();
+      configurations.put((RuntimeValues.AggregateInfo) initial.objectInfo, configured);
+    }
+
+    private RuntimeValues.ObjectValue view(
+        AnnotationRuntime runtime, ApplicationKey key, List<CoreAnnotationValue> configured) {
+      var retained = runtime.annotationViews.get(key);
+      if (retained != null) return retained;
+      var baseline = configurations.get(state.currentInfo());
+      if (baseline == null)
+        throw new IllegalStateException("Published annotation configuration is unavailable");
+      var configuration = runtime.configuration(key, configured);
+      var overlay = new LinkedHashMap<RuntimeValues.FieldKey, Object>();
+      configuration.forEach(
+          (field, value) -> {
+            if (!value.equals(baseline.get(field)))
+              overlay.put(field, runtime.runtimeValue(value.value(), value.site()));
+          });
+      var info = runtime.aggregateInfo(key.annotation());
+      configurations.put(info, configuration);
       CoreType type =
           new CoreType.Declared(
-              new CoreTypeConstructor.User(new DefinitionReference.External(annotationId)),
+              new CoreTypeConstructor.User(new DefinitionReference.External(key.annotation())),
               List.of(),
               CoreValueCategory.IDENTITY,
               CoreNullability.NON_NULL);
-      value = new RuntimeValues.ObjectValue(info, type);
-      Object[] arguments = new Object[values.size() + 2];
-      arguments[0] = execution;
-      arguments[1] = value;
-      for (int index = 0; index < values.size(); index++) {
-        arguments[index + 2] = runtimeValue(values.get(index));
-      }
-      try {
-        constructor.call(arguments);
-        return value;
-      } catch (RuntimeException | Error failure) {
-        value = null;
-        throw failure;
-      }
+      var value = new RuntimeValues.ObjectValue(info, type, state.current(), overlay);
+      runtime.annotationViews.put(key, value);
+      return value;
     }
   }
 
@@ -1132,14 +1394,19 @@ final class AnnotationRuntime {
       return AnnotationRuntime.this;
     }
 
-    private final Map<ApplicationKey, AnnotationInstance> instances = new LinkedHashMap<>();
+    private final Map<ApplicationKey, AnnotationState> instances = new LinkedHashMap<>();
 
-    private AnnotationInstance instance(ApplicationKey key, List<CoreAnnotationValue> values) {
-      AnnotationInstance current = instances.get(key);
-      if (current != null) return current;
-      AnnotationInstance created = new AnnotationInstance(key.annotation(), values);
-      instances.put(key, created);
-      return created;
+    private RuntimeValues.ObjectValue value(
+        AnnotationRuntime runtime,
+        ApplicationKey key,
+        List<CoreAnnotationValue> configured,
+        ExecutionState execution) {
+      var current = instances.get(key);
+      if (current != null) return current.view(runtime, key, configured);
+      var value = runtime.createAnnotation(key, configured, execution);
+      runtime.annotationViews.put(key, value);
+      instances.put(key, new AnnotationState(value, runtime.configuration(key, configured)));
+      return value;
     }
   }
 
@@ -1152,9 +1419,10 @@ final class AnnotationRuntime {
     }
   }
 
-  private record IndexedKey(DefinitionOccurrenceId callable, int parameterIndex) {}
+  private record IndexedKey(String callable, int parameterIndex) {}
 
-  record LifecycleDispatch(CallTarget target, List<CoreType> receiverTypeArguments) {
+  record LifecycleDispatch(
+      CallTarget target, List<CoreType> receiverTypeArguments, LiveBindings.Version version) {
     LifecycleDispatch {
       java.util.Objects.requireNonNull(target, "target");
       receiverTypeArguments = List.copyOf(receiverTypeArguments);

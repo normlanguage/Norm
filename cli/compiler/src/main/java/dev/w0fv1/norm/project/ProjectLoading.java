@@ -148,7 +148,11 @@ final class ProjectLoading {
       throw new IOException("module.norm is project configuration, not an application entry");
     }
     ResolvedProjectModule rootModule =
-        moduleSources.load(moduleSource, overlaySources, purpose != ProjectLoadPurpose.RUNTIME);
+        moduleSources.load(
+            moduleSource,
+            overlaySources,
+            purpose != ProjectLoadPurpose.RUNTIME,
+            purpose == ProjectLoadPurpose.RUNTIME);
     return loadResolvedModule(
         rootModule, entrySource, modulePath, overlaySources, purpose, entryStructure);
   }

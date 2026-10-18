@@ -11,6 +11,7 @@ public sealed interface BoundExpression extends BoundCollectionElement
         BoundExpression.NullLiteral,
         BoundExpression.CollectionLiteral,
         BoundExpression.LocalRead,
+        BoundExpression.ParameterProvided,
         BoundExpression.Let,
         BoundExpression.FieldRead,
         BoundExpression.AddressLocal,
@@ -73,6 +74,19 @@ public sealed interface BoundExpression extends BoundCollectionElement
       Objects.requireNonNull(runtimeType, "runtimeType");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record ParameterProvided(int parameterIndex, SourceSpan span) implements BoundExpression {
+    public ParameterProvided {
+      if (parameterIndex < 0)
+        throw new IllegalArgumentException("parameter index must not be negative");
+      Objects.requireNonNull(span, "span");
+    }
+
+    @Override
+    public SemanticType type() {
+      return SemanticType.BOOLEAN;
     }
   }
 

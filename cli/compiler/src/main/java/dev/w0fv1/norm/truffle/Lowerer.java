@@ -18,13 +18,16 @@ import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.core.CoreExpression;
+import dev.w0fv1.norm.core.CoreFieldReference;
 import dev.w0fv1.norm.core.CoreInterfaceHierarchy;
 import dev.w0fv1.norm.core.CoreIteration;
+import dev.w0fv1.norm.core.CoreLiveSchema;
 import dev.w0fv1.norm.core.CoreLocal;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CorePattern;
 import dev.w0fv1.norm.core.CoreProgram;
+import dev.w0fv1.norm.core.CoreRuntimeIdentity;
 import dev.w0fv1.norm.core.CoreRuntimeType;
 import dev.w0fv1.norm.core.CoreStatement;
 import dev.w0fv1.norm.core.CoreType;
@@ -63,11 +66,25 @@ final class Lowerer {
   private CoreArtifact artifact;
   private CoreProgram program;
   private CoreTypeRelations typeRelations;
+  private CoreRuntimeIdentity identity;
   private AnnotationRuntime annotations;
   private CoreExecutionPlan execution;
+  private final CoreLiveSchema liveSchema;
+  private final LiveBindings.Builder liveNodes;
 
   Lowerer(com.oracle.truffle.api.TruffleLanguage<?> language) {
+    this(language, null);
+  }
+
+  Lowerer(com.oracle.truffle.api.TruffleLanguage<?> language, CoreLiveSchema liveSchema) {
     this.language = language;
+    this.liveSchema = liveSchema;
+    liveNodes = liveSchema == null ? null : new LiveBindings.Builder(liveSchema);
+  }
+
+  LiveBindings.Version liveVersion() {
+    if (liveNodes == null) throw new IllegalStateException("lowering has no live bindings");
+    return liveNodes.build();
   }
 
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
@@ -78,9 +95,10 @@ final class Lowerer {
     this.execution = Objects.requireNonNull(execution, "execution");
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
-    typeRelations = new CoreTypeRelations(program.definitions());
-    annotations = new AnnotationRuntime(artifact);
-    indexDefinitions(execution);
+    identity = CoreRuntimeIdentity.create(artifact);
+    typeRelations = new CoreTypeRelations(identity.definitions());
+    annotations = new AnnotationRuntime(artifact, identity);
+    indexDefinitions(this.execution);
     createCallTargets();
     indexDispatch();
     initializeAnnotations();
@@ -88,10 +106,15 @@ final class Lowerer {
     DefinitionOccurrenceId entry = artifact.entryPoint();
     FunctionPlan entryPlan = callables.get(entry);
     if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
-    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
-    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    Map<DefinitionId, com.oracle.truffle.api.CallTarget> bridgeTargets = new LinkedHashMap<>();
+    for (FunctionPlan plan : callables.values()) {
+      if (bridgeTargets.putIfAbsent(identity.slot(plan.id), plan.target) != null)
+        throw new IllegalStateException("ambiguous Java execution slot");
+    }
+    GuestValueFactory values = guestValues();
+    annotations.initializeValues(values);
     return new ExecutableProgram(
-        entryPlan.target, annotations, guestValues(), annotations.program(), targets);
+        entryPlan.target, annotations, values, annotations.program(), Map.copyOf(bridgeTargets));
   }
 
   private GuestValueFactory guestValues() {
@@ -116,12 +139,17 @@ final class Lowerer {
                     if (!(constructorDefinition instanceof CoreDefinition.Callable callable)) {
                       throw new IllegalStateException("aggregate initializer is not callable");
                     }
-                    return new GuestValueFactory.Initializer(target, callable.parameters().size());
+                    return new GuestValueFactory.Initializer(
+                        target,
+                        dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(callable));
                   })
               .toList();
       aggregatePlans.add(
           GuestValueFactory.AggregatePlan.create(
-              definition, entry.getValue(), aggregateInfo.get(entry.getKey()), initializers));
+              identity.id(definition),
+              (CoreDefinition.Aggregate) identity.definition(definition, entry.getValue()),
+              aggregateInfo.get(entry.getKey()),
+              initializers));
     }
     List<GuestValueFactory.EnumPlan> enumPlans =
         program.definitions().stream()
@@ -129,9 +157,11 @@ final class Lowerer {
             .map(
                 record ->
                     GuestValueFactory.EnumPlan.create(
-                        record.id(), (CoreDefinition.Enum) record.definition()))
+                        identity.id(record.id()),
+                        (CoreDefinition.Enum)
+                            identity.definition(record.id(), record.definition())))
             .toList();
-    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans);
+    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations);
   }
 
   private void indexDefinitions(CoreExecutionPlan execution) {
@@ -153,7 +183,8 @@ final class Lowerer {
   }
 
   private FunctionPlan plan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {
-    FunctionPlan plan = new FunctionPlan(id, declaration);
+    FunctionPlan plan =
+        new FunctionPlan(id, declaration, liveSchema == null ? null : liveSchema.layout(id));
     for (CoreLocal local : declaration.locals()) plan.allocate(local);
     if (declaration.hasReceiver()) plan.arguments.add(plan.binding(0));
     declaration.captureLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
@@ -172,6 +203,11 @@ final class Lowerer {
               plan.id,
               plan.descriptor,
               plan.arguments.toArray(FrameBinding[]::new),
+              artifact.authoring().occurrence(plan.id).orElseThrow().role()
+                      == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR
+                  ? java.util.Optional.of(
+                      dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(plan.declaration))
+                  : java.util.Optional.empty(),
               section(plan.id, 0));
       plan.implementation = plan.root.getCallTarget();
       plan.target = plan.implementation;
@@ -188,16 +224,21 @@ final class Lowerer {
                   plan.id,
                   plan.implementation,
                   plan.declaration,
-                  CoreTypes.absolute(
-                      plan.declaration.returnType(), plan.id.representative(), program),
+                  artifact.authoring().occurrence(plan.id).orElseThrow().role()
+                      == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR,
+                  identity.type(plan.id.representative(), plan.declaration.returnType()),
                   annotations)
               .getCallTarget();
+    }
+    if (liveNodes != null) {
+      for (FunctionPlan plan : callables.values())
+        plan.target = liveNodes.callable(plan.id, plan.target);
     }
   }
 
   private void initializeAnnotations() {
-    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
-    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    Map<DefinitionOccurrenceId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
+    callables.values().forEach(plan -> targets.put(plan.id, plan.target));
     annotations.initialize(aggregateInfo, targets);
   }
 
@@ -216,27 +257,26 @@ final class Lowerer {
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new HashMap<>();
       Map<DefinitionId, RuntimeValues.DispatchTarget> methodTargets = new HashMap<>();
       for (CoreMethodDispatch method : entry.getValue().dispatch()) {
-        DefinitionId slot = resolve(occurrence.representative(), method.slot());
-        if (!execution.dispatchSlots().contains(slot)) continue;
+        DefinitionId sourceSlot = resolve(occurrence.representative(), method.slot());
+        if (!execution.dispatchSlots().contains(sourceSlot)) continue;
         DefinitionId implementation = resolve(occurrence.representative(), method.target());
-        FunctionPlan plan = callableByDefinition.get(implementation);
-        if (program.definition(implementation).orElseThrow()
-            instanceof CoreDefinition.MethodSignature) {
-          var target = new RuntimeValues.DispatchTarget.HostMethod(implementation);
+        for (DefinitionOccurrenceId slotOccurrence : identity.occurrences(sourceSlot)) {
+          DefinitionId slot = identity.slot(slotOccurrence);
+          RuntimeValues.DispatchTarget target;
+          if (program.definition(implementation).orElseThrow()
+              instanceof CoreDefinition.MethodSignature) {
+            target = new RuntimeValues.DispatchTarget.HostMethod(identity.slot(implementation));
+          } else {
+            FunctionPlan plan = memberPlan(implementation, identity.name(slotOccurrence));
+            CoreType receiverType =
+                identity.type(occurrence.representative(), method.receiverType());
+            target =
+                new RuntimeValues.DispatchTarget.Callable(
+                    plan.target, ((CoreType.Declared) receiverType).arguments());
+          }
           dispatch.put(slot, target);
           methodTargets.put(slot, target);
-          continue;
         }
-        if (plan == null) {
-          throw new IllegalStateException("method dispatch target is absent");
-        }
-        CoreType receiverType =
-            CoreTypes.absolute(method.receiverType(), occurrence.representative(), program);
-        List<CoreType> arguments = ((CoreType.Declared) receiverType).arguments();
-        RuntimeValues.DispatchTarget target =
-            new RuntimeValues.DispatchTarget.Callable(plan.target, arguments);
-        dispatch.put(slot, target);
-        methodTargets.put(slot, target);
       }
       List<CoreType> rootArguments =
           java.util.stream.IntStream.range(0, entry.getValue().typeParameters().size())
@@ -254,9 +294,7 @@ final class Lowerer {
                   : null;
           RuntimeValues.DispatchTarget target = methodTargets.get(implementation);
           if (target == null) {
-            target =
-                lowerWitnessTarget(
-                    inherited.owner(), witness.implementation(), callableByDefinition);
+            target = lowerWitnessTarget(inherited.owner(), witness.implementation(), requirement);
           }
           List<CoreType> defaultReceiverArguments =
               defaultWitnessReceiverArguments(
@@ -267,7 +305,8 @@ final class Lowerer {
                 new RuntimeValues.DispatchTarget.Callable(
                     callable.target(), defaultReceiverArguments);
           }
-          RuntimeValues.DispatchTarget previous = dispatch.putIfAbsent(requirement, target);
+          RuntimeValues.DispatchTarget previous =
+              dispatch.putIfAbsent(identity.slot(requirement), target);
           if (previous != null && !previous.equals(target)) {
             throw new IllegalStateException("verified aggregate dispatch is conflicting");
           }
@@ -276,12 +315,15 @@ final class Lowerer {
       aggregateInfo.put(
           occurrence,
           new RuntimeValues.AggregateInfo(
-              occurrence.representative(),
+              identity.id(occurrence.representative()),
               artifact.displayName(occurrence),
               entry.getValue().fieldCount(),
               fieldPlans(occurrence, entry.getValue(), aggregateOccurrences),
               dispatch,
-              aggregateAncestors(occurrence.representative())));
+              aggregateAncestors(occurrence.representative()).stream()
+                  .map(identity::id)
+                  .collect(java.util.stream.Collectors.toUnmodifiableSet()),
+              annotations));
     }
     for (CoreDefinitionRecord record : program.definitions()) {
       if (!(record.definition() instanceof CoreDefinition.BuiltinConformance conformance)) continue;
@@ -295,15 +337,14 @@ final class Lowerer {
         DefinitionId requirement = resolve(record.id(), witness.requirement());
         if (!execution.dispatchSlots().contains(requirement)) continue;
         RuntimeValues.DispatchTarget target =
-            lowerWitnessTarget(record.id(), witness.implementation(), callableByDefinition);
+            lowerWitnessTarget(record.id(), witness.implementation(), requirement);
         if (target instanceof RuntimeValues.DispatchTarget.Callable callable) {
-          CoreType interfaceType =
-              CoreTypes.absolute(conformance.interfaceType(), record.id(), program);
+          CoreType interfaceType = identity.type(record.id(), conformance.interfaceType());
           target =
               new RuntimeValues.DispatchTarget.Callable(
                   callable.target(), ((CoreType.Declared) interfaceType).arguments());
         }
-        if (dispatch.putIfAbsent(requirement, target) != null) {
+        if (dispatch.putIfAbsent(identity.slot(requirement), target) != null) {
           throw new IllegalStateException("verified builtin dispatch is duplicated");
         }
       }
@@ -323,14 +364,17 @@ final class Lowerer {
               .toList();
       indexJavaApplicationInterface(record.id(), declared, arguments, dispatch, ancestors);
       hostInterfaces.putIfAbsent(
-          record.id(),
+          identity.id(record.id()),
           new RuntimeValues.AggregateInfo(
-              record.id(),
+              identity.id(record.id()),
               declared.nominalType().name(),
               0,
               List.of(),
               dispatch,
-              java.util.Set.copyOf(ancestors)));
+              ancestors.stream()
+                  .map(identity::id)
+                  .collect(java.util.stream.Collectors.toUnmodifiableSet()),
+              annotations));
     }
   }
 
@@ -341,11 +385,12 @@ final class Lowerer {
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch,
       java.util.Set<DefinitionId> ancestors) {
     if (!ancestors.add(definition)) return;
-    RuntimeValues.AggregateInfo binding = hostInterfaces.get(definition);
+    RuntimeValues.AggregateInfo binding = hostInterfaces.get(identity.id(definition));
     for (CoreDefinitionLink link : declared.declaredMethods()) {
       DefinitionId method = resolve(definition, link);
       if (!execution.dispatchSlots().contains(method)) continue;
-      RuntimeValues.DispatchTarget target = binding == null ? null : binding.dispatch().get(method);
+      RuntimeValues.DispatchTarget target =
+          binding == null ? null : binding.dispatch().get(identity.slot(method));
       if (target instanceof RuntimeValues.DispatchTarget.Callable callable) {
         List<CoreType> receiverArguments =
             callable.specializedReceiverTypeArguments()
@@ -356,7 +401,10 @@ final class Lowerer {
         target = new RuntimeValues.DispatchTarget.Callable(callable.target(), receiverArguments);
       }
       dispatch.putIfAbsent(
-          method, target == null ? new RuntimeValues.DispatchTarget.HostMethod(method) : target);
+          identity.slot(method),
+          target == null
+              ? new RuntimeValues.DispatchTarget.HostMethod(identity.slot(method))
+              : target);
     }
     for (CoreType parentType : declared.directParents()) {
       CoreType parent =
@@ -417,18 +465,19 @@ final class Lowerer {
             target =
                 new RuntimeValues.DispatchTarget.Callable(callable.target(), receiverArguments);
           }
-          dispatch.put(requirement, target);
+          dispatch.put(identity.slot(requirement), target);
         }
         RuntimeValues.AggregateInfo info =
             new RuntimeValues.AggregateInfo(
-                external.definition(),
+                identity.id(external.definition()),
                 implemented.nominalType().name(),
                 0,
                 List.of(),
                 dispatch,
-                java.util.Set.of(external.definition()));
+                java.util.Set.of(identity.id(external.definition())),
+                annotations);
         RuntimeValues.AggregateInfo previous =
-            hostInterfaces.putIfAbsent(external.definition(), info);
+            hostInterfaces.putIfAbsent(identity.id(external.definition()), info);
         if (previous != null && !previous.dispatch().equals(info.dispatch())) {
           throw new IllegalStateException("host interface dispatch is conflicting");
         }
@@ -454,11 +503,19 @@ final class Lowerer {
       if (parentOccurrence == null) {
         throw new IllegalStateException("aggregate parent occurrence is absent");
       }
+      var arguments =
+          ((CoreType.Declared) parent)
+              .arguments().stream()
+                  .map(type -> identity.type(occurrence.representative(), type))
+                  .toList();
       result.addAll(
           fieldPlans(
-              parentOccurrence,
-              (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow(),
-              occurrences));
+                  parentOccurrence,
+                  (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow(),
+                  occurrences)
+              .stream()
+              .map(field -> field.project(arguments))
+              .toList());
     }
     aggregate
         .fields()
@@ -466,21 +523,55 @@ final class Lowerer {
             field ->
                 result.add(
                     new RuntimeValues.FieldPlan(
-                        occurrence,
+                        new DefinitionOccurrenceId(
+                            identity.id(occurrence.representative()), occurrence.ordinal()),
                         field.name(),
                         field.ordinal(),
                         field.visibility() == CoreVisibility.PUBLIC,
-                        field.interceptors())));
+                        field.interceptors(),
+                        identity.type(occurrence.representative(), field.type()),
+                        field
+                            .initializer()
+                            .map(
+                                initializer -> {
+                                  DefinitionOccurrenceId target =
+                                      artifact
+                                          .authoring()
+                                          .target(occurrence, initializer.nodeIndex());
+                                  FunctionPlan plan = callables.get(target);
+                                  if (plan == null)
+                                    throw new IllegalStateException(
+                                        "field initializer target is absent");
+                                  return (com.oracle.truffle.api.CallTarget) plan.target;
+                                }))));
     return List.copyOf(result);
   }
 
+  private FunctionPlan memberPlan(DefinitionId definition, String name) {
+    List<FunctionPlan> matches =
+        identity.occurrences(definition).stream()
+            .map(callables::get)
+            .filter(Objects::nonNull)
+            .filter(plan -> identity.name(plan.id).equals(name))
+            .toList();
+    if (matches.size() == 1) return matches.getFirst();
+    List<FunctionPlan> all =
+        identity.occurrences(definition).stream()
+            .map(callables::get)
+            .filter(Objects::nonNull)
+            .toList();
+    if (all.size() == 1) return all.getFirst();
+    throw new IllegalStateException("method occurrence is ambiguous: " + name);
+  }
+
   private RuntimeValues.DispatchTarget lowerWitnessTarget(
-      DefinitionId owner,
-      CoreWitnessTarget target,
-      Map<DefinitionId, FunctionPlan> callableByDefinition) {
+      DefinitionId owner, CoreWitnessTarget target, DefinitionId requirement) {
     return switch (target) {
       case CoreWitnessTarget.Callable callable -> {
-        FunctionPlan plan = callableByDefinition.get(resolve(owner, callable.definition()));
+        FunctionPlan plan =
+            memberPlan(
+                resolve(owner, callable.definition()),
+                identity.name(identity.occurrences(requirement).getFirst()));
         if (plan == null) throw new IllegalStateException("witness callable target is absent");
         yield new RuntimeValues.DispatchTarget.Callable(plan.target);
       }
@@ -568,7 +659,16 @@ final class Lowerer {
         block.statements().stream()
             .map(statement -> lowerStatement(statement, plan))
             .toArray(StatementNode[]::new);
-    return new StatementNodes.Block(statements)
+    StatementNode lowered =
+        new StatementNodes.Block(statements)
+            .at(section(plan.id, block.nodeIndex()), plan.id, block.nodeIndex());
+    if (liveNodes == null) return lowered;
+    String key = plan.layout.block(block.nodeIndex());
+    return liveNodes
+        .block(
+            new LiveBindings.Key(liveSchema.key(plan.id), key),
+            lowered,
+            plan.layout.required(key).stream().map(plan::binding).toList())
         .at(section(plan.id, block.nodeIndex()), plan.id, block.nodeIndex());
   }
 
@@ -584,9 +684,8 @@ final class Lowerer {
           case CoreStatement.FieldAssignment assignment ->
               new StatementNodes.WriteField(
                   lowerExpression(assignment.receiver(), plan),
-                  assignment.field().ordinal(),
-                  lowerExpression(assignment.value(), plan),
-                  annotations);
+                  fieldKey(plan, assignment.field()),
+                  lowerExpression(assignment.value(), plan));
           case CoreStatement.IntrinsicAssignment assignment -> {
             List<ExpressionNode> arguments = new ArrayList<>();
             assignment.index().ifPresent(value -> arguments.add(lowerExpression(value, plan)));
@@ -599,8 +698,7 @@ final class Lowerer {
           case CoreStatement.ReferenceAssignment assignment ->
               new StatementNodes.WriteReference(
                   lowerExpression(assignment.reference(), plan),
-                  lowerExpression(assignment.value(), plan),
-                  annotations);
+                  lowerExpression(assignment.value(), plan));
           case CoreStatement.ExpressionStatement expression ->
               new StatementNodes.ExpressionStatement(
                   lowerExpression(expression.expression(), plan));
@@ -647,11 +745,43 @@ final class Lowerer {
           case CoreStatement.BreakStatement ignored -> new StatementNodes.Break();
           case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
-    return lowered.at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
+    lowered.at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
+    if (liveNodes != null && statement instanceof CoreStatement.LocalDeclaration local) {
+      liveNodes.initializer(
+          new LiveBindings.Key(liveSchema.key(plan.id), plan.layout.local(local.localIndex())),
+          lowered,
+          plan.layout.required(plan.layout.statement(statement.nodeIndex())).stream()
+              .map(plan::binding)
+              .toList());
+    }
+    if (liveNodes == null) return lowered;
+    String key = plan.layout.statement(statement.nodeIndex());
+    return liveNodes
+        .statement(
+            new LiveBindings.Key(liveSchema.key(plan.id), key),
+            lowered,
+            plan.layout.required(key).stream().map(plan::binding).toList(),
+            statement instanceof CoreStatement.FieldAssignment
+                || statement instanceof CoreStatement.ReferenceAssignment
+                || statement instanceof CoreStatement.IntrinsicAssignment)
+        .at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
+  }
+
+  private RuntimeValues.FieldKey fieldKey(FunctionPlan plan, CoreFieldReference reference) {
+    DefinitionId owner = resolve(plan.id.representative(), reference.owner());
+    CoreDefinition.Aggregate aggregate =
+        (CoreDefinition.Aggregate) program.definition(owner).orElseThrow();
+    String name =
+        aggregate.fields().stream()
+            .filter(field -> field.ordinal() == reference.ordinal())
+            .findFirst()
+            .orElseThrow()
+            .name();
+    return new RuntimeValues.FieldKey(identity.id(owner), name);
   }
 
   private DefinitionId catchDefinition(DefinitionId owner, CoreType type) {
-    CoreType absolute = CoreTypes.absolute(type, owner, program);
+    CoreType absolute = identity.type(owner, type);
     CoreType.Declared declared = (CoreType.Declared) absolute;
     return ((DefinitionReference.External)
             ((CoreTypeConstructor.User) declared.constructor()).definition())
@@ -676,6 +806,8 @@ final class Lowerer {
                   lowerRuntimeType(collection.runtimeType(), plan));
           case CoreExpression.LocalRead local ->
               new ExpressionNodes.ReadLocal(plan.binding(local.localIndex()));
+          case CoreExpression.ParameterProvided provided ->
+              new ExpressionNodes.ParameterProvided(provided.parameterIndex());
           case CoreExpression.Let let ->
               new ExpressionNodes.Let(
                   plan.binding(let.localIndex()),
@@ -684,13 +816,13 @@ final class Lowerer {
           case CoreExpression.FieldRead field ->
               new ExpressionNodes.ReadField(
                   lowerExpression(field.receiver(), plan),
-                  field.field().ordinal(),
+                  fieldKey(plan, field.field()),
                   field.nullSafe());
           case CoreExpression.AddressLocal address ->
               new ExpressionNodes.AddressLocal(plan.binding(address.localIndex()));
           case CoreExpression.AddressField address ->
               new ExpressionNodes.AddressField(
-                  lowerExpression(address.receiver(), plan), address.field().ordinal());
+                  lowerExpression(address.receiver(), plan), fieldKey(plan, address.field()));
           case CoreExpression.Dereference dereference ->
               new ExpressionNodes.Dereference(lowerExpression(dereference.reference(), plan));
           case CoreExpression.EnumConstruct construct -> lowerEnumConstruct(construct, plan);
@@ -711,8 +843,7 @@ final class Lowerer {
                   new ExpressionNode[] {lowerExpression(index.index(), plan)},
                   new int[] {0},
                   null,
-                  false,
-                  annotations);
+                  false);
           case CoreExpression.CopyObject copied ->
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
@@ -732,10 +863,22 @@ final class Lowerer {
                   lowerArguments(intrinsic.arguments(), plan),
                   parameterIndices(intrinsic.arguments()),
                   intrinsic.runtimeType().map(value -> lowerRuntimeType(value, plan)).orElse(null),
-                  intrinsic.nullSafe(),
-                  annotations);
+                  intrinsic.nullSafe());
         };
-    return lowered.at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
+    lowered.at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
+    return liveNodes == null
+        ? lowered
+        : liveNodes
+            .expression(
+                new LiveBindings.Key(
+                    liveSchema.key(plan.id), plan.layout.expression(expression.nodeIndex())),
+                lowered,
+                plan.layout.required(plan.layout.expression(expression.nodeIndex())).stream()
+                    .map(plan::binding)
+                    .toList(),
+                plan.layout.writesState(plan.layout.expression(expression.nodeIndex())),
+                plan.layout.isControlBoundaryExpression(expression.nodeIndex()))
+            .at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
   }
 
   private ExpressionNode lowerSwitch(CoreExpression.Switch switched, FunctionPlan plan) {
@@ -799,10 +942,7 @@ final class Lowerer {
             .findFirst()
             .orElseThrow();
     return variant.fields().stream()
-        .map(
-            field ->
-                CoreTypes.absolute(field.type(), definition, program)
-                    .substitute(declared.arguments()::get))
+        .map(field -> identity.type(definition, field.type()).substitute(declared.arguments()::get))
         .toList();
   }
 
@@ -828,7 +968,7 @@ final class Lowerer {
       CoreExpression.EnumConstruct construct, FunctionPlan plan) {
     DefinitionOccurrenceId target = resolve(plan, construct.nodeIndex(), construct.target());
     return new ExpressionNodes.EnumConstruct(
-        target.representative(),
+        identity.id(target.representative()),
         artifact.displayName(target),
         construct.variantKey(),
         lowerRuntimeType(construct.runtimeType(), plan),
@@ -841,18 +981,18 @@ final class Lowerer {
     RuntimeValues.AggregateInfo info = aggregateInfo.get(target);
     if (info == null) throw new IllegalStateException("core aggregate target is absent: " + target);
     DefinitionId initializerId = resolve(plan.id.representative(), construct.initializer());
-    com.oracle.truffle.api.CallTarget initializer =
+    FunctionPlan initializer =
         callables.values().stream()
             .filter(value -> value.id.representative().equals(initializerId))
             .findFirst()
-            .orElseThrow(() -> new IllegalStateException("constructor target is absent"))
-            .target;
+            .orElseThrow(() -> new IllegalStateException("constructor target is absent"));
     return new ExpressionNodes.Construct(
         info,
-        initializer,
+        initializer.target,
         lowerRuntimeType(construct.runtimeType(), plan),
         lowerArguments(construct.arguments(), plan),
-        parameterIndices(construct.arguments()));
+        parameterIndices(construct.arguments()),
+        initializer.declaration.parameters().size());
   }
 
   private ExpressionNode lowerBinary(CoreExpression.Binary binary, FunctionPlan plan) {
@@ -883,9 +1023,23 @@ final class Lowerer {
     if (target == null && !call.virtual())
       throw new IllegalStateException("core call target is absent: " + targetId);
     if (call.receiver().isPresent()) {
+      if (target != null
+          && artifact.authoring().occurrence(targetId).orElseThrow().role()
+              == dev.w0fv1.norm.core.CoreDefinitionRole.CONSTRUCTOR) {
+        return new ExpressionNodes.ConstructorCall(
+            target.target,
+            lowerExpression(call.receiver().orElseThrow(), plan),
+            lowerArguments(call.arguments(), plan),
+            parameterIndices(call.arguments()),
+            java.util.stream.Stream.concat(
+                    call.receiverTypeArguments().stream(), call.reifiedArguments().stream())
+                .map(value -> lowerRuntimeType(value, plan))
+                .toArray(ExpressionNode[]::new),
+            target.declaration.parameters().size());
+      }
       if (call.virtual()) {
         return new ExpressionNodes.DispatchedCall(
-            targetId.representative(),
+            identity.slot(targetId),
             lowerExpression(call.receiver().orElseThrow(), plan),
             lowerArguments(call.arguments(), plan),
             parameterIndices(call.arguments()),
@@ -925,7 +1079,7 @@ final class Lowerer {
     return new ExpressionNodes.Closure(
         target == null ? null : target.target,
         targetId,
-        closure.virtual() ? targetId.representative() : null,
+        closure.virtual() ? identity.slot(targetId) : null,
         (closure.virtual() || target.declaration.hasReceiver()) && closure.receiver().isEmpty(),
         closure.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
         closure.captures().stream()
@@ -946,13 +1100,14 @@ final class Lowerer {
                             new CoreTypeCapture(
                                 index, plan.declaration.reifiedTypeLocals().get(index)))
                     .toList()),
-            plan));
+            plan),
+        annotations);
   }
 
   private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {
     DefinitionOccurrenceId requirement = resolve(plan, call.nodeIndex(), call.requirement());
     return new ExpressionNodes.DispatchedCall(
-        requirement.representative(),
+        identity.slot(requirement),
         lowerExpression(call.receiver(), plan),
         lowerArguments(call.arguments(), plan),
         parameterIndices(call.arguments()),
@@ -1000,7 +1155,7 @@ final class Lowerer {
 
   private ExpressionNode lowerRuntimeType(CoreRuntimeType type, FunctionPlan plan) {
     return new ExpressionNodes.TypeDescriptor(
-        CoreTypes.absolute(type.template(), plan.id.representative(), program),
+        identity.type(plan.id.representative(), type.template()),
         type.captures().stream().mapToInt(CoreTypeCapture::typeParameterIndex).toArray(),
         type.captures().stream()
             .map(capture -> plan.binding(capture.localIndex()))
@@ -1082,11 +1237,12 @@ final class Lowerer {
       case CoreIteration.Interface protocol -> {
         factory =
             new StatementNodes.InterfaceIteratorFactory(
-                resolve(plan.id.representative(), protocol.iteratorRequirement()), builtinDispatch);
+                identity.slot(resolve(plan.id.representative(), protocol.iteratorRequirement())),
+                builtinDispatch);
         cursor =
             new StatementNodes.InterfaceIteratorCursor(
-                resolve(plan.id.representative(), protocol.hasNextRequirement()),
-                resolve(plan.id.representative(), protocol.nextRequirement()),
+                identity.slot(resolve(plan.id.representative(), protocol.hasNextRequirement())),
+                identity.slot(resolve(plan.id.representative(), protocol.nextRequirement())),
                 builtinDispatch);
       }
     }
@@ -1106,8 +1262,13 @@ final class Lowerer {
     private FunctionRootNode root;
     private RootCallTarget implementation;
     private RootCallTarget target;
+    private final dev.w0fv1.norm.core.CoreExecutionLayout layout;
 
-    private FunctionPlan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {
+    private FunctionPlan(
+        DefinitionOccurrenceId id,
+        CoreDefinition.Callable declaration,
+        dev.w0fv1.norm.core.CoreExecutionLayout layout) {
+      this.layout = layout;
       this.id = id;
       this.declaration = declaration;
     }
@@ -1115,7 +1276,11 @@ final class Lowerer {
     private void allocate(CoreLocal local) {
       FrameSlotKind kind = slotKind(local.type());
       bindings.put(
-          local.index(), new FrameBinding(frame.addSlot(kind, "$" + local.index(), null), kind));
+          local.index(),
+          new FrameBinding(
+              frame.addSlot(kind, "$" + local.index(), null),
+              kind,
+              layout == null ? null : layout.local(local.index())));
     }
 
     private FrameBinding binding(int local) {
