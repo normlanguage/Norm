@@ -9,9 +9,9 @@ description: AI Agent 使用 Norm 的规范、语义工具与验证入口
 
 CLI 用法以安装版 `norm -h` 为入口；各命令使用 `norm <command> -h`，重构类型使用 `norm refactor name -h`。帮助不会执行项目操作。
 
-使用当前工具链支持的语言与 API。能力成熟度见 [Status](/zh/status)，工具设计原则与规划见 [Agent 工具设计](/zh/design/agent-tooling)。源码工作区中的能力不代表已进入正式发行包。
+使用当前工具链支持的语言与 API。能力成熟度见 [Status](/zh/status)，工具设计原则与规划见 [Agent 工具设计](/zh/design/agent-tooling)。Agent 模块通过 Norm 包管理器以 `github:agent@1` 发布和解析。
 
-持续修改自身代码的可执行入口见[自扩展 Agent](https://github.com/normlanguage/Norm/blob/main/norm/examples/self_extending_agent/README.md)。它使用建立在协议层 [OpenAI 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)之上的 [Agent 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/agent)，工具声明从 Norm 函数和注解派生。
+持续修改自身代码的可执行入口见[自扩展 Agent](https://github.com/normlanguage/Norm/blob/main/norm/examples/self_extending_agent/README.md)。它使用建立在协议层 [OpenAI 模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)之上的 [Agent 模块](https://github.com/normlanguage/agent)，工具声明从 Norm 函数和注解派生。
 
 ## 学习与查询
 
