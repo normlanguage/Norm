@@ -81,7 +81,7 @@ Continue until you invoke the capability you added and finish the task.
   var skill = Skill("https://raw.githubusercontent.com/normlanguage/Norm-Skill/main/SKILL.md")
   var runtime = RuntimeContext()
   var agent = Agent(apiKey: key, model: model, endpoint: endpoint, instruction: instructions,
-    skill: [skill], tool: tools(), toolProvider: tools.function,
+    skills: [skill], tools: tools(), toolProvider: tools.function,
     beginToolScope: beginSourceUpdate.function,
     contextProvider: runtime.context)
   var session = AgentSession()

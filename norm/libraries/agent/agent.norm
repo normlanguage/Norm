@@ -69,14 +69,15 @@ public class Agent {
   private Integer maximumOutputTokens
   private List<McpToolProvider> mcpProviders
   private List<Skill> skills
+  private Function<Void(String)>? textCallback
 
   Agent(
     String apiKey,
     String model,
     String endpoint,
     String? instruction = null,
-    List<Skill> skill = [],
-    List<Function<?>> tool = [],
+    List<Skill> skills = [],
+    List<Function<?>> tools = [],
     Integer maximumRounds = 64,
     Integer maximumOutputTokens = 8192,
     Function<List<Function<?>>()>? toolProvider = null,
@@ -87,14 +88,15 @@ public class Agent {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
     this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
     this.instructions = instruction
-    this.tools = tool
+    this.tools = tools
     this.toolProvider = toolProvider
     this.beginToolScope = beginToolScope
     this.contextProvider = contextProvider
     this.maximumRounds = maximumRounds
     this.maximumOutputTokens = maximumOutputTokens
     this.mcpProviders = mcp
-    this.skills = skill
+    this.skills = skills
+    this.textCallback = null
   }
 
   Agent(Client client, String? instructions = null, List<Function<?>> tools = [],
@@ -112,6 +114,7 @@ public class Agent {
     this.maximumOutputTokens = maximumOutputTokens
     this.mcpProviders = mcpProviders
     this.skills = skills
+    this.textCallback = null
   }
 
   public Agent skill(Skill value) {
@@ -133,8 +136,13 @@ public class Agent {
     return this
   }
 
+  public Agent onText(Void callback(String text)) {
+    textCallback = callback
+    return this
+  }
+
   public Response chat(String input, Function<Void(String)>? onText = null) {
-    return this.run(input: input, onText: onText)
+    return this.run(input: input, onText: if onText == null { textCallback } else { onText })
   }
 
   public Response run(String input, Function<Void(String)>? onResponseStarted = null,

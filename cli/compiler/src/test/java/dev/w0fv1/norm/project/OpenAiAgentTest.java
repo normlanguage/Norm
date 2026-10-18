@@ -164,15 +164,17 @@ final class OpenAiAgentTest {
           import agent.Agent
           import agent.Skill
           import openai.Tool
+          import std.io.print
           @Tool(description: "Echo")
           String echo() { return "ok" }
           Void main() {
             var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
-              instruction: "base", tool: [])
+              instruction: "base", tools: [])
+            agent.onText { print(text: text) }
             agent.skill(Skill(name: "norm-skill", url: "http://127.0.0.1:%d/skill.md"))
             agent.skill("http://127.0.0.1:%d/skill.md")
             agent.tool(echo.function)
-            var response = agent.chat(input: "hello")
+            var response = agent.chat("hello")
             require(condition: response.text == "done", message: "agent response")
             printLine("done")
           }
@@ -180,7 +182,7 @@ final class OpenAiAgentTest {
               server.getAddress().getPort(),
               server.getAddress().getPort(),
               server.getAddress().getPort()));
-      assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+      assertEquals("donedone\n", NormTestKit.run(entry).replace("\r\n", "\n"));
       if (failure.get() != null) throw new AssertionError(failure.get());
     } finally {
       server.stop(0);
