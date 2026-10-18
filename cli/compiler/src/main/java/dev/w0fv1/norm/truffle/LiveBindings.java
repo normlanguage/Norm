@@ -17,7 +17,11 @@ final class LiveBindings implements AutoCloseable {
 
   record Block(StatementNode node, List<FrameBinding> required) {}
 
-  record Expression(ExpressionNode node, List<FrameBinding> required, boolean writesState) {}
+  record Expression(
+      ExpressionNode node,
+      List<FrameBinding> required,
+      boolean writesState,
+      boolean controlBoundary) {}
 
   record Statement(StatementNode node, List<FrameBinding> required, boolean writesState) {}
 
@@ -138,10 +142,16 @@ final class LiveBindings implements AutoCloseable {
     }
 
     ExpressionNode expression(
-        Key key, ExpressionNode node, List<FrameBinding> required, boolean writesState) {
-      if (expressions.put(key, new Expression(node, List.copyOf(required), writesState)) != null)
+        Key key,
+        ExpressionNode node,
+        List<FrameBinding> required,
+        boolean writesState,
+        boolean controlBoundary) {
+      if (expressions.put(
+              key, new Expression(node, List.copyOf(required), writesState, controlBoundary))
+          != null)
         throw new IllegalStateException("duplicate expression binding");
-      return new ExpressionBinding(key, this, node);
+      return new ExpressionBinding(key, this, node, controlBoundary);
     }
 
     void initializer(Key key, StatementNode node, List<FrameBinding> required) {
@@ -876,11 +886,13 @@ final class LiveBindings implements AutoCloseable {
     private final Builder origin;
 
     @Child private ExpressionNode initial;
+    private final boolean controlBoundary;
 
-    ExpressionBinding(Key key, Builder origin, ExpressionNode initial) {
+    ExpressionBinding(Key key, Builder origin, ExpressionNode initial, boolean controlBoundary) {
       this.initial = initial;
       this.key = key;
       this.origin = origin;
+      this.controlBoundary = controlBoundary;
     }
 
     @Override
@@ -897,11 +909,13 @@ final class LiveBindings implements AutoCloseable {
       Version selected =
           pinned != null
               ? pinned
-              : continuation != null && continuation.declaration.equals(key.declaration())
-                  ? retained
-                  : bindings.writeVersion.get() != null
-                      ? bindings.writeVersion.get()
-                      : previous == null ? bindings.selected() : previous;
+              : controlBoundary
+                  ? bindings.selected()
+                  : continuation != null && continuation.declaration.equals(key.declaration())
+                      ? retained
+                      : bindings.writeVersion.get() != null
+                          ? bindings.writeVersion.get()
+                          : previous == null ? bindings.selected() : previous;
       Expression expression = selected.expressions.get(key);
       if (expression == null
           || !maps(origin.owner, selected, key)

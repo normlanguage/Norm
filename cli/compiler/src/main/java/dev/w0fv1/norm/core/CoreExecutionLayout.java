@@ -12,6 +12,7 @@ public final class CoreExecutionLayout extends CoreWalker {
   private final Map<Integer, String> blocks = new LinkedHashMap<>();
   private final Map<Integer, String> statements = new LinkedHashMap<>();
   private final Map<Integer, String> expressions = new LinkedHashMap<>();
+  private final Set<Integer> controlBoundaryExpressions = new LinkedHashSet<>();
   private final Map<Integer, String> locals = new LinkedHashMap<>();
   private final Map<Integer, String> names;
   private final Map<String, java.util.List<String>> blockStatements = new LinkedHashMap<>();
@@ -84,6 +85,10 @@ public final class CoreExecutionLayout extends CoreWalker {
     return expressions.get(index);
   }
 
+  public boolean isControlBoundaryExpression(int index) {
+    return controlBoundaryExpressions.contains(index);
+  }
+
   public String local(int index) {
     return locals.get(index);
   }
@@ -137,7 +142,10 @@ public final class CoreExecutionLayout extends CoreWalker {
             .computeIfAbsent(scope.key, ignored -> new LinkedHashSet<>())
             .add(local.localIndex());
     }
+    if (statement instanceof CoreStatement.IfStatement conditional)
+      controlBoundaryExpressions.add(conditional.condition().nodeIndex());
     if (statement instanceof CoreStatement.ForStatement loop) {
+      controlBoundaryExpressions.add(loop.iterable().nodeIndex());
       for (Scope scope : scopes) {
         Set<Integer> declared =
             declarations.computeIfAbsent(scope.key, ignored -> new LinkedHashSet<>());
@@ -149,6 +157,8 @@ public final class CoreExecutionLayout extends CoreWalker {
       locals.put(loop.variableLocal(), key + "/element");
       loop.indexLocal().ifPresent(index -> locals.put(index, key + "/index"));
     }
+    if (statement instanceof CoreStatement.ConditionalForStatement loop)
+      controlBoundaryExpressions.add(loop.condition().nodeIndex());
     if (statement instanceof CoreStatement.TryStatement tried) {
       for (Scope scope : scopes)
         tried

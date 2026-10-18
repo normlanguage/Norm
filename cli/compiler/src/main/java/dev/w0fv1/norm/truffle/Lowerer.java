@@ -876,7 +876,8 @@ final class Lowerer {
                 plan.layout.required(plan.layout.expression(expression.nodeIndex())).stream()
                     .map(plan::binding)
                     .toList(),
-                plan.layout.writesState(plan.layout.expression(expression.nodeIndex())))
+                plan.layout.writesState(plan.layout.expression(expression.nodeIndex())),
+                plan.layout.isControlBoundaryExpression(expression.nodeIndex()))
             .at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
   }
 

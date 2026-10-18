@@ -60,6 +60,23 @@ final class LiveStructureExecutionTest {
   }
 
   @Test
+  void refreshesAConditionalBoundaryWhenTheNextIterationEntersIt() {
+    String source =
+        """
+        Void main() {
+          var count = 0
+          for (count < 2) {
+            if (count == 0) { printLine("old") }
+            count = count + 1
+          }
+        }
+        """;
+    String updated = source.replace("count == 0", "true").replace("\"old\"", "\"new\"");
+    var result = run(source, updated, 1);
+    assertEquals(List.of("old", "new"), result.lines());
+  }
+
+  @Test
   void initializesNewOuterStateOnceWithoutReplayingExistingDeclarations() {
     String source =
         """
