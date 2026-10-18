@@ -2,71 +2,11 @@ package self_extending_agent
 
 import agent.Agent
 import agent.Skill
-import agent.ToolScope
 import std.application.applicationDirectory
 import std.application.arguments
 import std.application.environmentVariable
 import std.core.Exception
 import std.io.print
-import std.runtime.Runtime
-import std.runtime.UpdateBatch
-import std.runtime.UpdateOutcome
-import std.runtime.RuntimeDiagnostic
-import std.system.currentSystem
-
-class RuntimeStatusProvider {
-  Runtime runtime
-  String? previous = null
-
-  RuntimeStatusProvider(Runtime runtime) { this.runtime = runtime }
-
-  String? context() {
-    var status = runtime.status()
-    String text = "Runtime status: published revision " + status.publishedRevision.toString()
-      + "; active revision " + status.activeRevision.toString()
-    for String location : status.pendingLocations { text = text + "\nPending: " + location }
-    if previous == text { return null }
-    previous = text
-    return text
-  }
-}
-
-class SourceUpdate implements ToolScope {
-  UpdateBatch batch
-
-  SourceUpdate(Runtime runtime) {
-    this.batch = runtime.beginUpdate()
-  }
-
-  public String? complete() {
-    var result = batch.commit()
-    String outcome = switch result.outcome {
-      case Published { break "Published" }
-      case Unchanged { break "Unchanged" }
-      case Rejected { break "Rejected" }
-      case Failed { break "Failed" }
-    }
-    String feedback = "Runtime publication: " + outcome + "; revision " + result.revision.toString()
-    for String location : result.pendingLocations { feedback = feedback + "\nPending: " + location }
-    for RuntimeDiagnostic diagnostic : result.diagnostics {
-      feedback = feedback + "\n" + diagnostic.severity + " " + diagnostic.code + " " + diagnostic.source
-        + ":" + diagnostic.startOffset.toString() + " " + diagnostic.message
-    }
-    String? failure = result.failure
-    if failure != null { feedback = feedback + "\n" + failure }
-    return feedback
-  }
-
-  public Void close() { batch.close() }
-}
-
-class SourceUpdateFactory {
-  Runtime runtime
-
-  SourceUpdateFactory(Runtime runtime) { this.runtime = runtime }
-
-  ToolScope begin() { return SourceUpdate(runtime: runtime) }
-}
 
 Void main() {
   String key = environmentVariable(name: "OPENAI_API_KEY") ?? throw Exception(message: "OPENAI_API_KEY is required")
@@ -84,18 +24,12 @@ Read Norm syntax at ${documentation}/spec/language-spec.md and library reference
 The actual standard library sources are at ${standardLibrary}. Do not guess APIs or borrow syntax from other languages.
 When a task needs a missing capability, implement an annotated Norm tool and add its function reference to tools().
 Add dependencies to module.norm and create their source under the application dependency directory when needed.
-All writes from one response are published together. Runtime publication feedback follows tool outputs.
-Fix rejected source using the diagnostics before using the new tool. A published revision may still have pending old continuations.
-Continue until you invoke the capability you added and finish the task.
+Tool calls from one response are executed in order.
+Continue until you finish the task.
 """
   var skill = Skill("https://raw.githubusercontent.com/normlanguage/Norm-Skill/main/SKILL.md")
-  var runtime = currentSystem().runtime()
-  var statusProvider = RuntimeStatusProvider(runtime: runtime)
-  var sourceUpdates = SourceUpdateFactory(runtime: runtime)
   var agent = Agent(apiKey: key, model: model, endpoint: endpoint, instruction: instructions,
-    skills: [skill], tools: tools(), toolProvider: tools,
-    beginToolScope: sourceUpdates.begin,
-    contextProvider: statusProvider.context)
+    skills: [skill], tools: tools())
   agent.onText { print(text: text) }
   var response = agent.chat(inputs[0])
   printLine("")
