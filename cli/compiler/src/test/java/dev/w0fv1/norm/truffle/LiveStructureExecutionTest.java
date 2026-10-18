@@ -41,6 +41,25 @@ final class LiveStructureExecutionTest {
   }
 
   @Test
+  void keepsAChangedBlockVersionUntilTheCurrentBlockExecutionReturns() {
+    String source =
+        """
+        Void main() {
+          var count = 0
+          for (count < 2) {
+            printLine("before:old:" + count.toString())
+            printLine("after:old:" + count.toString())
+            count = count + 1
+          }
+        }
+        """;
+    String updated = source.replace("old:", "new:");
+    var result = run(source, updated, 1);
+    assertEquals(
+        List.of("before:old:0", "after:old:0", "before:new:1", "after:new:1"), result.lines());
+  }
+
+  @Test
   void initializesNewOuterStateOnceWithoutReplayingExistingDeclarations() {
     String source =
         """
@@ -88,6 +107,10 @@ final class LiveStructureExecutionTest {
   }
 
   private Result run(String source, String updated) {
+    return run(source, updated, 2);
+  }
+
+  private Result run(String source, String updated, int updateAfterLine) {
     try (var execution = new TruffleExecutionBackend().prepareLive(compile(source))) {
       var candidate = compile(updated);
       var output = new StringBuilder();
@@ -99,7 +122,7 @@ final class LiveStructureExecutionTest {
             public void write(char[] text, int start, int length) {
               for (int index = start; index < start + length; index++) {
                 output.append(text[index]);
-                if (text[index] == '\n' && ++lines == 2) execution.update(candidate);
+                if (text[index] == '\n' && ++lines == updateAfterLine) execution.update(candidate);
               }
             }
 

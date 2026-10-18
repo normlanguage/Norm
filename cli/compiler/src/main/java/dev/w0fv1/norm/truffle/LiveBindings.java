@@ -833,7 +833,13 @@ final class LiveBindings implements AutoCloseable {
           continuation != null && continuation.declaration.equals(key.declaration())
               ? continuation.adopted
               : bindings.capture();
-      Version selected = bindings.selected();
+      Version pinned = bindings.pinnedVersion.get();
+      Version selected =
+          pinned != null
+              ? pinned
+              : continuation != null && continuation.declaration.equals(key.declaration())
+                  ? retained
+                  : bindings.selected();
       Statement statement = selected.statements.get(key);
       if (statement == null
           || !maps(origin.owner, selected, key)
@@ -887,12 +893,15 @@ final class LiveBindings implements AutoCloseable {
           continuation != null && continuation.declaration.equals(key.declaration())
               ? continuation.adopted
               : bindings.capture();
+      Version pinned = bindings.pinnedVersion.get();
       Version selected =
-          bindings.pinnedVersion.get() != null
-              ? bindings.pinnedVersion.get()
-              : bindings.writeVersion.get() != null
-                  ? bindings.writeVersion.get()
-                  : previous == null ? bindings.selected() : previous;
+          pinned != null
+              ? pinned
+              : continuation != null && continuation.declaration.equals(key.declaration())
+                  ? retained
+                  : bindings.writeVersion.get() != null
+                      ? bindings.writeVersion.get()
+                      : previous == null ? bindings.selected() : previous;
       Expression expression = selected.expressions.get(key);
       if (expression == null
           || !maps(origin.owner, selected, key)
