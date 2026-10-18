@@ -17,9 +17,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class RunCommand implements Command {
+  private final Path workingDirectory;
+
+  RunCommand() {
+    this(Path.of("").toAbsolutePath());
+  }
+
+  RunCommand(Path workingDirectory) {
+    this.workingDirectory = workingDirectory.toAbsolutePath().normalize();
+  }
   @Override
   public String usage() {
-    return "norm run [--debug] <file.norm|module-directory> [-- arguments...]";
+    return "norm run [--debug] [file.norm|module-directory] [-- arguments...]";
   }
 
   @Override
@@ -40,19 +49,23 @@ final class RunCommand implements Command {
         separator < 0 ? List.of() : List.copyOf(arguments.subList(separator + 1, arguments.size()));
     if (separator >= 0) arguments = new ArrayList<>(arguments.subList(0, separator));
     boolean debug = arguments.remove("--debug");
-    if (arguments.size() != 1) {
+    if (arguments.size() > 1) {
       err.println(
-          "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
+          "error[NORM-CLI-0003]: 'run' expects at most one source file or module directory");
       err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
 
+    String source = arguments.isEmpty() ? "." : arguments.getFirst();
     Path entry;
     try {
-      entry = Path.of(arguments.getFirst());
-      if (Files.isDirectory(entry)) entry = entry.resolve("application.norm");
+      entry = workingDirectory.resolve(source);
+      if (Files.isDirectory(entry)) {
+        Path application = entry.resolve("application.norm");
+        entry = Files.isRegularFile(application) ? application : entry.resolve("main.norm");
+      }
     } catch (InvalidPathException exception) {
-      err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", arguments.getFirst());
+      err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", source);
       return ExitCode.INPUT_ERROR;
     }
 
@@ -98,7 +111,7 @@ final class RunCommand implements Command {
     } catch (IOException exception) {
       err.printf(
           "error[NORM-CLI-0004]: cannot load source file '%s': %s%n",
-          arguments.getFirst(), exception.getMessage());
+          source, exception.getMessage());
       return ExitCode.INPUT_ERROR;
     } catch (CompilationInfrastructureException exception) {
       err.printf(

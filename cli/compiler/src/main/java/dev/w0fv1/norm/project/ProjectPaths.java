@@ -23,13 +23,7 @@ final class ProjectPaths {
     String[] segments = descriptor.name().split("\\.");
     for (int index = segments.length - 1; index >= 0; index--) {
       Path name = current.getFileName();
-      if (name == null || !name.toString().equals(segments[index])) {
-        throw new IOException(
-            "module configuration directory must match module name '"
-                + descriptor.name()
-                + "': "
-                + moduleSource.path());
-      }
+      if (name == null || !name.toString().equals(segments[index])) break;
       current = current.getParent();
       if (current == null) {
         throw new IOException("module configuration path has no source root");

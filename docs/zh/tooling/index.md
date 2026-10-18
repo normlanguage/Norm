@@ -55,3 +55,4 @@ Source files
 ```
 
 工具能力的当前交付边界见 [Status](/zh/status)。调试器和在线执行环境尚未进入发布版。
+`norm run` 默认运行当前目录，优先选择 `application.norm`，不存在时选择 `main.norm`。可用 `norm run -- 参数...` 在省略路径时传入应用参数。

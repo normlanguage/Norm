@@ -55,3 +55,4 @@ Source files
 ```
 
 See [Status](/status) for the currently delivered tooling boundary. A debugger and online execution environment are not yet in a release.
+`norm run` defaults to the current directory. Directory execution selects `application.norm`, or `main.norm` when it is absent. Use `norm run -- arguments...` to pass application arguments without an explicit path.
