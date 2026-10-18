@@ -99,24 +99,6 @@ public class Agent {
     this.textCallback = null
   }
 
-  Agent(Client client, String? instructions = null, List<Function<?>> tools = [],
-    Integer maximumRounds = 64, Integer maximumOutputTokens = 8192,
-    Function<List<Function<?>>()>? toolProvider = null, Function<ToolScope()>? beginToolScope = null,
-    Function<String?()>? contextProvider = null, List<Skill> skills = [], List<McpToolProvider> mcpProviders = []) {
-    if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
-    this.client = client
-    this.instructions = instructions
-    this.tools = tools
-    this.toolProvider = toolProvider
-    this.beginToolScope = beginToolScope
-    this.contextProvider = contextProvider
-    this.maximumRounds = maximumRounds
-    this.maximumOutputTokens = maximumOutputTokens
-    this.mcpProviders = mcpProviders
-    this.skills = skills
-    this.textCallback = null
-  }
-
   public Agent skill(Skill value) {
     skills.add(value)
     return this
@@ -141,11 +123,7 @@ public class Agent {
     return this
   }
 
-  public Response chat(String input, Function<Void(String)>? onText = null) {
-    return this.run(input: input, onText: if onText == null { textCallback } else { onText })
-  }
-
-  public Response run(String input, Function<Void(String)>? onResponseStarted = null,
+  public Response chat(String input, Function<Void(String)>? onResponseStarted = null,
     Function<Void(String)>? onMessageStarted = null,
     Function<Void(String)>? onText = null,
     Function<Void(Message)>? onMessageCompleted = null,
@@ -159,7 +137,7 @@ public class Agent {
     Function<Void(Response)>? onRunCompleted = null,
     Function<Void(GenerationEvent)>? onEvent = null,
     AgentSession session = AgentSession()) {
-    var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: onText, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
+    var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: if onText == null { textCallback } else { onText }, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
     try {
       callbacks.emit(event: GenerationEvent.RunStarted(input: input))
       session.addContext(text: input)

@@ -33,17 +33,17 @@ Integer sumNumbers(
   return left + right
 }
 
-var agent = Agent(apiKey: key, model: model, endpoint: endpoint, tool: [sumNumbers])
-var response = agent.run(input: "计算 19 加 23")
+var agent = Agent(apiKey: key, model: model, endpoint: endpoint, tools: [sumNumbers])
+var response = agent.chat("计算 19 加 23")
 ```
 
 Pass bound methods as `tools: [service.method]`. First assign an overloaded function to a variable with the exact `Function<R(P...)>` type, then add it to the tool list. Parameter defaults, nullability, serialized field names, and return types follow Norm's contracts; structured values use `@Serializable()`. Registration checks tool annotations, unique names, and whether parameters and results can be serialized. Tool exceptions notify `onToolFailed`, and the error result is passed back to the model so it can continue.
 
-`Client.generate` makes one model request. `Agent.run` executes tools and continues requesting the model. Pass the same `AgentSession` to successive runs to retain conversation history; omitting it starts a separate session. `toolProvider` supplies tools before each model request, and all calls from that response share their function revision and parameter contract snapshot. A rejected tool contract retains the previously accepted catalog and sends diagnostics to the model for repair. `contextProvider` supplies optional context before each request. `beginToolScope` scopes a response's tool calls; optional text from `ToolScope.complete()` becomes model context, and `close()` runs on every exit path. See [agent.norm](agent.norm) for the API and lifecycle.
+`Client.generate` makes one model request. `Agent.chat` executes tools and continues requesting the model. Pass the same `AgentSession` to successive chats to retain conversation history; omitting it starts a separate session. `toolProvider` supplies tools before each model request, and all calls from that response share their function revision and parameter contract snapshot. A rejected tool contract retains the previously accepted catalog and sends diagnostics to the model for repair. `contextProvider` supplies optional context before each request. `beginToolScope` scopes a response's tool calls; optional text from `ToolScope.complete()` becomes model context, and `close()` runs on every exit path. See [agent.norm](agent.norm) for the API and lifecycle.
 
 The [self-extending Agent](../../examples/self_extending_agent/README.md) is built on the separate Agent library. `Client.exchange`, `ResponseRequest`, and `ToolRegistry` remain the protocol-level API for applications that manage their own context and tool scheduling.
 
-Each event has a corresponding `onXxx` parameter and also supports `onEvent: (GenerationEvent event)`. When both are registered, `onEvent` runs before the specialized callback. `generate` and `run` provide model events; `run` also provides tool execution and whole-task events. See [events.norm](events.norm) for event and parameter types, and [client.norm](client.norm) and [agent.norm](agent.norm) for lifecycle entry points. Error notification does not swallow exceptions. Server-reported failure, incomplete, and refusal states remain in `Response`.
+Each event has a corresponding `onXxx` parameter and also supports `onEvent: (GenerationEvent event)`. When both are registered, `onEvent` runs before the specialized callback. `generate` and `chat` provide model events; `chat` also provides tool execution and whole-task events. See [events.norm](events.norm) for event and parameter types, and [client.norm](client.norm) and [agent.norm](agent.norm) for lifecycle entry points. Error notification does not swallow exceptions. Server-reported failure, incomplete, and refusal states remain in `Response`.
 
 `client.generate<Result>(input: ...)` derives an output schema from `Result`, decoded through `response.decode<Result>()`. Strict mode accepts object results; a nullable field is represented as required but nullable. Dynamic maps cannot be used in strict mode. For compatible services that only support JSON-object mode, pass `mode: StructuredOutputMode.JsonObject`. Advanced requests can use `structuredOutput<Result>()` to generate the same format definition.
 

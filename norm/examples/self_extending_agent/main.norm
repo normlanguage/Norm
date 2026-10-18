@@ -84,8 +84,9 @@ Continue until you invoke the capability you added and finish the task.
     skills: [skill], tools: tools(),
     beginToolScope: beginSourceUpdate.function,
     contextProvider: runtime.context)
+  agent.onText { print(text: text) }
   var session = AgentSession()
-  var response = agent.run(input: inputs[0], session: session, onText: (String text) { print(text: text) })
+  var response = agent.chat(inputs[0], session: session)
   printLine("")
 }
 

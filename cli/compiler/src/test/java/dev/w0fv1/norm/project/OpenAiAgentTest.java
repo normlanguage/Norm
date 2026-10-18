@@ -79,7 +79,6 @@ final class OpenAiAgentTest {
           """
         package app
         import agent.Agent
-        import openai.Client
         import openai.Tool
         class Unsupported {}
         class Catalog {
@@ -98,9 +97,9 @@ final class OpenAiAgentTest {
         }
         Void main() {
           var catalog = Catalog()
-          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
-          var agent = Agent(client: client, toolProvider: catalog.tools)
-          agent.run(input: "install and repair")
+          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+            toolProvider: catalog.tools)
+          agent.chat("install and repair")
           require(condition: catalog.stage == 2, message: "accepted catalog remains callable")
           printLine("done")
         }
@@ -223,7 +222,6 @@ final class OpenAiAgentTest {
           """
         package app
         import agent.Agent
-        import openai.Client
         import openai.Tool
         import agent.ToolScope
         import std.core.Exception
@@ -238,10 +236,10 @@ final class OpenAiAgentTest {
         }
         Void main() {
           var scope = Scope()
-          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
-          var agent = Agent(client: client, tools: [scope.noop], beginToolScope: scope.begin)
+          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+            tools: [scope.noop], beginToolScope: scope.begin)
           try {
-            agent.run(input: "run", onFailed: (Exception error) {
+            agent.chat("run", onFailed: (Exception error) {
               require(condition: scope.closed && error.message == "publication failed", message: "close before failure notification")
               scope.failed = scope.failed + 1
             })
@@ -345,7 +343,6 @@ final class OpenAiAgentTest {
         package app
         import agent.Agent
         import agent.AgentSession
-        import openai.Client
         import openai.Tool
         import agent.ToolScope
         class Catalog {
@@ -367,12 +364,12 @@ final class OpenAiAgentTest {
         }
         Void main() {
           var catalog = Catalog()
-          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
-          var agent = Agent(client: client, toolProvider: catalog.tools, beginToolScope: catalog.begin)
+          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+            toolProvider: catalog.tools, beginToolScope: catalog.begin)
           var session = AgentSession()
-          agent.run(input: "install", session: session)
+          agent.chat("install", session: session)
           require(condition: catalog.count == 2, message: "response tool snapshot")
-          agent.run(input: "continue", session: session)
+          agent.chat("continue", session: session)
           require(condition: catalog.scopes == 1 && catalog.completed == 1 && catalog.closed == 1, message: "whole response scope")
           printLine("done")
         }
@@ -555,7 +552,6 @@ final class OpenAiAgentTest {
           entry,
           """
           package app
-          import openai.Client
           import agent.Agent
           import openai.Tool
           import openai.ToolParameter
@@ -579,9 +575,9 @@ final class OpenAiAgentTest {
           }
           Void main() {
             var counter = Counter()
-            var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
-            var agent = Agent(client: client, tools: [counter.add])
-            var response = agent.run(input: "add three",
+            var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+              tools: [counter.add])
+            var response = agent.chat("add three",
               onEvent: (GenerationEvent event) { counter.events = counter.events + 1 },
               onRunStarted: (String input) { printLine("run") },
               onResponseStarted: (String id) { printLine("response") },
@@ -595,7 +591,7 @@ final class OpenAiAgentTest {
               onResponseCompleted: (Response response) { printLine("response done") },
               onRunCompleted: (Response response) { printLine("run done") })
             require(condition: response.text == "done" && counter.events == 12, message: "event stream")
-            agent.run(input: "add three again")
+            agent.chat("add three again")
             require(condition: counter.number == if counter.reject { 0 } else { 6 }, message: "second run")
           }
           """
