@@ -162,6 +162,17 @@ final class CliControllerTest {
   }
 
   @Test
+  void updatesAProjectWithoutTryingToReplaceTheCli() throws IOException {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("update-project"));
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"update_project\", version: 1, dependencies: []) }");
+    Result result = run("update", "--project", module.toString());
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertTrue(result.standardOut().contains("Project dependencies are already up to date"));
+  }
+
+  @Test
   void rejectsTestWithoutAModuleOrSourceFile() {
     Result result = run("test");
 

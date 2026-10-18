@@ -87,6 +87,23 @@ final class NormPackageResolverTest {
   }
 
   @Test
+  void exposesTheNewestVersionForUpdatePlanning() throws Exception {
+    Path remote = temporaryDirectory.resolve("remote-update");
+    Path registry = registry("sample.library", "normlanguage", "sample-library");
+    Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v2"));
+    Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v6"));
+    try (var resolver =
+        new NormPackageResolver(
+            temporaryDirectory.resolve("local-update"),
+            temporaryDirectory.resolve("cache-update"),
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
+      assertEquals(6, resolver.latestVersion(ModuleRepositoryId.GITHUB, "sample.library"));
+    }
+  }
+
+  @Test
   void rejectsContentThatDoesNotMatchThePublishedDigest() throws Exception {
     Path remote = temporaryDirectory.resolve("remote-corrupt");
     Path registry = registry("sample.library", "normlanguage", "sample-library");

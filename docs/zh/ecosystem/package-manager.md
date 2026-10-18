@@ -19,3 +19,9 @@ dependency(repository: "github", name: "micronaut.web")
 `github` 先读取 [`normlanguage/registry`](https://github.com/normlanguage/registry) 的模块名映射，再从模块自己的 GitHub Release `v<version>` 下载 `<artifact>-<version>.nar` 与 SHA-256 sidecar。Release 开启不可变发布；注册表只决定模块由哪个仓库拥有，不保存版本清单或制品。NAR 中的 Java Binding 再由编译器从 Maven Central 解析 JAR、POM、BOM 和传递运行依赖。Norm 包来源与 Java artifact 仓库是独立概念；用户不编写 Maven 或 Gradle 配置。
 
 每个 Module 使用独立源码仓库，`module.norm` 仍是模块身份、依赖与可选 Java 根制品的唯一声明源。第三方先通过注册表 Pull Request 认领模块名，随后可在自己的仓库独立发布新版本；未来增加 `norm` 仓库不会改变 `github` 的解析语义。
+
+## 更新
+
+`norm update` 是统一更新入口。执行时会先更新当前目录的 `module.norm` 依赖：查询仓库最新稳定整数版本，下载并校验对应 NAR，全部成功后原子写回依赖版本。没有 `module.norm` 时只处理 CLI；也可以显式使用 `norm update --project <module-directory>` 或 `norm update --cli`。
+
+CLI 更新优先使用当前平台的包管理器（Windows 使用 Scoop，macOS 使用 Homebrew，Linux 使用 apt），包管理器不可用或更新失败时，在 Windows 通过官方 GitHub Release 下载并在当前进程退出后替换启动器。

@@ -3,6 +3,7 @@ package dev.w0fv1.norm.project;
 import static dev.w0fv1.norm.project.ProjectPaths.normalize;
 
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
+import dev.w0fv1.norm.frontend.ModuleDependencySourceEditor;
 import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
@@ -11,6 +12,8 @@ import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleRequirement;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -158,6 +161,63 @@ public final class ProjectLoader implements AutoCloseable {
       SourceFile source, dev.w0fv1.norm.frontend.CompilationControl control) throws IOException {
     var context = new ProjectLoadContext(modules, control, List.of());
     return loading(context).evaluateModule(source);
+  }
+
+  public DependencyUpdateResult updateDependencies(Path modulePath) throws IOException {
+    Path normalized = normalize(modulePath);
+    SourceFile source = SourceFile.read(normalized);
+    var declaration =
+        modules
+            .evaluate(source, dev.w0fv1.norm.frontend.CompilationControl.standard())
+            .declaration();
+    var edits = new java.util.ArrayList<ModuleDependencySourceEditor.Update>();
+    var changed = new java.util.ArrayList<DependencyUpdate>();
+    var occurrences = new java.util.HashMap<String, Integer>();
+    for (var dependency : declaration.dependencies()) {
+      String key = dependency.repository().value() + "\u0000" + dependency.name();
+      int occurrence = occurrences.getOrDefault(key, 0);
+      occurrences.put(key, occurrence + 1);
+      int latest = packages.latestVersion(dependency.repository(), dependency.name());
+      int current = dependency.version().orElse(0);
+      packages.resolve(dependency.resolved(latest));
+      if (current == latest) continue;
+      edits.add(
+          new ModuleDependencySourceEditor.Update(
+              dependency.repository().value(), dependency.name(), latest, occurrence));
+      changed.add(
+          new DependencyUpdate(
+              dependency.repository().value(),
+              dependency.name(),
+              current == 0 ? null : current,
+              latest));
+    }
+    if (edits.isEmpty()) return new DependencyUpdateResult(normalized, List.of());
+    String updated = new ModuleDependencySourceEditor().withVersions(source, edits);
+    Path temporary = Files.createTempFile(normalized.getParent(), ".module-update-", ".tmp");
+    try {
+      Files.writeString(temporary, updated, StandardCharsets.UTF_8);
+      try {
+        Files.move(
+            temporary,
+            normalized,
+            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
+        Files.move(temporary, normalized, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
+    } finally {
+      Files.deleteIfExists(temporary);
+    }
+    return new DependencyUpdateResult(normalized, changed);
+  }
+
+  public record DependencyUpdate(
+      String repository, String name, Integer previousVersion, int version) {}
+
+  public record DependencyUpdateResult(Path module, List<DependencyUpdate> updates) {
+    public DependencyUpdateResult {
+      updates = List.copyOf(updates);
+    }
   }
 
   public ResolvedJarGraph resolveJarBinding(SourceFile source) throws IOException {

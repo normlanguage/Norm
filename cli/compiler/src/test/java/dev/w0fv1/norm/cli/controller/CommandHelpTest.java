@@ -15,6 +15,7 @@ final class CommandHelpTest {
             "help",
             "version",
             "setup",
+            "update",
             "build",
             "run",
             "test",

@@ -165,6 +165,16 @@ public final class NormPackageResolver implements AutoCloseable {
     return dependency.resolved(repository.latestVersion(dependency.name(), client));
   }
 
+  public int latestVersion(ModuleRepositoryId repositoryId, String moduleName) throws IOException {
+    Objects.requireNonNull(repositoryId, "repositoryId");
+    Objects.requireNonNull(moduleName, "moduleName");
+    NormPackageRepository repository = repositories.get(repositoryId);
+    if (repository == null) {
+      throw new IOException("unknown Norm package repository '" + repositoryId.value() + "'");
+    }
+    return repository.latestVersion(moduleName, client);
+  }
+
   private static java.util.List<dev.w0fv1.norm.value.FileSnapshot> cachedArtifactInputs(
       Path archive) throws IOException {
     Path digest = digestPath(archive);

@@ -12,6 +12,7 @@ public final class CliController {
     router.register(new VersionCommand());
     router.register(new HelloCommand());
     router.register(new SetupCommand());
+    router.register(new UpdateCommand());
     router.register(new BuildCommand());
     router.register(new RunCommand());
     router.register(new VerificationCommand(VerificationCommand.Kind.TEST));
