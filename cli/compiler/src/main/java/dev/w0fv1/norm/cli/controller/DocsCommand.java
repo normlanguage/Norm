@@ -5,6 +5,7 @@ import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.documentation.DocumentationGenerator;
 import dev.w0fv1.norm.documentation.MissingDocumentationException;
+import dev.w0fv1.norm.documentation.SkillGenerator;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.CompilerSession;
@@ -37,6 +38,7 @@ final class DocsCommand implements Command {
   public int help(PrintWriter out, PrintWriter err) {
     Command.super.help(out, err);
     out.println("--output is required; the generated API tree replaces the previous output.");
+    out.println("--skill writes an agent-facing SKILL.md from the same documentation model.");
     out.println("--strict requires documentation for public declarations and callable parameters.");
     out.println(new MarkdownCheckCommand().usage());
     return 0;
@@ -90,6 +92,12 @@ final class DocsCommand implements Command {
                     loaded.snapshot(),
                     options.strict());
         new ApiDocumentationWriter().write(documentation, options.output());
+        if (options.skill() != null) {
+          Path skill = options.skill().toAbsolutePath().normalize();
+          Path parent = skill.getParent();
+          if (parent != null) Files.createDirectories(parent);
+          Files.writeString(skill, new SkillGenerator().generate(documentation));
+        }
         out.printf("Generated %s%n", options.output().toAbsolutePath().normalize());
         return ExitCode.SUCCESS;
       }
@@ -149,6 +157,7 @@ final class DocsCommand implements Command {
       return Optional.empty();
     }
     Path output = null;
+    Path skill = null;
     boolean strict = false;
     for (int index = 1; index < arguments.size(); index++) {
       String argument = arguments.get(index);
@@ -161,11 +170,20 @@ final class DocsCommand implements Command {
           err.printf("error[NORM-DOC-0001]: invalid output path '%s'%n", arguments.get(index));
           return Optional.empty();
         }
+      } else if (argument.equals("--skill") && index + 1 < arguments.size()) {
+        try {
+          skill = Path.of(arguments.get(++index));
+        } catch (InvalidPathException exception) {
+          err.printf("error[NORM-DOC-0001]: invalid skill path '%s'%n", arguments.get(index));
+          return Optional.empty();
+        }
       } else {
         return usage(err);
       }
     }
-    return output == null ? usage(err) : Optional.of(new Options(moduleRoot, output, strict));
+    return output == null
+        ? usage(err)
+        : Optional.of(new Options(moduleRoot, output, skill, strict));
   }
 
   private Optional<Options> usage(PrintWriter err) {
@@ -177,7 +195,7 @@ final class DocsCommand implements Command {
     return root.relativize(path.toAbsolutePath().normalize()).toString().replace('\\', '/');
   }
 
-  private record Options(Path moduleRoot, Path output, boolean strict) {}
+  private record Options(Path moduleRoot, Path output, Path skill, boolean strict) {}
 
   private record LoadedModule(
       Map<DocumentId, String> sourcePaths,
