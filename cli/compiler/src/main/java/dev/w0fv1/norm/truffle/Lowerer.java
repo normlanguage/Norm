@@ -942,7 +942,10 @@ final class Lowerer {
             .findFirst()
             .orElseThrow();
     return variant.fields().stream()
-        .map(field -> identity.type(definition, field.type()).substitute(declared.arguments()::get))
+        .map(
+            field ->
+                CoreTypes.absolute(
+                    field.type().substitute(declared.arguments()::get), definition, program))
         .toList();
   }
 
