@@ -31,7 +31,7 @@ import java.util.Set;
 final class DocsCommand implements Command {
   @Override
   public String usage() {
-    return "norm docs <module-directory> --output <api-directory> [--strict]";
+    return "norm docs <module-directory> --output <api-directory> [--skill <SKILL.md>] [--strict]";
   }
 
   @Override

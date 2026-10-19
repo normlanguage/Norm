@@ -28,9 +28,12 @@ The specified directory must directly contain `module.norm`:
 
 ```bash
 norm docs path/to/module --output path/to/api --strict
+norm docs path/to/module --output path/to/api --skill path/to/SKILL.md --strict
 ```
 
 `--strict` requires `@Document` on exported public declarations and ordinary callable parameters. Compile errors or missing documentation prevent a partial result from being generated.
+
+`--skill` writes an agent-facing `SKILL.md` from the same semantic model and compilation as the API tree. The generated file contains the module version, exported packages, public signatures, declaration members, and `@Document` descriptions. It is a derived artifact; declarations and annotations remain the source of truth.
 
 The output directory mirrors the complete source module. `module.api.json` is the root manifest; every other `.norm` file produces a same-named `.api.json` at the same relative path. For example, `collections/sequences.norm` maps to `collections/sequences.api.json`. A subsequent generation replaces the previous output with one complete new tree.
 
