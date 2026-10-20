@@ -53,4 +53,15 @@ assert.deepEqual(
   await readFile(resolve(brandRoot, 'norm-32.png')),
 )
 
+
+
+const banner = await readFile(resolve(brandRoot, 'norm-banner.svg'), 'utf8')
+assert.match(banner, /viewBox="0 0 1280 400"/)
+assert.ok(banner.includes(source.trim()))
+assert.doesNotMatch(banner, /https?:\/\/(?!www.w3.org)/)
+const bannerPng = await readFile(resolve(brandRoot, 'norm-banner.png'))
+assert.deepEqual(bannerPng, await sharp(Buffer.from(banner)).png({ compressionLevel: 9 }).toBuffer())
+assert.equal(bannerPng.readUInt32BE(16), 1280)
+assert.equal(bannerPng.readUInt32BE(20), 400)
+
 console.log('Norm brand assets verified.')
