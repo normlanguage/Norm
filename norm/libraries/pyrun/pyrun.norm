@@ -1,0 +1,70 @@
+@Document(description: "Runs Python scripts and modules through Norm's process boundary.")
+package pyrun
+
+import std.annotation.Document
+import std.application.workingDirectory
+import std.filesystem.Path
+import std.io.Bytes
+import std.io.bytes
+import std.process.ProcessOutcome
+import std.process.ProcessResult
+import std.process.runProcess
+import std.time.Duration
+import std.time.duration
+
+@Document(description: "Selects a Python invocation entry point.")
+public enum PythonEntry {
+  Script(String path),
+  Module(String name)
+}
+
+@Document(description: "Describes a Python process request.")
+public value PythonRequest {
+  @Document(description: "The Python executable or an executable name resolved by the host.")
+  String interpreter = "python"
+  @Document(description: "The script path or importable module name.")
+  PythonEntry entry
+  @Document(description: "Arguments passed after the entry point.")
+  List<String> arguments = []
+  @Document(description: "The child working directory.")
+  Path directory = workingDirectory()
+  @Document(description: "Environment overrides inherited by the child.")
+  Map<String, String> environment = Map<>()
+  @Document(description: "Bytes written to the child standard input.")
+  Bytes input = bytes(values: [])
+  @Document(description: "The execution and stream-drain budget.")
+  Duration timeout = duration(seconds: 30, nanoseconds: 0)
+  @Document(description: "The maximum captured bytes per output stream.")
+  Integer maximumOutputBytes = 1048576
+}
+
+@Document(description: "Runs one Python request without invoking a shell.")
+public ProcessResult runPython(PythonRequest request) {
+  if request.interpreter.isBlank || request.maximumOutputBytes < 0 || request.timeout.seconds() == 0 && request.timeout.nanoseconds() == 0 {
+    throw Exception(message: "Invalid Python run request")
+  }
+  List<String> arguments = switch request.entry {
+    case Script(String path) {
+      if path.isBlank { throw Exception(message: "Python script path must not be blank") }
+      break [path] + request.arguments
+    }
+    case Module(String name) {
+      if name.isBlank { throw Exception(message: "Python module name must not be blank") }
+      break ["-m", name] + request.arguments
+    }
+  }
+  return runProcess(
+    executable: request.interpreter,
+    arguments: arguments,
+    directory: request.directory,
+    environment: request.environment,
+    input: request.input,
+    timeout: request.timeout,
+    maximumOutputBytes: request.maximumOutputBytes
+  )
+}
+
+@Document(description: "Reports whether a Python process exited normally with code zero.")
+public Boolean succeeded(ProcessResult result) {
+  return result.outcome == ProcessOutcome.Exited && result.exitCode == 0
+}

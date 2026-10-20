@@ -1,0 +1,3 @@
+Module module() {
+  return module(name: "pyrun_embedded", version: 1, dependencies: [dependency(repository: "github", name: "pyrun", version: 1)], exports: ["pyrun_embedded"])
+}
