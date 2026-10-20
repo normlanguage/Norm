@@ -14,7 +14,9 @@ import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -81,7 +83,7 @@ final class ProjectTestIntegrationTest {
         Files.createDirectories(temporaryDirectory.resolve("dependencies/junit/jupiter"));
     Path junitJar = junitModule.resolve("lib/junit-jupiter-api.jar");
     Files.createDirectories(junitJar.getParent());
-    Files.copy(junitApiJar(), junitJar, StandardCopyOption.REPLACE_EXISTING);
+    copyAsClasspathJar(junitApiJar(), junitJar);
     Files.writeString(
         junitModule.resolve("module.norm"),
         """
@@ -153,5 +155,18 @@ final class ProjectTestIntegrationTest {
 
   private static Path junitApiJar() throws URISyntaxException {
     return Path.of(Test.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+  }
+
+  private static void copyAsClasspathJar(Path source, Path target) throws Exception {
+    try (var input = new JarFile(source.toFile());
+        var output = new JarOutputStream(Files.newOutputStream(target))) {
+      for (var entries = input.entries(); entries.hasMoreElements(); ) {
+        var entry = entries.nextElement();
+        if (entry.getName().equals("module-info.class")) continue;
+        output.putNextEntry(new JarEntry(entry.getName()));
+        if (!entry.isDirectory()) output.write(input.getInputStream(entry).readAllBytes());
+        output.closeEntry();
+      }
+    }
   }
 }

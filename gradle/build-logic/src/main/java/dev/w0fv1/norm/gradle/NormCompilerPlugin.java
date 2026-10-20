@@ -405,6 +405,7 @@ public final class NormCompilerPlugin implements Plugin<Project> {
             Test.class,
             task -> {
               task.useJUnitPlatform();
+              task.setMaxHeapSize("2048m");
               task.dependsOn(testRuntime, jar);
               task.systemProperty(
                   "norm.test.compilerJar",

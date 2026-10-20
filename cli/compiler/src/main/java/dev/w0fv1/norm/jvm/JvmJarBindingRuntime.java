@@ -39,7 +39,7 @@ public final class JvmJarBindingRuntime
     private ClassLoader open(
         java.util.Collection<Path> paths,
         List<String> moduleRoots,
-        dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
+        java.util.Optional<dev.w0fv1.norm.execution.RevisionResources.Lease> assets) {
       try {
         return components.open(List.copyOf(paths), moduleRoots, assets);
       } catch (IOException exception) {
@@ -120,7 +120,13 @@ public final class JvmJarBindingRuntime
       List<String> moduleRoots,
       dev.w0fv1.norm.execution.RevisionResources.Lease assets,
       Realm realm) {
-    return new JvmJarBindingRuntime(bindings, realm.open(classpath, moduleRoots, assets), true);
+    return new JvmJarBindingRuntime(
+        bindings,
+        realm.open(
+            classpath,
+            moduleRoots,
+            java.util.Optional.of(java.util.Objects.requireNonNull(assets))),
+        true);
   }
 
   public static JvmJarBindingRuntime closedWorld(
@@ -243,22 +249,26 @@ public final class JvmJarBindingRuntime
 
   private static ClassLoader applicationClassLoader(
       JarBindingClasspath classpath, List<Path> applicationClasspath) {
-    try (var assets = dev.w0fv1.norm.execution.RevisionResources.own(() -> {})) {
-      return applicationClassLoader(classpath, applicationClasspath, assets);
-    }
-  }
-
-  private static ClassLoader applicationClassLoader(
-      JarBindingClasspath classpath,
-      List<Path> applicationClasspath,
-      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
-    return applicationClassLoader(classpath, applicationClasspath, assets, new Realm());
+    return applicationClassLoader(
+        classpath, applicationClasspath, java.util.Optional.empty(), new Realm());
   }
 
   private static ClassLoader applicationClassLoader(
       JarBindingClasspath classpath,
       List<Path> applicationClasspath,
       dev.w0fv1.norm.execution.RevisionResources.Lease assets,
+      Realm realm) {
+    return applicationClassLoader(
+        classpath,
+        applicationClasspath,
+        java.util.Optional.of(java.util.Objects.requireNonNull(assets)),
+        realm);
+  }
+
+  private static ClassLoader applicationClassLoader(
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath,
+      java.util.Optional<dev.w0fv1.norm.execution.RevisionResources.Lease> assets,
       Realm realm) {
     Set<Path> paths = new LinkedHashSet<>();
     applicationClasspath.stream()
@@ -277,16 +287,7 @@ public final class JvmJarBindingRuntime
 
   private static ClassLoader applicationClassLoader(
       java.util.Collection<Path> paths, List<String> moduleRoots) {
-    try (var assets = dev.w0fv1.norm.execution.RevisionResources.own(() -> {})) {
-      return applicationClassLoader(paths, moduleRoots, assets);
-    }
-  }
-
-  private static ClassLoader applicationClassLoader(
-      java.util.Collection<Path> paths,
-      List<String> moduleRoots,
-      dev.w0fv1.norm.execution.RevisionResources.Lease assets) {
-    return new Realm().open(paths, moduleRoots, assets);
+    return new Realm().open(paths, moduleRoots, java.util.Optional.empty());
   }
 
   @Override

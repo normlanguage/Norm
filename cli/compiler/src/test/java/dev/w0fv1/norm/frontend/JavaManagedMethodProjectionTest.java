@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CoreBindingKind;
+import dev.w0fv1.norm.core.CoreRuntimeIdentity;
 import dev.w0fv1.norm.jvm.JarBindingClasspath;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessorPipeline;
 import dev.w0fv1.norm.project.ProjectEnvironment;
@@ -191,11 +192,15 @@ final class JavaManagedMethodProjectionTest {
         assertEquals(1, map.getTypeParameters().length);
         assertEquals(map.getTypeParameters()[0], map.getGenericReturnType());
       }
+      var identity = CoreRuntimeIdentity.create(artifact);
       for (var binding : artifact.namespace().bindings()) {
         if (binding.kind() != CoreBindingKind.METHOD_SIGNATURE
             || !binding.packageName().equals("todo")) continue;
-        assertTrue(output.methods().instanceMethods().containsKey(binding.definition()));
-        assertFalse(output.methods().entryPoints().contains(binding.definition()));
+        var slot = identity.slot(binding.occurrence());
+        assertTrue(
+            output.methods().instanceMethods().containsKey(slot),
+            () -> "missing instance method " + slot + " shape=" + binding.shape());
+        assertFalse(output.methods().entryPoints().contains(slot));
       }
       var host = root.resolve("HostService.java");
       java.nio.file.Files.writeString(
@@ -334,7 +339,7 @@ final class JavaManagedMethodProjectionTest {
             new dev.w0fv1.norm.runtime.ApplicationProgramData(
                 artifact,
                 dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(
-                    artifact, output.methods().entryPoints()),
+                    artifact, output.methods().sourceEntryPoints(artifact)),
                 List.of(),
                 "todo");
         if (archived) {

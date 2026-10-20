@@ -69,7 +69,7 @@ final class GuestValueFactoryTest {
             aggregate.valueCategory(),
             CoreNullability.NON_NULL);
     var executable = new TruffleExecutionBackend().compile(null, artifact);
-    var value = executable.values().allocate(type);
+    var value = executable.values().allocate(executable.program().type(type));
     assertSame(value, executable.values().javaArgument(value));
   }
 }

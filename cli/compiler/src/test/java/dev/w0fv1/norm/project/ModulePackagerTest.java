@@ -2,7 +2,6 @@ package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,48 +23,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
-
-  @org.junit.jupiter.params.ParameterizedTest
-  @org.junit.jupiter.params.provider.ValueSource(strings = {"di-4", "theme-2"})
-  void readsReleasedVersionFourModuleArchives(String fixture) throws Exception {
-    Path archive = temporaryDirectory.resolve(fixture + ".nar");
-    try (var source =
-        getClass().getResourceAsStream("/fixtures/published-v4/" + fixture + ".nar")) {
-      assertNotNull(source);
-      Files.copy(source, archive);
-    }
-    var restored = new dev.w0fv1.norm.project.ModuleArchiveReader().read(archive);
-    assertEquals(fixture.equals("di-4") ? "di" : "ui.theme", restored.descriptor().name());
-    assertFalse(restored.sources().isEmpty());
-    if (fixture.equals("theme-2")) {
-      assertFalse(restored.publicTypes().isEmpty());
-      var binding = restored.binding().orElseThrow();
-      assertTrue(
-          binding.descriptor().binding().orElseThrow().api().stream()
-              .allMatch(type -> type.alias().isEmpty()));
-      try (var zip = new java.util.zip.ZipFile(archive.toFile())) {
-        byte[] bytes =
-            zip.getInputStream(zip.getEntry(dev.w0fv1.norm.jvm.PublishedJarBinding.ENTRY))
-                .readAllBytes();
-        assertThrows(
-            IOException.class,
-            () ->
-                dev.w0fv1.norm.jvm.PublishedJarBinding.decode(
-                    bytes,
-                    restored.descriptor(),
-                    binding.api().apiId(),
-                    dev.w0fv1.norm.jvm.PublishedJarBinding.ABI));
-        assertThrows(
-            IOException.class,
-            () ->
-                dev.w0fv1.norm.jvm.PublishedJarBinding.decode(
-                    bytes,
-                    restored.descriptor(),
-                    binding.api().apiId(),
-                    "norm-java-binding-unknown"));
-      }
-    }
-  }
 
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})

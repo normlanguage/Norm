@@ -1680,14 +1680,19 @@ final class JavaStubPlanner {
         cast,
         parameters,
         callable.constructor
-            ? Optional.of(
-                dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(
-                    (CoreDefinition.Callable)
-                        artifact.program().definition(callable.invocation).orElseThrow()))
+            ? Optional.of(constructionParameters(artifact, callable.invocation))
             : Optional.empty(),
         annotations(callable.annotations),
         stringLiteral(identity.slot(occurrence).toString()),
         stringLiteral(identity.slot(occurrence).toString()));
+  }
+
+  private static JavaStubPlan.Construction constructionParameters(
+      CoreArtifact artifact, DefinitionId invocation) {
+    var parameters =
+        dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(
+            (CoreDefinition.Callable) artifact.program().definition(invocation).orElseThrow());
+    return new JavaStubPlan.Construction(parameters.count(), parameters.defaulted());
   }
 
   private static List<JavaStubPlan.TypeParameter> typeParameters(
