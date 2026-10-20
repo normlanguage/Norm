@@ -3,7 +3,7 @@ package pyrun
 
 import std.annotation.Document
 import std.application.workingDirectory
-import std.filesystem.Path
+import std.filesystem.Path`nimport std.core.Exception
 import std.io.Bytes
 import std.io.bytes
 import std.process.ProcessOutcome
@@ -68,3 +68,4 @@ public ProcessResult runPython(PythonRequest request) {
 public Boolean succeeded(ProcessResult result) {
   return result.outcome == ProcessOutcome.Exited && result.exitCode == 0
 }
+
