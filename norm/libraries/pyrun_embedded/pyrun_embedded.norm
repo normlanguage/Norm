@@ -1,0 +1,9 @@
+@Document(description: "Provides the fixed Python runtime policy used by Norm-managed pyrun execution.")
+package pyrun_embedded
+
+import std.annotation.Document
+
+@Document(description: "The Python major and minor version selected by the Norm distribution.")
+public String bundledPythonVersion() {
+  return "3.14.8+20261013"
+}

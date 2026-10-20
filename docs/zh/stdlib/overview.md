@@ -49,6 +49,7 @@
 
 ## 独立库
 
-[OpenAI 客户端](https://github.com/normlanguage/openai) 作为独立库提供 Responses API，不进入标准库。
+[OpenAI 客户端](https://github.com/normlanguage/openai) 作为独立库提供 Responses API，不进入标准库。`pyrun` 作为独立库提供 Python 子进程调度，见 [pyrun](/zh/ecosystem/pyrun)。
 
 [库示例索引](/zh/stdlib/samples)按用途链接到各仓库维护的可运行场景。
+
