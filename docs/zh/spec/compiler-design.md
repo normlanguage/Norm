@@ -88,7 +88,7 @@ Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/norml
 
 ## Canonical Core
 
-跨版本运行绑定消费 `CoreDefinitionOrigin.declarationIdentity`，由 `CoreBuilder` 从既有声明身份投影；内容身份与作者态身份分工不变。执行会话契约见 [LiveExecution](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/LiveExecution.java)，Truffle 的统一节点版本选择见 [LiveBindings](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/LiveBindings.java)。使用方式与更新边界见[保存后更新运行中的代码](/zh/tooling#保存后更新运行中的代码)。
+跨版本运行绑定消费 `CoreDefinitionOrigin.declarationIdentity`，由 `CoreBuilder` 从既有声明身份投影；内容身份与作者态身份分工不变。执行会话契约见 [LiveExecution](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/LiveExecution.java)，Truffle 的统一节点版本选择见 [LiveBindings](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/LiveBindings.java)。使用方式与更新边界见[工具链概览](/zh/tooling/)。
 
 可重定位输入由 [CoreCompilationInput.Source](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreCompilationInput.java) 统一持有 [CoreDefinitionContent](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreDefinitionContent.java) 与 [CoreLinkage](../../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreLinkage.java)。内容身份不包含待绑定声明的编译单元索引；已经解析的外部与递归引用仍属于内容。槽位、重复目标和重链接约束见 [CoreDefinitionContentTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreDefinitionContentTest.java)。内容身份不等于完整程序身份，也不能作为已绑定 Truffle 调用目标的唯一缓存键。
 

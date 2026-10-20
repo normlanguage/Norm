@@ -312,17 +312,18 @@ final class ProjectLoaderTest {
   }
 
   @Test
-  void rejectsConfigurationDirectoriesThatDoNotMatchTheModuleName() throws Exception {
+  void loadsModulesFromDirectoriesIndependentOfTheirModuleName() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("wrong-root"));
-    Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
+    Path entry = source(root, "Main.norm", "package sample Void main() {}");
     Files.writeString(
         root.resolve("module.norm"),
         "Module module() { return module(name: \"sample\", version: 1, exports: []) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
-
-      assertTrue(exception.getMessage().contains("must match module name 'sample'"));
+      var sourceSet = projects.load(entry).sources();
+      assertEquals(
+          new ModuleCoordinate("sample", 1),
+          sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
     }
   }
 

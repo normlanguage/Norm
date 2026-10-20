@@ -3,6 +3,7 @@ package dev.w0fv1.norm.jvm;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 record JavaStubPlan(List<Type> types) {
   JavaStubPlan {
@@ -91,7 +92,7 @@ record JavaStubPlan(List<Type> types) {
       String returnType,
       Optional<String> returnCast,
       List<Parameter> parameters,
-      Optional<dev.w0fv1.norm.core.CoreConstructorParameters> construction,
+      Optional<Construction> construction,
       List<Annotation> annotations,
       String definitionLiteral,
       String implementationLiteral) {
@@ -111,6 +112,24 @@ record JavaStubPlan(List<Type> types) {
       annotations = List.copyOf(annotations);
       Objects.requireNonNull(definitionLiteral, "definitionLiteral");
       Objects.requireNonNull(implementationLiteral, "implementationLiteral");
+    }
+  }
+
+  record Construction(int count, Set<Integer> defaulted) {
+    Construction {
+      if (count < 0) throw new IllegalArgumentException("parameter count must not be negative");
+      defaulted = Set.copyOf(defaulted);
+      if (defaulted.stream().anyMatch(index -> index < 0 || index >= count))
+        throw new IllegalArgumentException(
+            "constructor default parameter is outside its declaration");
+    }
+
+    boolean acceptsProvidedPrefix(int providedCount) {
+      if (providedCount < 0 || providedCount > count) return false;
+      for (int index = providedCount; index < count; index++) {
+        if (!defaulted.contains(index)) return false;
+      }
+      return true;
     }
   }
 

@@ -345,7 +345,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new ArrayValue(type, List.of());
             replacements.put(value, target);
             for (Object item : array.values)
-              target.values.add(transform(item, type.arguments().getFirst()));
+              target.values.add(transform(item, containerArgument(type, 0)));
             yield target;
           }
           case ListValue list -> {
@@ -353,7 +353,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new ListValue(type);
             replacements.put(value, target);
             for (Object item : list.values)
-              target.values.add(transform(item, type.arguments().getFirst()));
+              target.values.add(transform(item, containerArgument(type, 0)));
             yield target;
           }
           case MapValue map -> {
@@ -361,11 +361,10 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new MapValue(type);
             replacements.put(value, target);
             for (var entry : RuntimeCollections.entries(map.values)) {
-              var key =
-                  new RuntimeKey(transform(entry.getKey().value, type.arguments().getFirst()));
+              var key = new RuntimeKey(transform(entry.getKey().value, containerArgument(type, 0)));
               if (target.values.containsKey(key))
                 throw new StateMigrationFailure("State migration produces duplicate map keys");
-              target.values.put(key, transform(entry.getValue(), type.arguments().get(1)));
+              target.values.put(key, transform(entry.getValue(), containerArgument(type, 1)));
             }
             yield target;
           }
@@ -375,7 +374,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
             replacements.put(value, target);
             for (var key : set.values)
               if (!target.values.add(
-                  new RuntimeKey(transform(key.value, type.arguments().getFirst()))))
+                  new RuntimeKey(transform(key.value, containerArgument(type, 0)))))
                 throw new StateMigrationFailure("State migration produces duplicate set keys");
             yield target;
           }
@@ -384,7 +383,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new StackValue(type);
             replacements.put(value, target);
             for (Object item : stack.values)
-              target.values.addLast(transform(item, type.arguments().getFirst()));
+              target.values.addLast(transform(item, containerArgument(type, 0)));
             yield target;
           }
           case QueueValue queue -> {
@@ -392,7 +391,7 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new QueueValue(type);
             replacements.put(value, target);
             for (Object item : queue.values)
-              target.values.addLast(transform(item, type.arguments().getFirst()));
+              target.values.addLast(transform(item, containerArgument(type, 0)));
             yield target;
           }
           case DequeValue deque -> {
@@ -400,15 +399,15 @@ final class RuntimeStateTransaction implements AutoCloseable {
             var target = new DequeValue(type);
             replacements.put(value, target);
             for (Object item : deque.values)
-              target.values.addLast(transform(item, type.arguments().getFirst()));
+              target.values.addLast(transform(item, containerArgument(type, 0)));
             yield target;
           }
           case PairValue pair -> {
             var type = containerType(pair.type, expected);
             var target = new PairValue(type, null, null);
             replacements.put(value, target);
-            target.first(transform(pair.first(), type.arguments().getFirst()));
-            target.second(transform(pair.second(), type.arguments().get(1)));
+            target.first(transform(pair.first(), containerArgument(type, 0)));
+            target.second(transform(pair.second(), containerArgument(type, 1)));
             yield target;
           }
           case Closure function -> function;
@@ -424,13 +423,19 @@ final class RuntimeStateTransaction implements AutoCloseable {
     return transformed;
   }
 
-  private CoreType.Declared containerType(CoreType actual, CoreType expected) {
-    var concrete = (CoreType.Declared) actual;
+  private CoreType containerType(CoreType actual, CoreType expected) {
+    if (!(actual instanceof CoreType.Declared concrete)) return actual;
     return instanceType(
         expected instanceof CoreType.Declared declared
                 && declared.constructor().equals(concrete.constructor())
             ? declared
             : concrete);
+  }
+
+  private CoreType containerArgument(CoreType container, int index) {
+    return container instanceof CoreType.Declared declared
+        ? declared.arguments().get(index)
+        : CoreType.DYNAMIC;
   }
 
   private CoreType.Declared instanceType(CoreType.Declared declared) {

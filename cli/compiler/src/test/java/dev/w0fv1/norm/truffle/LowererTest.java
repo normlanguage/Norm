@@ -57,4 +57,28 @@ final class LowererTest {
     assertInstanceOf(CoreTypeConstructor.User.class, type.constructor());
     assertEquals(java.util.List.of(CoreType.INTEGER), type.arguments());
   }
+
+  @Test
+  void lowersNestedVariantPatternsWithSourceTypes() {
+    var source =
+        SourceFile.of(
+            Path.of("nested-patterns.norm"),
+            "enum Delivery { Pending, Sent(String code) } "
+                + "enum Event { Updated(Delivery delivery), Ignored } "
+                + "String describe(Event event) { return switch event { "
+                + "case Updated(Sent(String code)) { break code } "
+                + "case Updated(_) { break \"waiting\" } "
+                + "case Ignored { break \"ignored\" } } } "
+                + "Void main() { "
+                + "printLine(describe(event: Event.Updated(delivery: Delivery.Sent(code: \"N-42\")))) "
+                + "printLine(describe(event: Event.Updated(delivery: Delivery.Pending))) } ");
+    var checked = new CompilerSession().compile(source).output().orElseThrow();
+    var output = new StringWriter();
+
+    new Lowerer(null)
+        .lower(checked.artifact())
+        .execute(ExecutionContext.of(new PrintWriter(output)));
+
+    assertEquals("N-42\nwaiting\n", output.toString().replace("\r\n", "\n"));
+  }
 }

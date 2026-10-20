@@ -18,17 +18,17 @@ public class MigrationState {
   @Document(description: "Returns the previous enum variant name, or null for a stored-field instance.")
   public String? variant() { __stateMigrationVariant(state: this) }
   @Document(description: "Reads a previous enum payload after validating that its declared type is assignable to T.")
-  public T read<T>(Integer index) { __stateMigrationPayload<T>(state: this, index: index) }
+  public T read<T>(@Document(description: "The zero-based payload index to read.") Integer index) { __stateMigrationPayload<T>(state: this, index: index) }
   @Document(description: "Stages a complete candidate representation of the same logical nominal type. Identity instances retain their existing shell.")
-  public Void replace<T>(T value) { __stateMigrationReplace<T>(state: this, value: value) }
+  public Void replace<T>(@Document(description: "The complete candidate value to stage.") T value) { __stateMigrationReplace<T>(state: this, value: value) }
   @Document(description: "Reports whether the previous schema declares this field. Ambiguous inherited names fail.")
-  public Boolean contains(String field) { __stateMigrationContains(state: this, field: field) }
+  public Boolean contains(@Document(description: "The field name to look up in the previous schema.") String field) { __stateMigrationContains(state: this, field: field) }
   @Document(description: "Reads a previous field snapshot after validating that its declared type is assignable to T.")
-  public T read<T>(String field) { __stateMigrationRead<T>(state: this, field: field) }
+  public T read<T>(@Document(description: "The field name to read from the previous schema.") String field) { __stateMigrationRead<T>(state: this, field: field) }
   @Document(description: "Stages a value using a target field descriptor whose declared type matches T.")
-  public Void write<T>(Field<?, T> field, T value) { __stateMigrationWrite<T>(state: this, field: field, value: value) }
+  public Void write<T>(@Document(description: "The target field descriptor receiving the staged value.") Field<?, T> field, @Document(description: "The value to stage in the target field.") T value) { __stateMigrationWrite<T>(state: this, field: field, value: value) }
   @Document(description: "Copies a previous field to a target field after validating their instance-specific declared types. Consuming a renamed source field requires remove.")
-  public Void transfer(String source, String target) { __stateMigrationCopy(state: this, source: source, target: target) }
+  public Void transfer(@Document(description: "The previous field name to copy.") String source, @Document(description: "The target field name receiving the copied value.") String target) { __stateMigrationCopy(state: this, source: source, target: target) }
   @Document(description: "Explicitly consumes a previous field removed from the target schema. Retained compatible fields cannot be removed.")
-  public Void remove(String field) { __stateMigrationRemove(state: this, field: field) }
+  public Void remove(@Document(description: "The previous field name to consume.") String field) { __stateMigrationRemove(state: this, field: field) }
 }

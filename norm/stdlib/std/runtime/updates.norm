@@ -26,7 +26,7 @@ public class Runtime {
   public UpdatePreview previewUpdate() { completePreview(__runtimePreview<UpdateCompletion<RuntimeDiagnostic, RuntimeChange>>()) }
 
   @Document(description: "Subscribes a callback to runtime update transitions.")
-  public UpdateSubscription onUpdate(Void callback(RuntimeUpdateEvent event)) {
+  public UpdateSubscription onUpdate(@Document(description: "The callback receiving each runtime update transition.") Void callback(@Document(description: "The event delivered for each runtime update transition.") RuntimeUpdateEvent event)) {
     __runtimeOnUpdate<UpdateSubscription, RuntimeUpdateEvent>(callback: callback)
   }
 }
@@ -39,50 +39,79 @@ public enum PreviewOutcome { Previewed, Unchanged, Rejected, Failed }
 
 @Document(description: "Reports a compiler diagnostic without parsing formatted output.")
 public value RuntimeDiagnostic {
+  @Document(description: "The stable diagnostic code.")
   String code
+  @Document(description: "The diagnostic severity.")
   String severity
+  @Document(description: "The human-readable diagnostic message.")
   String message
+  @Document(description: "The source URI or display name containing the diagnostic.")
   String source
+  @Document(description: "The inclusive diagnostic start offset in the source.")
   Integer startOffset
+  @Document(description: "The exclusive diagnostic end offset in the source.")
   Integer endOffset
 }
 
 @Document(description: "Reports the latest published revision and active locations awaiting adoption.")
 public value RuntimeStatus {
+  @Document(description: "The most recent revision published by the runtime.")
   Long publishedRevision
+  @Document(description: "The revision currently active at the observing location.")
   Long activeRevision
+  @Document(description: "Active locations that still need to adopt the published revision.")
   List<String> pendingLocations
 }
 
 @Document(description: "Describes one declaration changed by a source publication. Before and after contain the stable semantic shape of the declaration.")
 public value RuntimeChange {
+  @Document(description: "The change kind, such as added, removed, or modified.")
   String kind
+  @Document(description: "The changed declaration category.")
   String declarationKind
+  @Document(description: "The stable identity of the changed declaration.")
   String identity
+  @Document(description: "The declaration shape before publication, when present.")
   String? before
+  @Document(description: "The declaration shape after publication, when present.")
   String? after
+  @Document(description: "The source URI or display name containing the declaration.")
   String source
+  @Document(description: "The inclusive declaration start offset in the source.")
   Integer startOffset
+  @Document(description: "The exclusive declaration end offset in the source.")
   Integer endOffset
 }
 
 @Document(description: "Reports publication independently from adoption by existing activations. Pending locations can remain after successful publication.")
 public value UpdateResult {
+  @Document(description: "The publication outcome.")
   UpdateOutcome outcome
+  @Document(description: "The published revision, when one exists.")
   Long revision
+  @Document(description: "Active locations that still need to adopt the published revision.")
   List<String> pendingLocations
+  @Document(description: "Compiler diagnostics produced while preparing the publication.")
   List<RuntimeDiagnostic> diagnostics
+  @Document(description: "Declarations changed by the publication.")
   List<RuntimeChange> changes
+  @Document(description: "The host failure message, when publication failed.")
   String? failure
 }
 
 @Document(description: "Reports the complete before and after declaration changes without publishing them.")
 public value UpdatePreview {
+  @Document(description: "The preview outcome.")
   PreviewOutcome outcome
+  @Document(description: "The candidate revision represented by this preview.")
   Long revision
+  @Document(description: "Active locations that still need to adopt the candidate revision.")
   List<String> pendingLocations
+  @Document(description: "Compiler diagnostics produced while preparing the preview.")
   List<RuntimeDiagnostic> diagnostics
+  @Document(description: "All declarations changed by the candidate publication.")
   List<RuntimeChange> changes
+  @Document(description: "The host failure message, when preview failed.")
   String? failure
 }
 

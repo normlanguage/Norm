@@ -28,9 +28,12 @@ norm docs check path/to/markdown --format json
 
 ```bash
 norm docs path/to/module --output path/to/api --strict
+norm docs path/to/module --output path/to/api --skill path/to/SKILL.md --strict
 ```
 
 `--strict` 要求导出的公开声明及普通 callable 参数具有 `@Document`。编译错误或文档缺失时不会生成一部分结果。
+
+`--skill` 使用与 API 树相同的语义模型和同一次编译生成面向 Agent 的 `SKILL.md`。生成内容包括模块版本、导出 package、公开签名、声明成员和 `@Document` 描述。它是派生产物，声明和注解仍然是唯一事实来源。
 
 输出目录完整映射源模块：根清单为 `module.api.json`，其余 `.norm` 文件在相同相对目录下生成同名 `.api.json`。例如 `collections/sequences.norm` 对应 `collections/sequences.api.json`。再次生成会以一棵完整的新树替换旧的生成结果。
 

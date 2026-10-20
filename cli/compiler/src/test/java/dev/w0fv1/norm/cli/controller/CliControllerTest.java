@@ -602,11 +602,25 @@ final class CliControllerTest {
             + "@Document(description: \"The input.\") Integer value) { return value }\n"
             + "@Document(description: \"Declared second.\") public Integer second() { return 2 }\n");
     Path output = temporaryDirectory.resolve("generated-api");
+    Path skill = temporaryDirectory.resolve("SKILL.md");
 
-    Result result = run("docs", moduleRoot.toString(), "--output", output.toString(), "--strict");
+    Result result =
+        run(
+            "docs",
+            moduleRoot.toString(),
+            "--output",
+            output.toString(),
+            "--skill",
+            skill.toString(),
+            "--strict");
 
     assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
     assertTrue(Files.isRegularFile(output.resolve("module.api.json")));
+    assertTrue(Files.isRegularFile(skill));
+    String skillText = Files.readString(skill);
+    assertTrue(skillText.contains("# sample Skill"));
+    assertTrue(skillText.contains("Sequence operations."));
+    assertTrue(skillText.contains("Integer first(Integer value)"));
     Path fileDocument = output.resolve("library/sequences.api.json");
     assertTrue(Files.isRegularFile(fileDocument));
     JsonObject module =

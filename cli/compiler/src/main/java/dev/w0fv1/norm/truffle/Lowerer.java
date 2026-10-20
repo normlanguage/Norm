@@ -290,7 +290,7 @@ final class Lowerer {
           if (!execution.dispatchSlots().contains(requirement)) continue;
           DefinitionId implementation =
               witness.implementation() instanceof CoreWitnessTarget.Callable callable
-                  ? resolve(inherited.owner(), callable.definition())
+                  ? memberSlot(resolve(inherited.owner(), callable.definition()), requirement)
                   : null;
           RuntimeValues.DispatchTarget target = methodTargets.get(implementation);
           if (target == null) {
@@ -545,6 +545,18 @@ final class Lowerer {
                                   return (com.oracle.truffle.api.CallTarget) plan.target;
                                 }))));
     return List.copyOf(result);
+  }
+
+  private DefinitionId memberSlot(DefinitionId definition, DefinitionId requirement) {
+    String name = identity.name(identity.occurrences(requirement).getFirst());
+    List<DefinitionId> matches =
+        identity.occurrences(definition).stream()
+            .filter(occurrence -> identity.name(occurrence).equals(name))
+            .map(identity::slot)
+            .distinct()
+            .toList();
+    if (matches.size() == 1) return matches.getFirst();
+    return identity.slot(definition);
   }
 
   private FunctionPlan memberPlan(DefinitionId definition, String name) {
@@ -942,7 +954,10 @@ final class Lowerer {
             .findFirst()
             .orElseThrow();
     return variant.fields().stream()
-        .map(field -> identity.type(definition, field.type()).substitute(declared.arguments()::get))
+        .map(
+            field ->
+                CoreTypes.absolute(
+                    field.type().substitute(declared.arguments()::get), definition, program))
         .toList();
   }
 

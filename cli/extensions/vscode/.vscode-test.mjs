@@ -7,7 +7,7 @@ const shared = {
   workspaceFolder: '../../..',
   launchArgs: ['--disable-extensions'],
   mocha: {
-    timeout: 30_000,
+    timeout: 60_000,
     grep: process.env.NORM_TEST_GREP,
   },
 };

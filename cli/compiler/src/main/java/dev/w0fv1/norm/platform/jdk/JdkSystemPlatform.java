@@ -24,6 +24,7 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -175,11 +176,21 @@ public final class JdkSystemPlatform implements SystemPlatform {
             while (buffer.hasRemaining()) channel.write(buffer);
             channel.force(true);
           }
-          java.nio.file.Files.move(
-              pending,
-              target,
-              java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-              java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          try {
+            java.nio.file.Files.move(
+                pending,
+                target,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          } catch (FileSystemException atomicFailure) {
+            try {
+              java.nio.file.Files.move(
+                  pending, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException fallbackFailure) {
+              atomicFailure.addSuppressed(fallbackFailure);
+              throw atomicFailure;
+            }
+          }
         } catch (IOException | RuntimeException | Error failure) {
           try {
             java.nio.file.Files.deleteIfExists(pending);

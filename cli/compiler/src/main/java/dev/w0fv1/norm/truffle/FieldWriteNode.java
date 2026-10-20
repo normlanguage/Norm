@@ -14,7 +14,11 @@ import java.util.List;
 final class FieldWriteNode extends Node {
   private static final CoreType FIELD_CONTEXT_TYPE = builtin("std.core.FieldContext");
   private static final CoreType FIELD_TYPE =
-      builtin("std.core.Field", List.of(CoreType.EXISTENTIAL, CoreType.EXISTENTIAL));
+      new CoreType.Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Field")),
+          List.of(CoreType.EXISTENTIAL, CoreType.EXISTENTIAL),
+          CoreValueCategory.VALUE,
+          CoreNullability.NON_NULL);
   private static final CoreType COMPLETION_TYPE = builtin("std.core.FunctionCompletion");
   @Child private AnnotationLifecycleNode lifecycle = new AnnotationLifecycleNode();
 

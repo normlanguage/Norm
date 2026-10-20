@@ -5,10 +5,15 @@ import std.io.Resource
 
 @Document(description: "Reports one runtime update transition and the declarations changed by that publication.")
 public value RuntimeUpdateEvent {
+  @Document(description: "Monotonic event sequence assigned by the runtime.")
   Long sequence
+  @Document(description: "The update transition kind.")
   String kind
+  @Document(description: "The published revision associated with the transition.")
   Long revision
+  @Document(description: "Active locations that still need to adopt the published revision.")
   List<String> pendingLocations
+  @Document(description: "Stable summaries of declarations changed by the publication.")
   List<String> changes
 }
 

@@ -41,7 +41,9 @@ final class JavaRealmPool implements AutoCloseable {
   }
 
   synchronized ViewLoader open(
-      List<Path> paths, List<String> moduleRoots, RevisionResources.Lease assets)
+      List<Path> paths,
+      List<String> moduleRoots,
+      java.util.Optional<RevisionResources.Lease> assets)
       throws IOException {
     if (closed) throw new IllegalStateException("Java realm is closed");
     JavaLinkageGraph graph = JavaLinkageGraph.scan(paths, moduleRoots);
@@ -141,7 +143,7 @@ final class JavaRealmPool implements AutoCloseable {
                   identity,
                   new ComponentResources(
                       new WeakReference<>(loader),
-                      assets.retain(),
+                      assets.map(RevisionResources.Lease::retain),
                       dependencies.values().stream()
                           .map(dependency -> dependency.resources().acquire().orElseThrow())
                           .toList()));
@@ -158,7 +160,11 @@ final class JavaRealmPool implements AutoCloseable {
       var owners = new LinkedHashMap<String, ComponentLoader>();
       graph.owners().forEach((name, node) -> owners.put(name, components.get(node).loader()));
       return new ViewLoader(
-          urls(paths), Map.copyOf(owners), List.copyOf(selected), List.copyOf(ownership));
+          urls(paths),
+          Map.copyOf(owners),
+          List.copyOf(selected),
+          List.copyOf(ownership),
+          assets.isPresent());
     } catch (IOException | RuntimeException | Error exception) {
       for (var resource : ownership.reversed()) resource.close();
       throw exception;
@@ -179,7 +185,7 @@ final class JavaRealmPool implements AutoCloseable {
 
   private record ComponentResources(
       WeakReference<ComponentLoader> loader,
-      RevisionResources.Lease assets,
+      java.util.Optional<RevisionResources.Lease> assets,
       List<RevisionResources.Lease> dependencies)
       implements AutoCloseable {
     @Override
@@ -191,7 +197,7 @@ final class JavaRealmPool implements AutoCloseable {
         try {
           for (var dependency : dependencies.reversed()) dependency.close();
         } finally {
-          assets.close();
+          assets.ifPresent(RevisionResources.Lease::close);
         }
       }
     }
@@ -201,16 +207,19 @@ final class JavaRealmPool implements AutoCloseable {
     private final Map<String, ComponentLoader> owners;
     private final List<Component> components;
     private final List<RevisionResources.Lease> ownership;
+    private final boolean retainEscapedValues;
 
     private ViewLoader(
         URL[] paths,
         Map<String, ComponentLoader> owners,
         List<Component> components,
-        List<RevisionResources.Lease> ownership) {
+        List<RevisionResources.Lease> ownership,
+        boolean retainEscapedValues) {
       super(paths, JvmJarBindingRuntime.class.getClassLoader());
       this.owners = new LinkedHashMap<>(owners);
       this.components = new ArrayList<>(components);
       this.ownership = new ArrayList<>(ownership);
+      this.retainEscapedValues = retainEscapedValues;
     }
 
     List<ClassLoader> loaders(Set<String> applicationTypes) {
@@ -225,7 +234,7 @@ final class JavaRealmPool implements AutoCloseable {
     }
 
     void retain(Object value) {
-      if (value == null) return;
+      if (!retainEscapedValues || value == null) return;
       ClassLoader loader =
           value instanceof Class<?> type
               ? type.getClassLoader()
