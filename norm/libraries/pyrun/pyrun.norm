@@ -21,10 +21,10 @@ public enum PythonEntry {
 
 @Document(description: "Describes a Python process request.")
 public value PythonRequest {
-  @Document(description: "The Python executable or an executable name resolved by the host.")
-  String interpreter = "python"
   @Document(description: "The script path or importable module name.")
   PythonEntry entry
+  @Document(description: "The Python executable or an executable name resolved by the host.")
+  String interpreter = "python"
   @Document(description: "Arguments passed after the entry point.")
   List<String> arguments = []
   @Document(description: "The child working directory.")
