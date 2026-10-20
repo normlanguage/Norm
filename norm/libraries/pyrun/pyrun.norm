@@ -3,7 +3,8 @@ package pyrun
 
 import std.annotation.Document
 import std.application.workingDirectory
-import std.filesystem.Path`nimport std.core.Exception
+import std.filesystem.Path
+import std.core.Exception
 import std.io.Bytes
 import std.io.bytes
 import std.process.ProcessOutcome
@@ -43,16 +44,19 @@ public ProcessResult runPython(PythonRequest request) {
   if request.interpreter.isBlank || request.maximumOutputBytes < 0 || request.timeout.seconds() == 0 && request.timeout.nanoseconds() == 0 {
     throw Exception(message: "Invalid Python run request")
   }
-  List<String> arguments = switch request.entry {
+  List<String> arguments = []
+  switch request.entry {
     case Script(String path) {
       if path.isBlank { throw Exception(message: "Python script path must not be blank") }
-      break [path] + request.arguments
+      arguments.add(path)
     }
     case Module(String name) {
       if name.isBlank { throw Exception(message: "Python module name must not be blank") }
-      break ["-m", name] + request.arguments
+      arguments.add("-m")
+      arguments.add(name)
     }
   }
+  for String argument : request.arguments { arguments.add(argument) }
   return runProcess(
     executable: request.interpreter,
     arguments: arguments,
