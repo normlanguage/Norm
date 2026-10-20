@@ -1588,7 +1588,8 @@ final class RuntimeValues {
         return;
       }
       if (state.schemaMatches(view, type())
-          && view.fields().stream().allMatch(field -> cells().containsKey(field.key()))) return;
+          && view.fields().stream()
+              .allMatch(field -> state.view(view, type()).containsKey(field.key()))) return;
       try (RuntimeStateTransaction migration = prepareState(List.of(), execution)) {
         migration.prepare(this, view);
         migration.commit();

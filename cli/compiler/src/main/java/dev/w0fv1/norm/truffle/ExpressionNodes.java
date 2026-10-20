@@ -959,10 +959,7 @@ final class ExpressionNodes {
         throw execution
             .values()
             .javaException(
-                new IllegalStateException(
-                    "field has not been initialized: " + field + " in " + object.type()),
-                execution,
-                this);
+                new IllegalStateException("field has not been initialized"), execution, this);
       }
       return object.type() instanceof CoreType.Declared declared
               && declared.category() == CoreValueCategory.VALUE

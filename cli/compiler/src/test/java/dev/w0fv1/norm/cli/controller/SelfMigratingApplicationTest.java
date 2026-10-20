@@ -183,6 +183,8 @@ final class SelfMigratingApplicationTest {
         import std.concurrent.delay
         import std.time.duration
         import std.core.Exception
+        import std.runtime.Runtime
+        import std.runtime.UpdateOutcome
         import std.runtime.StateMigration
         import std.runtime.MigrationState
         @StateMigration(convert: migrateState.function)
@@ -197,6 +199,10 @@ final class SelfMigratingApplicationTest {
           var root = applicationDirectory().value
           writeTextAtomic(path: Path(value: root + "/attempt-" + version.toString() + ".txt"), text: "attempted", encoding: TextEncoding.Utf8)
           printLine("attempted:" + version.toString())
+        }
+        Boolean compileErrorObserved() {
+          var latest = Runtime().latestUpdate()
+          latest != null && latest.outcome == UpdateOutcome.Rejected
         }
         Boolean failureObserved(Integer version) {
           var root = applicationDirectory().value
@@ -223,7 +229,7 @@ final class SelfMigratingApplicationTest {
               save("compile-error.txt")
               phase = 1
               savedAt = tick
-            } else if (phase == 1 && tick - savedAt >= 15) {
+            } else if (phase == 1 && tick - savedAt >= 3 && compileErrorObserved()) {
               save("failed-1.txt")
               phase = 2
               savedAt = tick
