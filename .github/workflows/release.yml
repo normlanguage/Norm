@@ -232,6 +232,9 @@ jobs:
         env:
           NORM_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          export JAVA_HOME="${JAVA_HOME_25_X64:-$JAVA_HOME}"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
           node --test cli/compiler/scripts/*.test.mjs
           node cli/compiler/scripts/verify-codegen.mjs
 
