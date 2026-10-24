@@ -15,22 +15,19 @@ import std.time.Duration
 import std.time.duration
 
 @Document(description: "Public API declaration Skill.")
-@Document(description: "Public API declaration Skill.")
 public class Skill {
-  @Document(description: "Public API declaration name.")
   @Document(description: "Public API declaration name.")
   public String name
   @Document(description: "Public API declaration url.")
-  @Document(description: "Public API declaration url.")
   public String url
 
-  Skill(@Document(description: "The Skill URL.") String url) {
+  @Document(description: "Creates a Skill from a remote URL.") Skill(@Document(description: "The Skill URL.") String url) {
     if url.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill URL must not be blank") }
     this.name = url
     this.url = url
   }
 
-  Skill(@Document(description: "The Skill name.") String name, @Document(description: "The Skill URL.") String url) {
+  @Document(description: "Creates a named Skill from a remote URL.") Skill(@Document(description: "The Skill name.") String name, @Document(description: "The Skill URL.") String url) {
     if name.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill name must not be blank") }
     if url.isBlank { throw OpenAiException(code: "OPENAI-SKILL-INVALID", message: "Skill URL must not be blank") }
     this.name = name
@@ -38,11 +35,12 @@ public class Skill {
   }
 }
 
+@Document(description: "Loads Skills from remote URLs.")
 class SkillLoader {
   String fetch(
-    Skill skill,
-    HttpClient client = systemHttpClient(),
-    Duration timeout = duration(seconds: 30, nanoseconds: 0)
+    @Document(description: "The Skill to load.") Skill skill,
+    @Document(description: "The HTTP client.") HttpClient client = systemHttpClient(),
+    @Document(description: "The request timeout.") Duration timeout = duration(seconds: 30, nanoseconds: 0)
   ) {
     HttpResponse response = client.send(request: get(uri: Uri(value: skill.url)), timeout: timeout)
     try {

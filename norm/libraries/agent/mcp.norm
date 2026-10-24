@@ -24,14 +24,12 @@ import std.time.Duration
 import std.time.duration
 
 @Document(description: "Public API declaration McpToolProvider.")
-@Document(description: "Public API declaration McpToolProvider.")
 public interface McpToolProvider {
-  List<ToolDefinition> definitions()
-  Boolean supports(@Document(description: "The tool name.") String name)
-  String invoke(ToolCall call)
+  @Document(description: "Lists the tools exposed by the provider.") List<ToolDefinition> definitions()
+  @Document(description: "Checks whether a tool is supported.") Boolean supports(@Document(description: "The tool name.") String name)
+  @Document(description: "Invokes a remote tool.") String invoke(@Document(description: "The tool call.") ToolCall call)
 }
 
-@Document(description: "Public API declaration McpClient.")
 @Document(description: "Public API declaration McpClient.")
 public class McpClient implements McpToolProvider {
   private String endpoint
@@ -40,7 +38,7 @@ public class McpClient implements McpToolProvider {
   private Integer nextRequestId = 1
   private List<ToolDefinition> cached = []
 
-  McpClient(
+  @Document(description: "Creates an MCP client.") McpClient(
     @Document(description: "The MCP endpoint.") String endpoint,
     @Document(description: "The HTTP client.") HttpClient client = systemHttpClient(),
     @Document(description: "The request timeout.") Duration timeout = duration(seconds: 30, nanoseconds: 0)
@@ -50,7 +48,6 @@ public class McpClient implements McpToolProvider {
     this.timeout = timeout
   }
 
-  @Document(description: "Public API declaration definitions.")
   @Document(description: "Public API declaration definitions.")
   public List<ToolDefinition> definitions() {
     JsonValue result = this.request(method: "tools/list", params: JsonValue.Object(fields: Map<>()))
@@ -70,8 +67,7 @@ public class McpClient implements McpToolProvider {
   }
 
   @Document(description: "Public API declaration supports.")
-  @Document(description: "Public API declaration supports.")
-  public Boolean supports(String name) {
+  public Boolean supports(@Document(description: "The tool name.") String name) {
     for ToolDefinition definition : cached {
       if definition.name == name { return true }
     }
@@ -79,8 +75,7 @@ public class McpClient implements McpToolProvider {
   }
 
   @Document(description: "Public API declaration invoke.")
-  @Document(description: "Public API declaration invoke.")
-  public String invoke(ToolCall call) {
+  public String invoke(@Document(description: "The tool call.") ToolCall call) {
     Map<String, JsonValue> arguments = switch parseJson(value: if call.arguments.isBlank { "{}" } else { call.arguments }) {
       case Object(Map<String, JsonValue> fields) { break fields }
       case _ { throw OpenAiException(code: "OPENAI-MCP-ARGUMENTS", message: "MCP tool arguments must be a JSON object") }

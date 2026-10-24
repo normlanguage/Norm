@@ -11,13 +11,13 @@ import std.json.invokeJson
 
 @Document(description: "Public API declaration Tool.")
 public annotation Tool implements FunctionTarget, RuntimeRetention {
-  String description
-  String? name
+  @Document(description: "The tool or parameter description.") String description
+  @Document(description: "The optional exposed tool name.") String? name
 }
 
 @Document(description: "Public API declaration ToolParameter.")
 public annotation ToolParameter implements ParameterTarget, RuntimeRetention {
-  String description
+  @Document(description: "The tool or parameter description.") String description
 }
 
 @Document(description: "Public API declaration ToolCatalog.")
@@ -49,7 +49,8 @@ public class ToolRegistry {
   private Map<String, Function<?>> operations = Map<>()
   private List<ToolDefinition> descriptions = []
 
-  ToolRegistry(@Document(description: "The tool functions.") List<Function<?>> tools) {
+  @Document(description: "Builds a registry from annotated tool functions.")
+  @Document(description: "Creates a tool registry.") ToolRegistry(@Document(description: "The tool functions.") List<Function<?>> tools) {
     this.operations = Map<>()
     this.descriptions = []
     for Function<?> candidate : tools {

@@ -22,15 +22,13 @@ import std.json.JsonValue
 import std.json.writeJson
 
 @Document(description: "Public API declaration AgentSession.")
-@Document(description: "Public API declaration AgentSession.")
 public class AgentSession {
   private SessionStore store
 
-  AgentSession(@Document(description: "The session store.") SessionStore store = JsonSessionStore()) {
+  @Document(description: "Creates an Agent session.") AgentSession(@Document(description: "The session store.") SessionStore store = JsonSessionStore()) {
     this.store = store
   }
 
-  @Document(description: "Public API declaration append.")
   @Document(description: "Public API declaration append.")
   public Void append(@Document(description: "The JSON item.") JsonValue item) {
     List<JsonValue> history = this.items()
@@ -38,7 +36,6 @@ public class AgentSession {
     store.save(value: JsonValue.Array(values: history))
   }
 
-  @Document(description: "Public API declaration items.")
   @Document(description: "Public API declaration items.")
   public List<JsonValue> items() {
     switch store.load() {
@@ -52,7 +49,6 @@ public class AgentSession {
   }
 
   @Document(description: "Public API declaration addContext.")
-  @Document(description: "Public API declaration addContext.")
   public Void addContext(@Document(description: "The context text.") String text) {
     Map<String, JsonValue> message = Map<>()
     message.put(key: "role", value: JsonValue.String(value: "user"))
@@ -62,13 +58,11 @@ public class AgentSession {
 }
 
 @Document(description: "Public API declaration ToolScope.")
-@Document(description: "Public API declaration ToolScope.")
 public interface ToolScope {
   String? complete()
   Void close()
 }
 
-@Document(description: "Public API declaration Agent.")
 @Document(description: "Public API declaration Agent.")
 public class Agent {
   private Client client
@@ -87,7 +81,7 @@ public class Agent {
   private String? instructionSnapshot
   private Boolean instructionSnapshotReady
 
-  Agent(
+  @Document(description: "Creates an Agent with tools, Skills, and model configuration.") Agent(
     @Document(description: "The API key.") String apiKey,
     @Document(description: "The model name.") String model,
     @Document(description: "The endpoint URL.") String endpoint,
@@ -119,7 +113,6 @@ public class Agent {
   }
 
   @Document(description: "Public API declaration skill.")
-  @Document(description: "Public API declaration skill.")
   public Agent skill(@Document(description: "The Skill to add.") Skill value) {
     skills.add(value)
     instructionSnapshotReady = false
@@ -127,12 +120,10 @@ public class Agent {
   }
 
   @Document(description: "Public API declaration skill.")
-  @Document(description: "Public API declaration skill.")
   public Agent skill(@Document(description: "The Skill URL.") String url) {
     return this.skill(value: Skill(url: url))
   }
 
-  @Document(description: "Public API declaration tool.")
   @Document(description: "Public API declaration tool.")
   public Agent tool(@Document(description: "The tool function.") Function<?> value) {
     tools.add(value)
@@ -140,13 +131,11 @@ public class Agent {
   }
 
   @Document(description: "Public API declaration mcp.")
-  @Document(description: "Public API declaration mcp.")
   public Agent mcp(@Document(description: "The MCP provider.") McpToolProvider value) {
     mcpProviders.add(value)
     return this
   }
 
-  @Document(description: "Public API declaration onText.")
   @Document(description: "Public API declaration onText.")
   public Agent onText(@Document(description: "The text callback.") Void callback(String text)) {
     textCallback = callback
@@ -154,21 +143,21 @@ public class Agent {
   }
 
   @Document(description: "Public API declaration chat.")
-  @Document(description: "Public API declaration chat.")
-  public Response chat(@Document(description: "The user input.") String input, Function<Void(String)>? onResponseStarted = null,
-    Function<Void(String)>? onMessageStarted = null,
-    Function<Void(String)>? onText = null,
-    Function<Void(Message)>? onMessageCompleted = null,
-    Function<Void(ToolCall)>? onToolCallReceived = null,
-    Function<Void(ToolCall)>? onToolStarted = null,
-    Function<Void(ToolResult)>? onToolCompleted = null,
-    Function<Void(ToolFailure)>? onToolFailed = null,
-    Function<Void(Response)>? onResponseCompleted = null,
-    Function<Void(Exception)>? onFailed = null,
-    Function<Void(String)>? onRunStarted = null,
-    Function<Void(Response)>? onRunCompleted = null,
-    Function<Void(GenerationEvent)>? onEvent = null,
-    AgentSession session = AgentSession()) {
+  @Document(description: "Runs a multi-round model interaction and dispatches tools.")
+  public Response chat(@Document(description: "The user input.") String input, @Document(description: "The response-start callback.") Function<Void(String)>? onResponseStarted = null,
+    @Document(description: "The message-start callback.") Function<Void(String)>? onMessageStarted = null,
+    @Document(description: "The text callback.") Function<Void(String)>? onText = null,
+    @Document(description: "The message callback.") Function<Void(Message)>? onMessageCompleted = null,
+    @Document(description: "The tool-call callback.") Function<Void(ToolCall)>? onToolCallReceived = null,
+    @Document(description: "The tool-start callback.") Function<Void(ToolCall)>? onToolStarted = null,
+    @Document(description: "The tool-complete callback.") Function<Void(ToolResult)>? onToolCompleted = null,
+    @Document(description: "The tool-failure callback.") Function<Void(ToolFailure)>? onToolFailed = null,
+    @Document(description: "The response callback.") Function<Void(Response)>? onResponseCompleted = null,
+    @Document(description: "The failure callback.") Function<Void(Exception)>? onFailed = null,
+    @Document(description: "The run-start callback.") Function<Void(String)>? onRunStarted = null,
+    @Document(description: "The run-complete callback.") Function<Void(Response)>? onRunCompleted = null,
+    @Document(description: "The event callback.") Function<Void(GenerationEvent)>? onEvent = null,
+    @Document(description: "The session to use.") AgentSession session = AgentSession()) {
     instructionSnapshot = null
     instructionSnapshotReady = false
     var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: if onText == null { textCallback } else { onText }, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onToolStarted: onToolStarted, onToolCompleted: onToolCompleted, onToolFailed: onToolFailed, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onRunStarted: onRunStarted, onRunCompleted: onRunCompleted, onEvent: onEvent)
