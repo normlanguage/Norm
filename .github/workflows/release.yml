@@ -188,6 +188,7 @@ jobs:
   verify:
     needs: [prepare, package-extension]
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - name: Check out release sources
         uses: actions/checkout@v7
@@ -228,7 +229,7 @@ jobs:
           test -f "docs/zh/versions/$release_line.md"
 
       - name: Verify toolchain
-        run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+        run: timeout --signal=TERM 25m ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon --console=plain
 
       - name: Upload JUnit results
         if: always()
@@ -241,7 +242,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Verify Windows launcher core
-        run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
+        run: timeout --signal=TERM 10m dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
 
       - name: Verify native build evidence tools
         env:
@@ -253,10 +254,10 @@ jobs:
       - name: Verify extension
         working-directory: cli/extensions/vscode
         run: |
-          npm run check
-          npm run test:language
-          npm run test:discovery
-          npm run test:release
+          timeout --signal=TERM 10m npm run check
+          timeout --signal=TERM 10m npm run test:language
+          timeout --signal=TERM 10m npm run test:discovery
+          timeout --signal=TERM 10m npm run test:release
 
       - name: Download packaged runtimes
         uses: actions/download-artifact@v8
@@ -274,7 +275,7 @@ jobs:
         shell: bash
         run: |
           find build/binaries -path '*/norm/bin/norm' -exec chmod +x {} +
-          npm run --prefix cli/extensions/vscode verify:vsix -- ${{ needs.prepare.outputs.version }} "$GITHUB_WORKSPACE/build/binaries" "$GITHUB_WORKSPACE/build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix"
+          timeout --signal=TERM 10m npm run --prefix cli/extensions/vscode verify:vsix -- ${{ needs.prepare.outputs.version }} "$GITHUB_WORKSPACE/build/binaries" "$GITHUB_WORKSPACE/build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix"
 
   accept:
     needs: [prepare, package-extension]
