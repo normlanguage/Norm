@@ -142,7 +142,10 @@ final class DocsCommand implements Command {
       Path path = source.path().toAbsolutePath().normalize();
       if (!path.startsWith(moduleRoot)) continue;
       sourcePaths.put(source.id(), relative(moduleRoot, path));
-      if (sourceSet.exportedSourcePaths().contains(path)) exported.add(source.id());
+      if (sourceSet.exportedSourcePaths().contains(path)
+          || sourceSet.bindingSourceDocuments().contains(source.id())) {
+        exported.add(source.id());
+      }
     }
     return new LoadedModule(sourcePaths, exported, snapshot);
   }
