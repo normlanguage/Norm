@@ -37,6 +37,7 @@ public class Skill {
 
 @Document(description: "Loads Skills from remote URLs.")
 class SkillLoader {
+  @Document(description: "Fetches a Skill document from its URL.")
   String fetch(
     @Document(description: "The Skill to load.") Skill skill,
     @Document(description: "The HTTP client.") HttpClient client = systemHttpClient(),
