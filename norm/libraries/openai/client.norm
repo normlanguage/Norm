@@ -40,7 +40,6 @@ public class OpenAiException extends Exception {
   @Document(description: "Public field requestId.")
   String? requestId
 
-  @Document(description: "Creates an OpenAI protocol or transport failure.")
   @Document(description: "Creates an OpenAI protocol exception.") OpenAiException(@Document(description: "The error code.") String code, @Document(description: "The error message.") String message, @Document(description: "The HTTP status.") Integer? httpStatus = null, @Document(description: "The request identifier.") String? requestId = null) {
     super(message: message)
     this.code = code
@@ -260,7 +259,6 @@ public class Client {
   private Duration timeout
   private Integer maximumResponseBytes
 
-  @Document(description: "Creates an OpenAI-compatible client.")
   @Document(description: "Creates an OpenAI protocol client.") Client(@Document(description: "The API key.") String apiKey, @Document(description: "The model name.") String model, @Document(description: "The endpoint URL.") String endpoint = "https://api.openai.com/v1/responses",
     @Document(description: "The HTTP transport.") HttpClient transport = systemHttpClient(), @Document(description: "The request timeout.") Duration timeout = duration(seconds: 60, nanoseconds: 0),
     @Document(description: "The response byte limit.") Integer maximumResponseBytes = 1048576) {
