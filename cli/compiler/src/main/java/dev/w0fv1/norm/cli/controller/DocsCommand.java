@@ -75,22 +75,7 @@ final class DocsCommand implements Command {
           CompilerSession compiler = environment.compilerSession()) {
         SourceFile moduleSource = SourceFile.read(modulePath);
         ModuleDescriptor descriptor = projects.evaluateModule(moduleSource);
-        LoadedModule loaded = projectModule(moduleRoot, modulePath, descriptor, projects, compiler);
-        if (loaded.snapshot().analysis().hasErrors()) {
-          loaded
-              .snapshot()
-              .diagnostics()
-              .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
-          return ExitCode.COMPILATION_ERROR;
-        }
-        var documentation =
-            new DocumentationGenerator()
-                .generate(
-                    descriptor.coordinate(),
-                    loaded.sourcePaths(),
-                    loaded.exportedSources(),
-                    loaded.snapshot(),
-                    options.strict());
+        var documentation = documentation(moduleRoot, modulePath, descriptor, projects, compiler, options.strict(), err);
         new ApiDocumentationWriter().write(documentation, options.output());
         if (options.skill() != null) {
           Path skill = options.skill().toAbsolutePath().normalize();
@@ -110,6 +95,8 @@ final class DocsCommand implements Command {
                       "error[NORM-DOC-0002]: exported declaration '%s' is missing @Document%n",
                       declaration));
       return ExitCode.COMPILATION_ERROR;
+    } catch (DocumentationCompilationException exception) {
+      return ExitCode.COMPILATION_ERROR;
     } catch (IOException exception) {
       err.printf(
           "error[NORM-DOC-0001]: cannot export module documentation: %s%n", exception.getMessage());
@@ -118,6 +105,38 @@ final class DocsCommand implements Command {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;
+    }
+  }
+
+  private static dev.w0fv1.norm.documentation.ModuleDocumentation documentation(
+      Path moduleRoot,
+      Path modulePath,
+      ModuleDescriptor descriptor,
+      ProjectLoader projects,
+      CompilerSession compiler,
+      boolean strict,
+      PrintWriter err)
+      throws IOException {
+    try {
+      LoadedModule loaded = projectModule(moduleRoot, modulePath, descriptor, projects, compiler);
+      if (loaded.snapshot().analysis().hasErrors()) {
+        loaded
+            .snapshot()
+            .diagnostics()
+            .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+        throw new DocumentationCompilationException();
+      }
+      return new DocumentationGenerator()
+          .generate(
+              descriptor.coordinate(),
+              loaded.sourcePaths(),
+              loaded.exportedSources(),
+              loaded.snapshot(),
+              strict);
+    } catch (IOException exception) {
+      if (!"module contains no source files".equals(exception.getMessage())) throw exception;
+      return new dev.w0fv1.norm.documentation.ModuleDocumentation(
+          descriptor.coordinate(), List.of());
     }
   }
 
@@ -209,4 +228,6 @@ final class DocsCommand implements Command {
       exportedSources = Set.copyOf(exportedSources);
     }
   }
+
+  private static final class DocumentationCompilationException extends IOException {}
 }
