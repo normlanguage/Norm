@@ -75,7 +75,8 @@ Module module() {
       "time.temporal.TemporalAccessor",
       "util.AbstractCollection",
       "util.AbstractMap",
-      "util.AbstractSet"
+      "util.AbstractSet",
+      "util.concurrent.ConcurrentMap"
     ],
     binding: jarBinding(
       target: jdkModule(name: "java.base"),
@@ -102,6 +103,7 @@ Module module() {
         jarType(name: "java.time.Duration", alias: "time.Duration", members: ["ofSeconds", "ofMillis", "ofNanos", "toString"]),
         jarType(name: "java.io.InputStream", alias: "io.InputStream", members: ["close"], overloads: [jarOverload(name: "read", parameterTypes: [])]),
         jarType(name: "java.io.OutputStream", alias: "io.OutputStream", members: ["flush", "close"], overloads: [jarOverload(name: "write", parameterTypes: ["int"])]),
+        jarType(name: "java.util.concurrent.ConcurrentMap", alias: "util.concurrent.ConcurrentMap", members: ["size", "isEmpty", "containsKey", "get", "put", "remove", "clear", "keySet", "values", "entrySet"]),
         jarType(name: "java.util.concurrent.Future", alias: "util.concurrent.Future", members: ["cancel", "isCancelled", "isDone"]),
         jarType(name: "java.util.concurrent.Flow.Publisher", alias: "util.concurrent.FlowPublisher", members: []),
         jarType(name: "java.util.concurrent.Flow.Subscriber", alias: "util.concurrent.FlowSubscriber", members: []),
@@ -152,3 +154,5 @@ Module module() {
     )
   )
 }
+
+
