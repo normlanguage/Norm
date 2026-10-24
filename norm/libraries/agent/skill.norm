@@ -12,8 +12,14 @@ import std.io.readAll
 import std.time.Duration
 import std.time.duration
 
+@Document(description: "Public API declaration Skill.")
+@Document(description: "Public API declaration Skill.")
 public class Skill {
+  @Document(description: "Public API declaration name.")
+  @Document(description: "Public API declaration name.")
   public String name
+  @Document(description: "Public API declaration url.")
+  @Document(description: "Public API declaration url.")
   public String url
 
   Skill(String url) {

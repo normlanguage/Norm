@@ -21,12 +21,16 @@ import std.json.writeJson
 import std.time.Duration
 import std.time.duration
 
+@Document(description: "Public API declaration McpToolProvider.")
+@Document(description: "Public API declaration McpToolProvider.")
 public interface McpToolProvider {
   List<ToolDefinition> definitions()
   Boolean supports(String name)
   String invoke(ToolCall call)
 }
 
+@Document(description: "Public API declaration McpClient.")
+@Document(description: "Public API declaration McpClient.")
 public class McpClient implements McpToolProvider {
   private String endpoint
   private HttpClient client
@@ -44,6 +48,8 @@ public class McpClient implements McpToolProvider {
     this.timeout = timeout
   }
 
+  @Document(description: "Public API declaration definitions.")
+  @Document(description: "Public API declaration definitions.")
   public List<ToolDefinition> definitions() {
     JsonValue result = this.request(method: "tools/list", params: JsonValue.Object(fields: Map<>()))
     Map<String, JsonValue> fields = this.object(value: result)
@@ -61,6 +67,8 @@ public class McpClient implements McpToolProvider {
     return values
   }
 
+  @Document(description: "Public API declaration supports.")
+  @Document(description: "Public API declaration supports.")
   public Boolean supports(String name) {
     for ToolDefinition definition : cached {
       if definition.name == name { return true }
@@ -68,6 +76,8 @@ public class McpClient implements McpToolProvider {
     return false
   }
 
+  @Document(description: "Public API declaration invoke.")
+  @Document(description: "Public API declaration invoke.")
   public String invoke(ToolCall call) {
     Map<String, JsonValue> arguments = switch parseJson(value: if call.arguments.isBlank { "{}" } else { call.arguments }) {
       case Object(Map<String, JsonValue> fields) { break fields }

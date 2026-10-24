@@ -27,11 +27,16 @@ import std.json.fromJson
 import std.time.Duration
 import std.time.duration
 
+@Document(description: "Public API declaration ResponseStatus.")
 public enum ResponseStatus { Completed, Incomplete, Failed, Cancelled, Queued, InProgress }
 
+@Document(description: "Public API declaration OpenAiException.")
 public class OpenAiException extends Exception {
+  @Document(description: "Public field code.")
   String code
+  @Document(description: "Public field httpStatus.")
   Integer? httpStatus
+  @Document(description: "Public field requestId.")
   String? requestId
 
   OpenAiException(String code, String message, Integer? httpStatus = null, String? requestId = null) {
@@ -42,14 +47,20 @@ public class OpenAiException extends Exception {
   }
 }
 
+@Document(description: "Public API declaration StructuredOutputMode.")
 public enum StructuredOutputMode { JsonSchema, JsonObject }
 
+@Document(description: "Public API declaration StructuredOutput.")
 public value StructuredOutput {
+  @Document(description: "Public field name.")
   String name
+  @Document(description: "Public field schema.")
   JsonValue schema
+  @Document(description: "Public field mode.")
   StructuredOutputMode mode = StructuredOutputMode.JsonSchema
 }
 
+@Document(description: "Public API declaration structuredOutput.")
 public StructuredOutput structuredOutput<T>(String name = "result", StructuredOutputMode mode = StructuredOutputMode.JsonSchema) {
   JsonValue schema = jsonSchema(type: T.class)
   if mode == StructuredOutputMode.JsonSchema {
@@ -97,49 +108,83 @@ private JsonValue strictSchema(JsonValue schema) {
   return JsonValue.Object(fields: root.fields)
 }
 
+@Document(description: "Public API declaration ResponseInput.")
 public enum ResponseInput { Text(String value), Items(List<JsonValue> values) }
 
+@Document(description: "Public API declaration ToolDefinition.")
 public value ToolDefinition {
+  @Document(description: "Public field name.")
   String name
+  @Document(description: "Public field description.")
   String description
+  @Document(description: "Public field parameters.")
   JsonValue parameters
+  @Document(description: "Public field strict.")
   Boolean strict = false
 }
 
+@Document(description: "Public API declaration ToolCall.")
 public value ToolCall {
+  @Document(description: "Public field callId.")
   String callId
+  @Document(description: "Public field name.")
   String name
+  @Document(description: "Public field arguments.")
   String arguments
 }
 
+@Document(description: "Public API declaration ResponseRequest.")
 public value ResponseRequest {
+  @Document(description: "Public field model.")
   String model
+  @Document(description: "Public field input.")
   ResponseInput input
+  @Document(description: "Public field instructions.")
   String? instructions = null
+  @Document(description: "Public field format.")
   StructuredOutput? format = null
+  @Document(description: "Public field maximumOutputTokens.")
   Integer maximumOutputTokens = 1024
+  @Document(description: "Public field tools.")
   List<ToolDefinition> tools = []
 }
 
+@Document(description: "Public API declaration Usage.")
 public value Usage {
+  @Document(description: "Public field inputTokens.")
   Long inputTokens
+  @Document(description: "Public field outputTokens.")
   Long outputTokens
+  @Document(description: "Public field totalTokens.")
   Long totalTokens
 }
 
+@Document(description: "Public API declaration Response.")
 public value Response {
+  @Document(description: "Public field id.")
   String id
+  @Document(description: "Public field status.")
   ResponseStatus status
+  @Document(description: "Public field text.")
   String text
+  @Document(description: "Public field refusal.")
   String? refusal
+  @Document(description: "Public field incompleteReason.")
   String? incompleteReason
+  @Document(description: "Public field usage.")
   Usage? usage
+  @Document(description: "Public field errorCode.")
   String? errorCode
+  @Document(description: "Public field errorMessage.")
   String? errorMessage
+  @Document(description: "Public field requestId.")
   String? requestId
+  @Document(description: "Public field output.")
   List<JsonValue> output
+  @Document(description: "Public field calls.")
   List<ToolCall> calls
 
+  @Document(description: "Public API declaration decode.")
   public T decode<T>() {
     if status != ResponseStatus.Completed || refusal != null {
       throw OpenAiException(code: "OPENAI-NOT-COMPLETED", message: "Response has no completed structured output", requestId: requestId)
@@ -158,12 +203,14 @@ private value WireObject {
     }
   }
 
+  @Document(description: "Public API declaration required.")
   public JsonValue required(String name) {
     JsonValue? value = fields.get(key: name)
     if value == null { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Missing response field: " + name) }
     return value
   }
 
+  @Document(description: "Public API declaration string.")
   public String string(String name) {
     return switch this.required(name: name) {
       case String(String value) { break value }
@@ -171,6 +218,7 @@ private value WireObject {
     }
   }
 
+  @Document(description: "Public API declaration optionalString.")
   public String? optionalString(String name) {
     JsonValue value = fields.get(key: name) ?? JsonValue.Null
     return switch value {
@@ -180,6 +228,7 @@ private value WireObject {
     }
   }
 
+  @Document(description: "Public API declaration message.")
   public Message message() {
     String text = ""
     String? refusal = null
@@ -191,6 +240,7 @@ private value WireObject {
     return Message(id: this.optionalString(name: "id") ?? "", text: text, refusal: refusal)
   }
 
+  @Document(description: "Public API declaration array.")
   public List<JsonValue> array(String name) {
     return switch this.required(name: name) {
       case Array(List<JsonValue> values) { break values }
@@ -199,6 +249,7 @@ private value WireObject {
   }
 }
 
+@Document(description: "Public API declaration Client.")
 public class Client {
   private String apiKey
   private String model
@@ -221,8 +272,10 @@ public class Client {
     this.maximumResponseBytes = maximumResponseBytes
   }
 
+  @Document(description: "Public API declaration defaultModel.")
   public String defaultModel() { return model }
 
+  @Document(description: "Public API declaration generate.")
   public Response generate(String input, String? instructions = null, List<Function<?>> tools = [],
     Integer maximumOutputTokens = 1024,
     Function<Void(String)>? onResponseStarted = null,
@@ -245,6 +298,7 @@ public class Client {
     }
   }
 
+  @Document(description: "Public API declaration generate.")
   public Response generate<T>(String input, String? instructions = null,
     Integer maximumOutputTokens = 1024, StructuredOutputMode mode = StructuredOutputMode.JsonSchema, Function<Void(String)>? onResponseStarted = null,
     Function<Void(String)>? onMessageStarted = null,
@@ -265,6 +319,7 @@ public class Client {
     }
   }
 
+  @Document(description: "Public API declaration exchange.")
   public Response exchange(ResponseRequest request, GenerationCallbacks callbacks = GenerationCallbacks(), Boolean stream = true) {
     Function<Void(String)>? onText = null
     if stream { onText = (String text) { callbacks.emit(event: GenerationEvent.Text(text: text)) } }
@@ -432,12 +487,14 @@ private JsonValue responseJson(String value, Integer? httpStatus = null, String?
 
 private class ResponseStream {
   private Function<Void(String)> onText
+  @Document(description: "Public API declaration document.")
   public JsonValue document = JsonValue.Null
 
   private GenerationCallbacks? events = null
 
   ResponseStream(Function<Void(String)> onText, GenerationCallbacks? events) { this.onText = onText this.events = events }
 
+  @Document(description: "Public API declaration accept.")
   public Boolean accept(String data) {
     if data.trim() == "[DONE]" { throw OpenAiException(code: "OPENAI-STREAM-INCOMPLETE", message: "Stream ended without a terminal response") }
     WireObject event = WireObject(value: responseJson(value: data))
@@ -474,6 +531,7 @@ private value ChatCall {
   String name = ""
   String arguments = ""
 
+  @Document(description: "Public API declaration json.")
   public JsonValue json() {
     Map<String, JsonValue> functionFields = Map<>()
     functionFields.put(key: "name", value: JsonValue.String(value: name))
@@ -501,6 +559,7 @@ private class ChatStream {
 
   ChatStream(Function<Void(String)> onText, GenerationCallbacks? events) { this.onText = onText this.events = events }
 
+  @Document(description: "Public API declaration accept.")
   public Boolean accept(String data) {
     if data.trim() == "[DONE]" {
       if finish == null { throw OpenAiException(code: "OPENAI-STREAM-INCOMPLETE", message: "Stream ended without finish_reason") }
@@ -550,6 +609,7 @@ private class ChatStream {
     return false
   }
 
+  @Document(description: "Public API declaration document.")
   public JsonValue document() {
     Map<String, JsonValue> message = Map<>()
     message.put(key: "content", value: JsonValue.String(value: text))

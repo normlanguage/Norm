@@ -2,10 +2,14 @@ package openai
 
 import std.core.Exception
 
+@Document(description: "Public API declaration Message.")
 public value Message { String id String text String? refusal = null }
+@Document(description: "Public API declaration ToolResult.")
 public value ToolResult { ToolCall call String output }
+@Document(description: "Public API declaration ToolFailure.")
 public value ToolFailure { ToolCall call Exception error }
 
+@Document(description: "Public API declaration GenerationEvent.")
 public enum GenerationEvent {
   ResponseStarted(String id),
   MessageStarted(String id),
@@ -21,6 +25,7 @@ public enum GenerationEvent {
   RunCompleted(Response response)
 }
 
+@Document(description: "Public API declaration GenerationCallbacks.")
 public class GenerationCallbacks {
   Function<Void(String)>? onResponseStarted = null
   Function<Void(String)>? onMessageStarted = null
@@ -36,6 +41,7 @@ public class GenerationCallbacks {
   Function<Void(Response)>? onRunCompleted = null
   Function<Void(GenerationEvent)>? onEvent = null
 
+  @Document(description: "Public API declaration emit.")
   public Void emit(GenerationEvent event) {
     var all = onEvent
     if all != null { all(event) }

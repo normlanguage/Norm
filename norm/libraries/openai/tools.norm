@@ -8,19 +8,23 @@ import std.json.JsonException
 import std.json.functionSchema
 import std.json.invokeJson
 
+@Document(description: "Public API declaration Tool.")
 public annotation Tool implements FunctionTarget, RuntimeRetention {
   String description
   String? name
 }
 
+@Document(description: "Public API declaration ToolParameter.")
 public annotation ToolParameter implements ParameterTarget, RuntimeRetention {
   String description
 }
 
+@Document(description: "Public API declaration ToolCatalog.")
 public class ToolCatalog {
   private ToolRegistry? accepted = null
   private String? failure = null
 
+  @Document(description: "Public API declaration refresh.")
   public ToolRegistry refresh(List<Function<?>> tools) {
     try {
       var candidate = ToolRegistry(tools: tools)
@@ -35,9 +39,11 @@ public class ToolCatalog {
     }
   }
 
+  @Document(description: "Public API declaration rejection.")
   public String? rejection() { return failure }
 }
 
+@Document(description: "Public API declaration ToolRegistry.")
 public class ToolRegistry {
   private Map<String, Function<?>> operations = Map<>()
   private List<ToolDefinition> descriptions = []
@@ -86,8 +92,10 @@ public class ToolRegistry {
     }
   }
 
+  @Document(description: "Public API declaration definitions.")
   public List<ToolDefinition> definitions() { return descriptions }
 
+  @Document(description: "Public API declaration invoke.")
   public String invoke(ToolCall call) {
     Function<?>? operation = operations.get(key: call.name)
     if operation == null { throw OpenAiException(code: "OPENAI-UNKNOWN-TOOL", message: "Unknown tool: " + call.name) }
