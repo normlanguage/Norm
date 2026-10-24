@@ -103,7 +103,7 @@ final class JavaBindingMembers {
       JavaApiType interfaceType = apiTypes.get(relation.binaryName());
       if (interfaceType == null || interfaceType.kind() != JavaApiTypeKind.INTERFACE) continue;
       JavaBindingType binding =
-          projector.project(relation, variables, JavaTypeProjector.Position.VALUE).orElse(null);
+          projector.project(relation, variables, JavaTypeProjector.Position.RELATION).orElse(null);
       if (!(binding instanceof JavaReferenceType reference)) {
         throw new IllegalArgumentException(
             "Java interface relation cannot be represented in Norm: " + relation.binaryName());

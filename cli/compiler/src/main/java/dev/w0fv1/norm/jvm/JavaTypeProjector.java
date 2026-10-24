@@ -10,7 +10,8 @@ import java.util.Optional;
 public final class JavaTypeProjector {
   public enum Position {
     VALUE,
-    PARAMETER
+    PARAMETER,
+    RELATION
   }
 
   public record FunctionalInterface(
@@ -36,7 +37,8 @@ public final class JavaTypeProjector {
       Map<String, ? extends JavaBindingType> variables,
       Position position) {
     Objects.requireNonNull(position);
-    return Optional.ofNullable(resolve(signature, variables, position == Position.PARAMETER));
+    return Optional.ofNullable(
+        resolve(signature, variables, position == Position.PARAMETER, position == Position.RELATION));
   }
 
   public static JavaTypeProjector forSchema(Map<String, JavaApiType> types) {
@@ -54,23 +56,25 @@ public final class JavaTypeProjector {
   private JavaBindingType resolve(
       JavaTypeSignature signature,
       Map<String, ? extends JavaBindingType> variables,
-      boolean allowCallback) {
+      boolean allowCallback,
+      boolean relation) {
     return switch (signature) {
       case JavaPrimitiveTypeSignature primitive -> primitive.type();
       case JavaTypeVariableSignature variable -> variables.get(variable.name());
       case JavaArrayTypeSignature array -> {
-        JavaBindingType component = resolve(array.component(), variables, false);
+        JavaBindingType component = resolve(array.component(), variables, false, relation);
         yield component == null ? null : new JavaArrayType(component);
       }
       case JavaClassTypeSignature classType ->
-          bindingClassType(classType, variables, allowCallback);
+          bindingClassType(classType, variables, allowCallback, relation);
     };
   }
 
   private JavaBindingType bindingClassType(
       JavaClassTypeSignature classType,
       Map<String, ? extends JavaBindingType> variables,
-      boolean allowCallback) {
+      boolean allowCallback,
+      boolean relation) {
     String name = classType.binaryName();
     Optional<JavaBoxedType> boxed = JavaBoxedType.fromBinaryName(name);
     if (boxed.isPresent()
@@ -80,7 +84,7 @@ public final class JavaTypeProjector {
     if (allowCallback) {
       Optional<JavaCallbackType> callback =
           JavaPlatformCallbacks.project(
-              classType, signature -> resolve(signature, variables, false));
+              classType, signature -> resolve(signature, variables, false, relation));
       if (callback.isPresent()) return callback.orElseThrow();
       callback = projectSam(classType, variables);
       if (callback.isPresent()) return callback.orElseThrow();
@@ -94,12 +98,16 @@ public final class JavaTypeProjector {
           arguments.add(JavaBindingTypeArgument.unbounded());
           continue;
         }
+        if (relation && argument.variance() != JavaTypeVariance.EXACT) {
+          arguments.add(JavaBindingTypeArgument.unbounded());
+          continue;
+        }
         if (kind == JavaReferenceKind.CLASS && argument.variance() == JavaTypeVariance.EXTENDS) {
           arguments.add(JavaBindingTypeArgument.unbounded());
           continue;
         }
         if (argument.variance() != JavaTypeVariance.EXACT) return null;
-        JavaBindingType type = resolve(argument.type().orElseThrow(), variables, false);
+        JavaBindingType type = resolve(argument.type().orElseThrow(), variables, false, relation);
         if (type == null) return null;
         arguments.add(JavaBindingTypeArgument.exact(type));
       }
@@ -128,7 +136,7 @@ public final class JavaTypeProjector {
     for (int index = 0; index < parameters.size(); index++) {
       JavaBindingType argument = object;
       if (!arguments.isEmpty() && arguments.get(index).variance() != JavaTypeVariance.UNBOUNDED) {
-        argument = resolve(arguments.get(index).type().orElseThrow(), outerVariables, false);
+        argument = resolve(arguments.get(index).type().orElseThrow(), outerVariables, false, false);
         if (argument == null) return Optional.empty();
       }
       variables.put(parameters.get(index).name(), argument);
@@ -137,11 +145,11 @@ public final class JavaTypeProjector {
     if (!signature.typeParameters().isEmpty()) return Optional.empty();
     List<JavaBindingType> callbackParameters = new ArrayList<>();
     for (JavaTypeSignature parameter : signature.parameters()) {
-      JavaBindingType projected = resolve(parameter, variables, false);
+      JavaBindingType projected = resolve(parameter, variables, false, false);
       if (projected == null || !exposableValue(projected)) return Optional.empty();
       callbackParameters.add(projected);
     }
-    JavaBindingType returnType = resolve(signature.returnType(), variables, false);
+    JavaBindingType returnType = resolve(signature.returnType(), variables, false, false);
     if (returnType == null || !exposableValue(returnType)) return Optional.empty();
     return Optional.of(
         new JavaCallbackType(type.binaryName(), sam.methodName(), callbackParameters, returnType));

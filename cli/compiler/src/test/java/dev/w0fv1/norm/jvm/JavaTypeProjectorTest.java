@@ -120,4 +120,29 @@ final class JavaTypeProjectorTest {
                     .orElseThrow())
             .component());
   }
+
+  @Test
+  void relationPositionErasesWildcardBoundsForInheritedInterfaces() {
+    JavaTypeProjector projector =
+        new JavaTypeProjector(
+            Map.of("java.lang.Comparable", JavaReferenceKind.OPAQUE), Map.of());
+    JavaBindingTypeVariable variable =
+        new JavaBindingTypeVariable("T", new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT));
+    JavaReferenceType relation =
+        (JavaReferenceType)
+            projector
+                .project(
+                    signatures.parseType("Ljava/lang/Comparable<-TT;>;"),
+                    Map.of("T", variable),
+                    JavaTypeProjector.Position.RELATION)
+                .orElseThrow();
+    assertEquals(List.of(JavaBindingTypeArgument.unbounded()), relation.arguments());
+    assertTrue(
+        projector
+            .project(
+                signatures.parseType("Ljava/lang/Comparable<-TT;>;"),
+                Map.of("T", variable),
+                JavaTypeProjector.Position.VALUE)
+            .isEmpty());
+  }
 }
