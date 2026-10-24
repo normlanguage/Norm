@@ -38,7 +38,8 @@ public final class JavaTypeProjector {
       Position position) {
     Objects.requireNonNull(position);
     return Optional.ofNullable(
-        resolve(signature, variables, position == Position.PARAMETER, position == Position.RELATION));
+        resolve(
+            signature, variables, position == Position.PARAMETER, position == Position.RELATION));
   }
 
   public static JavaTypeProjector forSchema(Map<String, JavaApiType> types) {
