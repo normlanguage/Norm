@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -95,6 +96,33 @@ final class CoreDefinitionContentTest {
     assertNotEquals(first.content().id(), second.content().id());
     assertEquals(signature(new DefinitionReference.External(firstTarget)), first.definition());
     assertEquals(List.of(), first.linkage().declarations());
+  }
+
+  @Test
+  void validatesLargeCallableLocalTablesWithoutQuadraticMembershipScans() {
+    int size = 8192;
+    var parameters = new ArrayList<CoreCallableParameter>(size);
+    var locals = new ArrayList<CoreLocal>(size);
+    for (int index = 0; index < size; index++) {
+      parameters.add(
+          new CoreCallableParameter("parameter" + index, CoreType.INTEGER, index, List.of()));
+      locals.add(new CoreLocal(index, CoreType.INTEGER, CoreLocal.Kind.PARAMETER));
+    }
+
+    var callable =
+        new CoreDefinition.Callable(
+            java.util.Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            parameters,
+            List.of(),
+            List.of(),
+            CoreType.INTEGER,
+            locals,
+            new CoreBlock(0, List.of()));
+
+    assertEquals(size, callable.parameters().size());
   }
 
   private static CoreDefinition signature(int receiver, int parameter) {

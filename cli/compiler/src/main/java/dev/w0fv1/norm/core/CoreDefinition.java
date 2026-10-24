@@ -75,8 +75,13 @@ public sealed interface CoreDefinition
           parameters.stream().map(CoreCallableParameter::localIndex).toList(), "parameter local");
       requireDistinct(captureLocals, "capture local");
       requireDistinct(reifiedTypeLocals, "reified type local");
-      Set<Integer> occupied =
-          new HashSet<>(parameters.stream().map(CoreCallableParameter::localIndex).toList());
+      Set<Integer> parameterLocalSet =
+          parameters.stream()
+              .map(CoreCallableParameter::localIndex)
+              .collect(java.util.stream.Collectors.toSet());
+      Set<Integer> captureLocalSet = new HashSet<>(captureLocals);
+      Set<Integer> reifiedTypeLocalSet = new HashSet<>(reifiedTypeLocals);
+      Set<Integer> occupied = new HashSet<>(parameterLocalSet);
       if (captureLocals.stream().anyMatch(index -> !occupied.add(index))) {
         throw new IllegalArgumentException("capture and parameter local bindings overlap");
       }
@@ -104,15 +109,14 @@ public sealed interface CoreDefinition
       }
       for (CoreLocal local : locals) {
         if (local.kind() == CoreLocal.Kind.PARAMETER
-            && parameters.stream()
-                .noneMatch(parameter -> parameter.localIndex() == local.index())) {
+            && !parameterLocalSet.contains(local.index())) {
           throw new IllegalArgumentException("parameter local is absent from the callable ABI");
         }
-        if (local.kind() == CoreLocal.Kind.CAPTURE && !captureLocals.contains(local.index())) {
+        if (local.kind() == CoreLocal.Kind.CAPTURE && !captureLocalSet.contains(local.index())) {
           throw new IllegalArgumentException("capture local is absent from the callable ABI");
         }
         if (local.kind() == CoreLocal.Kind.REIFIED_TYPE
-            && !reifiedTypeLocals.contains(local.index())) {
+            && !reifiedTypeLocalSet.contains(local.index())) {
           throw new IllegalArgumentException("reified local is absent from the callable ABI");
         }
       }

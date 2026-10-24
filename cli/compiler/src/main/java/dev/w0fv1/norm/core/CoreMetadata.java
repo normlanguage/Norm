@@ -16,16 +16,22 @@ public final class CoreMetadata {
       throw new IllegalArgumentException("annotation authoring application ids must be unique");
     this.annotations =
         values.stream()
+            .map(
+                annotation ->
+                    new EncodedAnnotation(
+                        annotation, CoreCodec.encodeAnnotationApplication(annotation)))
             .sorted(
                 (left, right) -> {
-                  int order =
-                      Arrays.compareUnsigned(
-                          CoreCodec.encodeAnnotationApplication(left),
-                          CoreCodec.encodeAnnotationApplication(right));
-                  return order == 0 ? left.id().compareTo(right.id()) : order;
+                  int order = Arrays.compareUnsigned(left.bytes(), right.bytes());
+                  return order == 0
+                      ? left.annotation().id().compareTo(right.annotation().id())
+                      : order;
                 })
+            .map(EncodedAnnotation::annotation)
             .toList();
   }
+
+  private record EncodedAnnotation(CoreAnnotationApplication annotation, byte[] bytes) {}
 
   public static CoreMetadata empty() {
     return new CoreMetadata(List.of());
