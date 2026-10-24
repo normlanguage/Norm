@@ -330,7 +330,7 @@ jobs:
       - name: Verify editor integration
         if: runner.os != 'Linux'
         working-directory: cli/extensions/vscode
-        run: timeout --signal=TERM 10m npm run test:extension:release
+        run: npm run test:extension:release
 
       - name: Verify editor integration on Linux
         if: runner.os == 'Linux'
