@@ -330,12 +330,12 @@ jobs:
       - name: Verify editor integration
         if: runner.os != 'Linux'
         working-directory: cli/extensions/vscode
-        run: npm run test:extension:release
+        run: timeout --signal=TERM 10m npm run test:extension:release
 
       - name: Verify editor integration on Linux
         if: runner.os == 'Linux'
         working-directory: cli/extensions/vscode
-        run: xvfb-run -a npm run test:extension:release
+        run: timeout --signal=TERM 10m xvfb-run -a npm run test:extension:release
 
       - name: Upload native build evidence
         if: always()
