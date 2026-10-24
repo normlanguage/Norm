@@ -9,6 +9,9 @@ description: 让 Agent 指南和拥有 API 的库一起发布
 `module.norm`、源码和根目录 `SKILL.md`；一个仓库包含多个公开模块时，
 也可以在各模块目录旁提供生成的模块 Skill。
 
+新包应从
+[Norm 包模板](https://github.com/normlanguage/package-template)开始，模板已包含模块目录、Skill 校验脚本和 CI 契约。
+
 Skill 使用仓库固定的 Norm 工具链生成：
 
 ```text

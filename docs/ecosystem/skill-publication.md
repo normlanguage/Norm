@@ -11,6 +11,10 @@ release entry point; a module repository may also expose generated module
 Skills beside each exported module when one repository contains more than one
 module.
 
+New packages should start from the
+[Norm package template](https://github.com/normlanguage/package-template),
+which includes the module layout, Skill validation script, and CI contract.
+
 The Skill is generated with the repository's pinned Norm toolchain:
 
 ```text
