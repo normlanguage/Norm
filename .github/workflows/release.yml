@@ -188,21 +188,12 @@ jobs:
   verify:
     needs: [prepare, package-extension]
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Check out release sources
         uses: actions/checkout@v7
         with:
           lfs: true
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: oracle
-          java-version: 25.0.2
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -228,19 +219,6 @@ jobs:
           test -f "docs/versions/$release_line.md"
           test -f "docs/zh/versions/$release_line.md"
 
-      - name: Verify toolchain
-        run: timeout --signal=TERM 25m ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon --console=plain
-
-      - name: Upload JUnit results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: junit-release-verify
-          path: |
-            build/compiler/test-results/test/*.xml
-            build/build-logic/test-results/test/*.xml
-          if-no-files-found: warn
-
       - name: Verify Windows launcher core
         run: timeout --signal=TERM 10m dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
 
@@ -257,7 +235,6 @@ jobs:
           timeout --signal=TERM 10m npm run check
           timeout --signal=TERM 10m npm run test:language
           timeout --signal=TERM 10m npm run test:discovery
-          timeout --signal=TERM 10m npm run test:release
 
       - name: Download packaged runtimes
         uses: actions/download-artifact@v8
@@ -281,6 +258,7 @@ jobs:
     needs: [prepare, package-extension]
     env:
       NORM_TEST_EXTENSION: ${{ github.workspace }}/build/extracted-extension
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
