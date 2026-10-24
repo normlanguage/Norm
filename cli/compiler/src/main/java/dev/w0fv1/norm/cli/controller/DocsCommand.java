@@ -75,7 +75,9 @@ final class DocsCommand implements Command {
           CompilerSession compiler = environment.compilerSession()) {
         SourceFile moduleSource = SourceFile.read(modulePath);
         ModuleDescriptor descriptor = projects.evaluateModule(moduleSource);
-        var documentation = documentation(moduleRoot, modulePath, descriptor, projects, compiler, options.strict(), err);
+        var documentation =
+            documentation(
+                moduleRoot, modulePath, descriptor, projects, compiler, options.strict(), err);
         new ApiDocumentationWriter().write(documentation, options.output());
         if (options.skill() != null) {
           Path skill = options.skill().toAbsolutePath().normalize();
