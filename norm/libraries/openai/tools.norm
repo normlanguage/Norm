@@ -1,5 +1,6 @@
 package openai
 
+import std.annotation.Document
 import std.annotation.FunctionTarget
 import std.annotation.ParameterTarget
 import std.annotation.RuntimeRetention
@@ -25,7 +26,7 @@ public class ToolCatalog {
   private String? failure = null
 
   @Document(description: "Public API declaration refresh.")
-  public ToolRegistry refresh(List<Function<?>> tools) {
+  public ToolRegistry refresh(@Document(description: "The tool functions.") List<Function<?>> tools) {
     try {
       var candidate = ToolRegistry(tools: tools)
       accepted = candidate
@@ -48,7 +49,7 @@ public class ToolRegistry {
   private Map<String, Function<?>> operations = Map<>()
   private List<ToolDefinition> descriptions = []
 
-  ToolRegistry(List<Function<?>> tools) {
+  ToolRegistry(@Document(description: "The tool functions.") List<Function<?>> tools) {
     this.operations = Map<>()
     this.descriptions = []
     for Function<?> candidate : tools {
@@ -96,7 +97,7 @@ public class ToolRegistry {
   public List<ToolDefinition> definitions() { return descriptions }
 
   @Document(description: "Public API declaration invoke.")
-  public String invoke(ToolCall call) {
+  public String invoke(@Document(description: "The tool call.") ToolCall call) {
     Function<?>? operation = operations.get(key: call.name)
     if operation == null { throw OpenAiException(code: "OPENAI-UNKNOWN-TOOL", message: "Unknown tool: " + call.name) }
     String arguments = if call.arguments.isBlank && operation.parameters().isEmpty() { "{}" } else { call.arguments }

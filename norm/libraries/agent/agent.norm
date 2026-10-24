@@ -1,4 +1,5 @@
 package agent
+import std.annotation.Document
 import openai.Client
 import openai.GenerationCallbacks
 import openai.GenerationEvent
@@ -25,13 +26,13 @@ import std.json.writeJson
 public class AgentSession {
   private SessionStore store
 
-  AgentSession(SessionStore store = JsonSessionStore()) {
+  AgentSession(@Document(description: "The session store.") SessionStore store = JsonSessionStore()) {
     this.store = store
   }
 
   @Document(description: "Public API declaration append.")
   @Document(description: "Public API declaration append.")
-  public Void append(JsonValue item) {
+  public Void append(@Document(description: "The JSON item.") JsonValue item) {
     List<JsonValue> history = this.items()
     history.add(item)
     store.save(value: JsonValue.Array(values: history))
@@ -52,7 +53,7 @@ public class AgentSession {
 
   @Document(description: "Public API declaration addContext.")
   @Document(description: "Public API declaration addContext.")
-  public Void addContext(String text) {
+  public Void addContext(@Document(description: "The context text.") String text) {
     Map<String, JsonValue> message = Map<>()
     message.put(key: "role", value: JsonValue.String(value: "user"))
     message.put(key: "content", value: JsonValue.String(value: text))
@@ -87,18 +88,18 @@ public class Agent {
   private Boolean instructionSnapshotReady
 
   Agent(
-    String apiKey,
-    String model,
-    String endpoint,
-    String? instruction = null,
-    List<Skill> skills = [],
-    List<Function<?>> tools = [],
-    Integer maximumRounds = 64,
-    Integer maximumOutputTokens = 8192,
-    Function<List<Function<?>>()>? toolProvider = null,
-    Function<ToolScope()>? beginToolScope = null,
-    Function<String?()>? contextProvider = null,
-    List<McpToolProvider> mcp = []
+    @Document(description: "The API key.") String apiKey,
+    @Document(description: "The model name.") String model,
+    @Document(description: "The endpoint URL.") String endpoint,
+    @Document(description: "The instructions.") String? instruction = null,
+    @Document(description: "The initial Skills.") List<Skill> skills = [],
+    @Document(description: "The initial tools.") List<Function<?>> tools = [],
+    @Document(description: "The maximum rounds.") Integer maximumRounds = 64,
+    @Document(description: "The maximum output tokens.") Integer maximumOutputTokens = 8192,
+    @Document(description: "The dynamic tool provider.") Function<List<Function<?>>()>? toolProvider = null,
+    @Document(description: "The tool scope factory.") Function<ToolScope()>? beginToolScope = null,
+    @Document(description: "The context provider.") Function<String?()>? contextProvider = null,
+    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = []
   ) {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
     this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
@@ -119,7 +120,7 @@ public class Agent {
 
   @Document(description: "Public API declaration skill.")
   @Document(description: "Public API declaration skill.")
-  public Agent skill(Skill value) {
+  public Agent skill(@Document(description: "The Skill to add.") Skill value) {
     skills.add(value)
     instructionSnapshotReady = false
     return this
@@ -127,34 +128,34 @@ public class Agent {
 
   @Document(description: "Public API declaration skill.")
   @Document(description: "Public API declaration skill.")
-  public Agent skill(String url) {
+  public Agent skill(@Document(description: "The Skill URL.") String url) {
     return this.skill(value: Skill(url: url))
   }
 
   @Document(description: "Public API declaration tool.")
   @Document(description: "Public API declaration tool.")
-  public Agent tool(Function<?> value) {
+  public Agent tool(@Document(description: "The tool function.") Function<?> value) {
     tools.add(value)
     return this
   }
 
   @Document(description: "Public API declaration mcp.")
   @Document(description: "Public API declaration mcp.")
-  public Agent mcp(McpToolProvider value) {
+  public Agent mcp(@Document(description: "The MCP provider.") McpToolProvider value) {
     mcpProviders.add(value)
     return this
   }
 
   @Document(description: "Public API declaration onText.")
   @Document(description: "Public API declaration onText.")
-  public Agent onText(Void callback(String text)) {
+  public Agent onText(@Document(description: "The text callback.") Void callback(String text)) {
     textCallback = callback
     return this
   }
 
   @Document(description: "Public API declaration chat.")
   @Document(description: "Public API declaration chat.")
-  public Response chat(String input, Function<Void(String)>? onResponseStarted = null,
+  public Response chat(@Document(description: "The user input.") String input, Function<Void(String)>? onResponseStarted = null,
     Function<Void(String)>? onMessageStarted = null,
     Function<Void(String)>? onText = null,
     Function<Void(Message)>? onMessageCompleted = null,

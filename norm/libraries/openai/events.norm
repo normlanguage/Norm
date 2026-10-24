@@ -1,6 +1,7 @@
 package openai
 
 import std.core.Exception
+import std.annotation.Document
 
 @Document(description: "Public API declaration Message.")
 public value Message { String id String text String? refusal = null }
@@ -42,7 +43,7 @@ public class GenerationCallbacks {
   Function<Void(GenerationEvent)>? onEvent = null
 
   @Document(description: "Public API declaration emit.")
-  public Void emit(GenerationEvent event) {
+  public Void emit(@Document(description: "The event to emit.") GenerationEvent event) {
     var all = onEvent
     if all != null { all(event) }
     switch event {

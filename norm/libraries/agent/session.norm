@@ -1,5 +1,7 @@
 package agent
 
+import std.annotation.Document
+
 import std.json.JsonValue
 import std.json.parseJson
 import std.json.writeJson
@@ -16,7 +18,7 @@ public interface SessionStore {
 public class JsonSessionStore implements SessionStore {
   private String state
 
-  JsonSessionStore(String initialState = "[]") {
+  JsonSessionStore(@Document(description: "The initial JSON state.") String initialState = "[]") {
     this.state = initialState
   }
 
@@ -26,5 +28,5 @@ public class JsonSessionStore implements SessionStore {
 
   @Document(description: "Public API declaration save.")
   @Document(description: "Public API declaration save.")
-  public Void save(JsonValue value) { this.state = writeJson(value: value) }
+  public Void save(@Document(description: "The JSON state.") JsonValue value) { this.state = writeJson(value: value) }
 }

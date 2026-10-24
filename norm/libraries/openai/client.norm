@@ -1,6 +1,7 @@
 package openai
 
 import std.core.Exception
+import std.annotation.Document
 import std.json.jsonSchema
 import std.http.HttpClient
 import std.http.HttpRequest
@@ -39,7 +40,7 @@ public class OpenAiException extends Exception {
   @Document(description: "Public field requestId.")
   String? requestId
 
-  OpenAiException(String code, String message, Integer? httpStatus = null, String? requestId = null) {
+  OpenAiException(@Document(description: "The error code.") String code, @Document(description: "The error message.") String message, @Document(description: "The HTTP status.") Integer? httpStatus = null, @Document(description: "The request identifier.") String? requestId = null) {
     super(message: message)
     this.code = code
     this.httpStatus = httpStatus
@@ -61,7 +62,7 @@ public value StructuredOutput {
 }
 
 @Document(description: "Public API declaration structuredOutput.")
-public StructuredOutput structuredOutput<T>(String name = "result", StructuredOutputMode mode = StructuredOutputMode.JsonSchema) {
+public StructuredOutput structuredOutput<T>(@Document(description: "The output name.") String name = "result", @Document(description: "The output mode.") StructuredOutputMode mode = StructuredOutputMode.JsonSchema) {
   JsonValue schema = jsonSchema(type: T.class)
   if mode == StructuredOutputMode.JsonSchema {
     var root = WireObject(value: schema)
@@ -196,7 +197,7 @@ public value Response {
 private value WireObject {
   Map<String, JsonValue> fields
 
-  WireObject(JsonValue value) {
+  WireObject(@Document(description: "The JSON value.") JsonValue value) {
     this.fields = switch value {
       case Object(Map<String, JsonValue> fields) { break fields }
       case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected a JSON object") }
@@ -204,14 +205,14 @@ private value WireObject {
   }
 
   @Document(description: "Public API declaration required.")
-  public JsonValue required(String name) {
+  public JsonValue required(@Document(description: "The field name.") String name) {
     JsonValue? value = fields.get(key: name)
     if value == null { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Missing response field: " + name) }
     return value
   }
 
   @Document(description: "Public API declaration string.")
-  public String string(String name) {
+  public String string(@Document(description: "The field name.") String name) {
     return switch this.required(name: name) {
       case String(String value) { break value }
       case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected string: " + name) }
@@ -219,7 +220,7 @@ private value WireObject {
   }
 
   @Document(description: "Public API declaration optionalString.")
-  public String? optionalString(String name) {
+  public String? optionalString(@Document(description: "The field name.") String name) {
     JsonValue value = fields.get(key: name) ?? JsonValue.Null
     return switch value {
       case Null { break null }
@@ -241,7 +242,7 @@ private value WireObject {
   }
 
   @Document(description: "Public API declaration array.")
-  public List<JsonValue> array(String name) {
+  public List<JsonValue> array(@Document(description: "The field name.") String name) {
     return switch this.required(name: name) {
       case Array(List<JsonValue> values) { break values }
       case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected array: " + name) }
@@ -258,9 +259,9 @@ public class Client {
   private Duration timeout
   private Integer maximumResponseBytes
 
-  Client(String apiKey, String model, String endpoint = "https://api.openai.com/v1/responses",
-    HttpClient transport = systemHttpClient(), Duration timeout = duration(seconds: 60, nanoseconds: 0),
-    Integer maximumResponseBytes = 1048576) {
+  Client(@Document(description: "The API key.") String apiKey, @Document(description: "The model name.") String model, @Document(description: "The endpoint URL.") String endpoint = "https://api.openai.com/v1/responses",
+    @Document(description: "The HTTP transport.") HttpClient transport = systemHttpClient(), @Document(description: "The request timeout.") Duration timeout = duration(seconds: 60, nanoseconds: 0),
+    @Document(description: "The response byte limit.") Integer maximumResponseBytes = 1048576) {
     if apiKey.isBlank || model.isBlank || maximumResponseBytes < 1 {
       throw OpenAiException(code: "OPENAI-INVALID-CONFIGURATION", message: "A key and positive response budget are required")
     }
@@ -276,16 +277,16 @@ public class Client {
   public String defaultModel() { return model }
 
   @Document(description: "Public API declaration generate.")
-  public Response generate(String input, String? instructions = null, List<Function<?>> tools = [],
-    Integer maximumOutputTokens = 1024,
-    Function<Void(String)>? onResponseStarted = null,
-    Function<Void(String)>? onMessageStarted = null,
-    Function<Void(String)>? onText = null,
-    Function<Void(Message)>? onMessageCompleted = null,
-    Function<Void(ToolCall)>? onToolCallReceived = null,
-    Function<Void(Response)>? onResponseCompleted = null,
-    Function<Void(Exception)>? onFailed = null,
-    Function<Void(GenerationEvent)>? onEvent = null) {
+  public Response generate(@Document(description: "The input.") String input, @Document(description: "The instructions.") String? instructions = null, @Document(description: "The tools.") List<Function<?>> tools = [],
+    @Document(description: "The output token limit.") Integer maximumOutputTokens = 1024,
+    @Document(description: "The response-start callback.") Function<Void(String)>? onResponseStarted = null,
+    @Document(description: "The message-start callback.") Function<Void(String)>? onMessageStarted = null,
+    @Document(description: "The text callback.") Function<Void(String)>? onText = null,
+    @Document(description: "The message callback.") Function<Void(Message)>? onMessageCompleted = null,
+    @Document(description: "The tool-call callback.") Function<Void(ToolCall)>? onToolCallReceived = null,
+    @Document(description: "The response callback.") Function<Void(Response)>? onResponseCompleted = null,
+    @Document(description: "The failure callback.") Function<Void(Exception)>? onFailed = null,
+    @Document(description: "The event callback.") Function<Void(GenerationEvent)>? onEvent = null) {
     var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: onText, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onEvent: onEvent)
     try {
       var registry = ToolRegistry(tools: tools)
@@ -299,15 +300,15 @@ public class Client {
   }
 
   @Document(description: "Public API declaration generate.")
-  public Response generate<T>(String input, String? instructions = null,
-    Integer maximumOutputTokens = 1024, StructuredOutputMode mode = StructuredOutputMode.JsonSchema, Function<Void(String)>? onResponseStarted = null,
-    Function<Void(String)>? onMessageStarted = null,
-    Function<Void(String)>? onText = null,
-    Function<Void(Message)>? onMessageCompleted = null,
-    Function<Void(ToolCall)>? onToolCallReceived = null,
-    Function<Void(Response)>? onResponseCompleted = null,
-    Function<Void(Exception)>? onFailed = null,
-    Function<Void(GenerationEvent)>? onEvent = null) {
+  public Response generate<T>(@Document(description: "The input.") String input, @Document(description: "The instructions.") String? instructions = null,
+    @Document(description: "The output token limit.") Integer maximumOutputTokens = 1024, @Document(description: "The output mode.") StructuredOutputMode mode = StructuredOutputMode.JsonSchema, @Document(description: "The response-start callback.") Function<Void(String)>? onResponseStarted = null,
+    @Document(description: "The message-start callback.") Function<Void(String)>? onMessageStarted = null,
+    @Document(description: "The text callback.") Function<Void(String)>? onText = null,
+    @Document(description: "The message callback.") Function<Void(Message)>? onMessageCompleted = null,
+    @Document(description: "The tool-call callback.") Function<Void(ToolCall)>? onToolCallReceived = null,
+    @Document(description: "The response callback.") Function<Void(Response)>? onResponseCompleted = null,
+    @Document(description: "The failure callback.") Function<Void(Exception)>? onFailed = null,
+    @Document(description: "The event callback.") Function<Void(GenerationEvent)>? onEvent = null) {
     var callbacks = GenerationCallbacks(onResponseStarted: onResponseStarted, onMessageStarted: onMessageStarted, onText: onText, onMessageCompleted: onMessageCompleted, onToolCallReceived: onToolCallReceived, onResponseCompleted: onResponseCompleted, onFailed: onFailed, onEvent: onEvent)
     try {
       return this.exchange(request: ResponseRequest(model: model, input: ResponseInput.Text(value: input),
@@ -320,7 +321,7 @@ public class Client {
   }
 
   @Document(description: "Public API declaration exchange.")
-  public Response exchange(ResponseRequest request, GenerationCallbacks callbacks = GenerationCallbacks(), Boolean stream = true) {
+  public Response exchange(@Document(description: "The response request.") ResponseRequest request, @Document(description: "The callbacks.") GenerationCallbacks callbacks = GenerationCallbacks(), @Document(description: "Whether to stream events.") Boolean stream = true) {
     Function<Void(String)>? onText = null
     if stream { onText = (String text) { callbacks.emit(event: GenerationEvent.Text(text: text)) } }
     var response = this.send(request: request, onText: onText, events: callbacks)
