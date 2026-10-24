@@ -87,7 +87,7 @@ jobs:
 
       - name: Set up .NET for the Windows executable
         if: runner.os == 'Windows'
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -202,7 +202,7 @@ jobs:
           java-version: 25.0.2
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
