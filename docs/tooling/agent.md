@@ -5,7 +5,7 @@ description: Norm specifications, semantic tools, and verification for AI Agents
 
 # Agent Development
 
-[Norm-Skill](https://github.com/normlanguage/Norm-Skill) provides a task index for CLI usage, language rules, and library inventory. The sources are maintained through the `cli/norm-skill` submodule; obtain them with `git submodule update --init cli/norm-skill`. Skill content is maintained only in its separate repository.
+[Norm-Skill](https://github.com/normlanguage/Norm-Skill) provides a task index for CLI usage and language rules. Library Skills belong to the repositories that publish those libraries. Use the [repository Skill publication contract](/ecosystem/skill-publication) to locate an immutable release Skill after resolving a package through the Registry.
 
 Start with the installed `norm -h` for CLI usage. Each command has `norm <command> -h`; refactoring types use `norm refactor name -h`. Help does not execute project operations.
 

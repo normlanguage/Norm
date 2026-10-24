@@ -5,7 +5,7 @@ description: AI Agent 使用 Norm 的规范、语义工具与验证入口
 
 # Agent 开发入口
 
-[Norm-Skill](https://github.com/normlanguage/Norm-Skill) 提供 CLI、语言规则和库清单的任务索引。源码通过 `cli/norm-skill` 子模块维护，获取方式为 `git submodule update --init cli/norm-skill`。Skill 内容只在独立仓库维护。
+[Norm-Skill](https://github.com/normlanguage/Norm-Skill) 提供 CLI 和语言规则的任务索引。库的 Skill 必须和发布库的源码、`module.norm` 位于同一个仓库。通过 Registry 找到库仓库后，按[仓库 Skill 发布契约](/zh/ecosystem/skill-publication)读取不可变版本的 Skill。
 
 CLI 用法以安装版 `norm -h` 为入口；各命令使用 `norm <command> -h`，重构类型使用 `norm refactor name -h`。帮助不会执行项目操作。
 
