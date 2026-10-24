@@ -59,8 +59,8 @@ public class AgentSession {
 
 @Document(description: "Public API declaration ToolScope.")
 public interface ToolScope {
-  String? complete()
-  Void close()
+  @Document(description: "Completes the tool scope and returns optional feedback.") String? complete()
+  @Document(description: "Closes the tool scope.") Void close()
 }
 
 @Document(description: "Public API declaration Agent.")
@@ -142,7 +142,6 @@ public class Agent {
     return this
   }
 
-  @Document(description: "Public API declaration chat.")
   @Document(description: "Runs a multi-round model interaction and dispatches tools.")
   public Response chat(@Document(description: "The user input.") String input, @Document(description: "The response-start callback.") Function<Void(String)>? onResponseStarted = null,
     @Document(description: "The message-start callback.") Function<Void(String)>? onMessageStarted = null,
