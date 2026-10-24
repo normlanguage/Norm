@@ -19,9 +19,21 @@ final class SkillGeneratorTest {
             "public",
             new ModuleDocumentation.SourceRange(
                 new ModuleDocumentation.Position(1, 1), new ModuleDocumentation.Position(1, 1)),
-            List.of(),
-            List.of(),
-            Optional.empty(),
+            List.of(
+                new ModuleDocumentation.TypeParameter(
+                    "T",
+                    Optional.of(
+                        new ModuleDocumentation.Type(
+                            "nominal", "std.Any", "Any", "Any", false, List.of())))),
+            List.of(
+                new ModuleDocumentation.Parameter(
+                    "name",
+                    new ModuleDocumentation.Type(
+                        "nominal", "std.String", "String", "String", false, List.of()),
+                    Optional.empty())),
+            Optional.of(
+                new ModuleDocumentation.Type(
+                    "nominal", "std.String", "String", "String", false, List.of())),
             Optional.empty(),
             Optional.of(
                 new ModuleDocumentation.Document(
@@ -46,5 +58,8 @@ final class SkillGeneratorTest {
     assertTrue(skill.contains("# demo Skill"));
     assertTrue(skill.contains("Greeting functions."));
     assertTrue(skill.contains("String greet(String name)"));
+    assertTrue(skill.contains("Type parameters:"));
+    assertTrue(skill.contains("- `name`: `String`"));
+    assertTrue(skill.contains("Returns: `String`"));
   }
 }

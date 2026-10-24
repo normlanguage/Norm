@@ -1,11 +1,26 @@
 package openai
 
 import std.core.Exception
+import std.annotation.Document
 
-public value Message { String id String text String? refusal = null }
-public value ToolResult { ToolCall call String output }
-public value ToolFailure { ToolCall call Exception error }
+@Document(description: "Public API declaration Message.")
+public value Message {
+  @Document(description: "The message identifier.") String id
+  @Document(description: "The rendered message text.") String text
+  @Document(description: "The refusal text, when present.") String? refusal = null
+}
+@Document(description: "Public API declaration ToolResult.")
+public value ToolResult {
+  @Document(description: "The completed tool call.") ToolCall call
+  @Document(description: "The serialized tool result.") String output
+}
+@Document(description: "Public API declaration ToolFailure.")
+public value ToolFailure {
+  @Document(description: "The failed tool call.") ToolCall call
+  @Document(description: "The tool failure.") Exception error
+}
 
+@Document(description: "Public API declaration GenerationEvent.")
 public enum GenerationEvent {
   ResponseStarted(String id),
   MessageStarted(String id),
@@ -21,22 +36,24 @@ public enum GenerationEvent {
   RunCompleted(Response response)
 }
 
+@Document(description: "Public API declaration GenerationCallbacks.")
 public class GenerationCallbacks {
-  Function<Void(String)>? onResponseStarted = null
-  Function<Void(String)>? onMessageStarted = null
-  Function<Void(String)>? onText = null
-  Function<Void(Message)>? onMessageCompleted = null
-  Function<Void(ToolCall)>? onToolCallReceived = null
-  Function<Void(ToolCall)>? onToolStarted = null
-  Function<Void(ToolResult)>? onToolCompleted = null
-  Function<Void(ToolFailure)>? onToolFailed = null
-  Function<Void(Response)>? onResponseCompleted = null
-  Function<Void(Exception)>? onFailed = null
-  Function<Void(String)>? onRunStarted = null
-  Function<Void(Response)>? onRunCompleted = null
-  Function<Void(GenerationEvent)>? onEvent = null
+  @Document(description: "Receives response start notifications.") Function<Void(String)>? onResponseStarted = null
+  @Document(description: "Receives message start notifications.") Function<Void(String)>? onMessageStarted = null
+  @Document(description: "Receives streamed text notifications.") Function<Void(String)>? onText = null
+  @Document(description: "Receives completed message notifications.") Function<Void(Message)>? onMessageCompleted = null
+  @Document(description: "Receives tool call notifications.") Function<Void(ToolCall)>? onToolCallReceived = null
+  @Document(description: "Receives tool start notifications.") Function<Void(ToolCall)>? onToolStarted = null
+  @Document(description: "Receives completed tool notifications.") Function<Void(ToolResult)>? onToolCompleted = null
+  @Document(description: "Receives failed tool notifications.") Function<Void(ToolFailure)>? onToolFailed = null
+  @Document(description: "Receives completed response notifications.") Function<Void(Response)>? onResponseCompleted = null
+  @Document(description: "Receives generation failure notifications.") Function<Void(Exception)>? onFailed = null
+  @Document(description: "Receives run start notifications.") Function<Void(String)>? onRunStarted = null
+  @Document(description: "Receives run completion notifications.") Function<Void(Response)>? onRunCompleted = null
+  @Document(description: "Receives generation event notifications.") Function<Void(GenerationEvent)>? onEvent = null
 
-  public Void emit(GenerationEvent event) {
+  @Document(description: "Public API declaration emit.")
+  public Void emit(@Document(description: "The event to emit.") GenerationEvent event) {
     var all = onEvent
     if all != null { all(event) }
     switch event {

@@ -1,5 +1,7 @@
 package agent
 
+import std.annotation.Document
+
 import openai.OpenAiException
 import openai.ToolCall
 import openai.ToolDefinition
@@ -21,12 +23,14 @@ import std.json.writeJson
 import std.time.Duration
 import std.time.duration
 
+@Document(description: "Public API declaration McpToolProvider.")
 public interface McpToolProvider {
-  List<ToolDefinition> definitions()
-  Boolean supports(String name)
-  String invoke(ToolCall call)
+  @Document(description: "Lists the tools exposed by the provider.") List<ToolDefinition> definitions()
+  @Document(description: "Checks whether a tool is supported.") Boolean supports(@Document(description: "The tool name.") String name)
+  @Document(description: "Invokes a remote tool.") String invoke(@Document(description: "The tool call.") ToolCall call)
 }
 
+@Document(description: "Public API declaration McpClient.")
 public class McpClient implements McpToolProvider {
   private String endpoint
   private HttpClient client
@@ -34,16 +38,17 @@ public class McpClient implements McpToolProvider {
   private Integer nextRequestId = 1
   private List<ToolDefinition> cached = []
 
-  McpClient(
-    String endpoint,
-    HttpClient client = systemHttpClient(),
-    Duration timeout = duration(seconds: 30, nanoseconds: 0)
+  @Document(description: "Creates an MCP client.") McpClient(
+    @Document(description: "The MCP endpoint.") String endpoint,
+    @Document(description: "The HTTP client.") HttpClient client = systemHttpClient(),
+    @Document(description: "The request timeout.") Duration timeout = duration(seconds: 30, nanoseconds: 0)
   ) {
     this.endpoint = endpoint
     this.client = client
     this.timeout = timeout
   }
 
+  @Document(description: "Public API declaration definitions.")
   public List<ToolDefinition> definitions() {
     JsonValue result = this.request(method: "tools/list", params: JsonValue.Object(fields: Map<>()))
     Map<String, JsonValue> fields = this.object(value: result)
@@ -61,14 +66,16 @@ public class McpClient implements McpToolProvider {
     return values
   }
 
-  public Boolean supports(String name) {
+  @Document(description: "Public API declaration supports.")
+  public Boolean supports(@Document(description: "The tool name.") String name) {
     for ToolDefinition definition : cached {
       if definition.name == name { return true }
     }
     return false
   }
 
-  public String invoke(ToolCall call) {
+  @Document(description: "Public API declaration invoke.")
+  public String invoke(@Document(description: "The tool call.") ToolCall call) {
     Map<String, JsonValue> arguments = switch parseJson(value: if call.arguments.isBlank { "{}" } else { call.arguments }) {
       case Object(Map<String, JsonValue> fields) { break fields }
       case _ { throw OpenAiException(code: "OPENAI-MCP-ARGUMENTS", message: "MCP tool arguments must be a JSON object") }

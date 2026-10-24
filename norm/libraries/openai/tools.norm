@@ -1,5 +1,6 @@
 package openai
 
+import std.annotation.Document
 import std.annotation.FunctionTarget
 import std.annotation.ParameterTarget
 import std.annotation.RuntimeRetention
@@ -8,20 +9,24 @@ import std.json.JsonException
 import std.json.functionSchema
 import std.json.invokeJson
 
+@Document(description: "Public API declaration Tool.")
 public annotation Tool implements FunctionTarget, RuntimeRetention {
-  String description
-  String? name
+  @Document(description: "The tool or parameter description.") String description
+  @Document(description: "The optional exposed tool name.") String? name
 }
 
+@Document(description: "Public API declaration ToolParameter.")
 public annotation ToolParameter implements ParameterTarget, RuntimeRetention {
-  String description
+  @Document(description: "The tool or parameter description.") String description
 }
 
+@Document(description: "Public API declaration ToolCatalog.")
 public class ToolCatalog {
   private ToolRegistry? accepted = null
   private String? failure = null
 
-  public ToolRegistry refresh(List<Function<?>> tools) {
+  @Document(description: "Public API declaration refresh.")
+  public ToolRegistry refresh(@Document(description: "The tool functions.") List<Function<?>> tools) {
     try {
       var candidate = ToolRegistry(tools: tools)
       accepted = candidate
@@ -35,14 +40,16 @@ public class ToolCatalog {
     }
   }
 
+  @Document(description: "Public API declaration rejection.")
   public String? rejection() { return failure }
 }
 
+@Document(description: "Public API declaration ToolRegistry.")
 public class ToolRegistry {
   private Map<String, Function<?>> operations = Map<>()
   private List<ToolDefinition> descriptions = []
 
-  ToolRegistry(List<Function<?>> tools) {
+  @Document(description: "Creates a tool registry.") ToolRegistry(@Document(description: "The tool functions.") List<Function<?>> tools) {
     this.operations = Map<>()
     this.descriptions = []
     for Function<?> candidate : tools {
@@ -86,9 +93,11 @@ public class ToolRegistry {
     }
   }
 
+  @Document(description: "Public API declaration definitions.")
   public List<ToolDefinition> definitions() { return descriptions }
 
-  public String invoke(ToolCall call) {
+  @Document(description: "Public API declaration invoke.")
+  public String invoke(@Document(description: "The tool call.") ToolCall call) {
     Function<?>? operation = operations.get(key: call.name)
     if operation == null { throw OpenAiException(code: "OPENAI-UNKNOWN-TOOL", message: "Unknown tool: " + call.name) }
     String arguments = if call.arguments.isBlank && operation.parameters().isEmpty() { "{}" } else { call.arguments }

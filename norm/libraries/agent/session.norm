@@ -1,22 +1,28 @@
 package agent
 
+import std.annotation.Document
+
 import std.json.JsonValue
 import std.json.parseJson
 import std.json.writeJson
 
+@Document(description: "Public API declaration SessionStore.")
 public interface SessionStore {
-  JsonValue load()
-  Void save(JsonValue value)
+  @Document(description: "Loads the JSON session state.") JsonValue load()
+  @Document(description: "Stores the JSON session state.") Void save(@Document(description: "The JSON state.") JsonValue value)
 }
 
+@Document(description: "Public API declaration JsonSessionStore.")
 public class JsonSessionStore implements SessionStore {
   private String state
 
-  JsonSessionStore(String initialState = "[]") {
+  @Document(description: "Creates a JSON session store.") JsonSessionStore(@Document(description: "The initial JSON state.") String initialState = "[]") {
     this.state = initialState
   }
 
+  @Document(description: "Public API declaration load.")
   public JsonValue load() { return parseJson(value: state) }
 
-  public Void save(JsonValue value) { this.state = writeJson(value: value) }
+  @Document(description: "Public API declaration save.")
+  public Void save(@Document(description: "The JSON state.") JsonValue value) { this.state = writeJson(value: value) }
 }
