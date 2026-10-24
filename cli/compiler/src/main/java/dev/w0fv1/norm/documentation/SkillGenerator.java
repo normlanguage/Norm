@@ -18,6 +18,7 @@ public final class SkillGenerator {
     for (ModuleDocumentation.File file : documentation.files()) {
       if (!file.exported() || file.declarations().isEmpty()) continue;
       result.append("## `").append(file.packageName()).append("`\n\n");
+      result.append("Source: `").append(file.sourcePath()).append("`\n\n");
       file.document().ifPresent(document -> appendDescription(result, document.description()));
       for (ModuleDocumentation.Declaration declaration : file.declarations()) {
         appendDeclaration(result, declaration, 3);
@@ -35,9 +36,74 @@ public final class SkillGenerator {
         .append("`\n\n");
     declaration.document().ifPresent(document -> appendDescription(result, document.description()));
     result.append("```norm\n").append(declaration.signature()).append("\n```\n\n");
+    if (!declaration.typeParameters().isEmpty()) {
+      result.append("Type parameters:\n\n");
+      for (ModuleDocumentation.TypeParameter parameter : declaration.typeParameters()) {
+        result.append("- `").append(parameter.name()).append("`");
+        parameter
+            .upperBound()
+            .ifPresent(bound -> result.append(" extends `").append(bound.display()).append("`"));
+        parameter
+            .defaultType()
+            .ifPresent(
+                defaultType -> result.append(" = `").append(defaultType.display()).append("`"));
+        result.append("\n");
+      }
+      result.append("\n");
+    }
+    if (!declaration.parameters().isEmpty()) {
+      result.append("Parameters:\n\n");
+      for (ModuleDocumentation.Parameter parameter : declaration.parameters()) {
+        result
+            .append("- `")
+            .append(parameter.name())
+            .append("`: `")
+            .append(parameter.type().display())
+            .append("`\n");
+        parameter
+            .document()
+            .ifPresent(document -> appendDescription(result, document.description()));
+      }
+      result.append("\n");
+    }
+    declaration
+        .returns()
+        .ifPresent(type -> result.append("Returns: `").append(type.display()).append("`\n\n"));
+    declaration
+        .type()
+        .ifPresent(type -> result.append("Type: `").append(type.display()).append("`\n\n"));
+    declaration.document().ifPresent(document -> appendReferences(result, document));
     for (ModuleDocumentation.Declaration member : declaration.members()) {
       appendDeclaration(result, member, Math.min(level + 1, 6));
     }
+  }
+
+  private static void appendReferences(
+      StringBuilder result, ModuleDocumentation.Document document) {
+    appendReferences(result, "Related types", document.types());
+    appendReferences(result, "Related functions", document.functions());
+    appendReferences(result, "Related fields", document.fields());
+    appendReferences(result, "Related tests", document.unitTests());
+  }
+
+  private static void appendReferences(
+      StringBuilder result,
+      String title,
+      java.util.List<ModuleDocumentation.Reference> references) {
+    if (references.isEmpty()) return;
+    result.append(title).append(":\n\n");
+    for (ModuleDocumentation.Reference reference : references) {
+      result
+          .append("- `")
+          .append(reference.target())
+          .append("` — ")
+          .append(reference.display())
+          .append("\n");
+      reference
+          .document()
+          .ifPresent(document -> result.append("  ").append(document.trim()).append("\n"));
+    }
+    result.append("\n");
   }
 
   private static void appendDescription(StringBuilder result, String description) {
