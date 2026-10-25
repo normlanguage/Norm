@@ -20,13 +20,17 @@ public final class NativeApplicationMain {
     NativeApplicationProgram prepared = application();
     try {
       String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
-      if (executable == null || executable.isBlank())
-        executable = org.graalvm.nativeimage.ProcessProperties.getExecutableName();
+      java.nio.file.Path applicationDirectory;
+      if (executable == null || executable.isBlank()) {
+        applicationDirectory = java.nio.file.Path.of(System.getProperty("user.dir"));
+      } else {
+        applicationDirectory = java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent();
+      }
       int status =
           prepared.execute(
               List.of(arguments),
               output,
-              java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent());
+              applicationDirectory);
       if (status != 0) System.exit(status);
     } catch (NormExecutionException exception) {
       error.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
