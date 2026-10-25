@@ -24,10 +24,13 @@ public final class NativeApplicationMain {
       if (executable == null || executable.isBlank()) {
         applicationDirectory = java.nio.file.Path.of(System.getProperty("user.dir"));
       } else {
-        applicationDirectory =
-            java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent();
+        applicationDirectory = java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent();
       }
-      int status = prepared.execute(List.of(arguments), output, applicationDirectory);
+      int status =
+          prepared.execute(
+              List.of(arguments),
+              output,
+              applicationDirectory);
       if (status != 0) System.exit(status);
     } catch (NormExecutionException exception) {
       error.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());

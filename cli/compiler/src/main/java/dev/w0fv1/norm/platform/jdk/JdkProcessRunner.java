@@ -77,7 +77,6 @@ public final class JdkProcessRunner implements ProcessRunner {
     Throwable primaryFailure = null;
     try {
       while (process.isAlive() || !stdout.isDone() || !stderr.isDone() || !stdin.isDone()) {
-        process.descendants().forEach(descendants::add);
         if (Thread.interrupted()) {
           interrupted = true;
           outcome = ProcessOutcome.CANCELLED;
@@ -112,10 +111,12 @@ public final class JdkProcessRunner implements ProcessRunner {
       primaryFailure = failure;
     } finally {
       var cleanupFailures = new ArrayList<Throwable>();
-      try {
-        process.descendants().forEach(descendants::add);
-      } catch (RuntimeException failure) {
-        cleanupFailures.add(failure);
+      if (!completed) {
+        try {
+          process.descendants().forEach(descendants::add);
+        } catch (RuntimeException failure) {
+          cleanupFailures.add(failure);
+        }
       }
       long deadline = completed ? 0 : System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
       if (!completed) {
