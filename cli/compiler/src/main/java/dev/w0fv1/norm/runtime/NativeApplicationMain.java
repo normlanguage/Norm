@@ -29,8 +29,7 @@ public final class NativeApplicationMain {
               java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent());
       if (status != 0) System.exit(status);
     } catch (NormExecutionException exception) {
-      error.printf(
-          "error[%s]: %s%n", exception.code().id(), exception.getMessage());
+      error.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
       error.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());
       renderCauses(exception, error);
       System.exit(1);
