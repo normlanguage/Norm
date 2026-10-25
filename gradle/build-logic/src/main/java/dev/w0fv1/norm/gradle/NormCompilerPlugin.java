@@ -398,14 +398,13 @@ public final class NormCompilerPlugin implements Plugin<Project> {
                   task.getDestination()
                       .set(project.getLayout().getBuildDirectory().dir("test-runtime"));
                 });
-    project
-        .getTasks()
-        .named(
-            "test",
-            Test.class,
+    var configureTest =
+        (org.gradle.api.Action<Test>)
             task -> {
               task.useJUnitPlatform();
               task.setMaxHeapSize("2048m");
+              task.setTestClassesDirs(test.getOutput().getClassesDirs());
+              task.setClasspath(test.getRuntimeClasspath());
               task.dependsOn(testRuntime, jar);
               task.systemProperty(
                   "norm.test.compilerJar",
@@ -440,6 +439,80 @@ public final class NormCompilerPlugin implements Plugin<Project> {
                 task.getInputs().dir(fixture);
                 task.systemProperty("norm.test.mavenRepository", fixture.getAbsolutePath());
               }
+            };
+    project.getTasks().named("test", Test.class, configureTest);
+    project
+        .getTasks()
+        .register(
+            "unitTest",
+            Test.class,
+            task -> {
+              configureTest.execute(task);
+              task.setMaxParallelForks(Math.max(1, Runtime.getRuntime().availableProcessors() / 2));
+              task.exclude(
+                  "**/application/**",
+                  "**/bridge/**",
+                  "**/cli/controller/**",
+                  "**/jvm/**",
+                  "**/packages/**",
+                  "**/platform/**",
+                  "**/polyglot/**",
+                  "**/project/**",
+                  "**/runtime/**",
+                  "**/stdlib/**",
+                  "**/truffle/**",
+                  "**/*Live*Test.class",
+                  "**/*Migration*Test.class",
+                  "**/*SelfUpdating*Test.class",
+                  "**/*SelfMigrating*Test.class",
+                  "**/*RuntimeUpdate*Test.class",
+                  "**/*Revision*Test.class");
+            });
+    project
+        .getTasks()
+        .register(
+            "integrationTest",
+            Test.class,
+            task -> {
+              configureTest.execute(task);
+              task.setMaxParallelForks(1);
+              task.include(
+                  "**/application/**",
+                  "**/bridge/**",
+                  "**/cli/controller/**",
+                  "**/jvm/**",
+                  "**/packages/**",
+                  "**/platform/**",
+                  "**/polyglot/**",
+                  "**/project/**",
+                  "**/runtime/**",
+                  "**/stdlib/**",
+                  "**/truffle/**");
+              task.exclude(
+                  "**/*Live*Test.class",
+                  "**/*Migration*Test.class",
+                  "**/*SelfUpdating*Test.class",
+                  "**/*SelfMigrating*Test.class",
+                  "**/*RuntimeUpdate*Test.class",
+                  "**/*Revision*Test.class");
+            });
+    project
+        .getTasks()
+        .register(
+            "migrationTest",
+            Test.class,
+            task -> {
+              configureTest.execute(task);
+              task.setMaxParallelForks(1);
+              task.include(
+                  "**/*Live*Test.class",
+                  "**/*Migration*Test.class",
+                  "**/*SelfUpdating*Test.class",
+                  "**/*SelfMigrating*Test.class",
+                  "**/*RuntimeUpdate*Test.class",
+                  "**/*Revision*Test.class",
+                  "**/RuntimeContainerStateTest.class",
+                  "**/RuntimeObjectStateTest.class");
             });
     var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
     var runtime =

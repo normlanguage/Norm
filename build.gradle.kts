@@ -23,7 +23,7 @@ tasks.register("printNormVersion") {
 }
 
 tasks.register("qualityCheck") {
-    dependsOn(":compiler:check", ":compiler:spotlessCheck",
+    dependsOn(":compiler:unitTest", ":compiler:integrationTest", ":compiler:migrationTest", ":compiler:spotlessCheck",
         gradle.includedBuild("build-logic").task(":test"),
         gradle.includedBuild("build-logic").task(":spotlessCheck"))
 }

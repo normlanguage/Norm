@@ -1,0 +1,63 @@
+name: Compiler Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/compiler/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/compiler-tests.yml'
+  pull_request:
+    paths:
+      - 'cli/compiler/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/compiler-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unitTest, integrationTest, migrationTest]
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v7
+        with:
+          lfs: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: oracle
+          java-version: 25.0.2
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run compiler test suite
+        run: ./gradlew :compiler:${{ matrix.suite }} --no-daemon --max-workers=2 --console=plain
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compiler-${{ matrix.suite }}-results
+          path: build/compiler/test-results/${{ matrix.suite }}
+          if-no-files-found: warn
