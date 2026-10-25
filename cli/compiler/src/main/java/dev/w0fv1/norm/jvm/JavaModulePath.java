@@ -46,7 +46,7 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
         if (Files.isRegularFile(path.resolve("module-info.class"))) paths.add(path);
       } else if (Files.isRegularFile(path)) {
         try (var jar = new JarFile(path.toFile(), false, ZipFile.OPEN_READ, Runtime.version())) {
-          if (jar.getJarEntry("module-info.class") != null) paths.add(path);
+          paths.add(path);
         }
       }
     }

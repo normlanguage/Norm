@@ -116,6 +116,9 @@ final class JavaModuleLoadingTest {
 
     assertEquals(List.of("sample.forced.automatic"), selected.names());
     assertEquals(List.of(forced), selected.paths());
+    assertEquals(
+        List.of("sample.forced.automatic", "sample.ordinary.automatic"),
+        JavaModulePath.inspect(List.of(forced, ordinary)).names());
     assertTrue(JavaModulePath.select(List.of(forced, ordinary), List.of()).paths().isEmpty());
   }
 
