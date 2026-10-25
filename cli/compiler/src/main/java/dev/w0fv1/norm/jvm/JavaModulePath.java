@@ -46,8 +46,13 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
         if (Files.isRegularFile(path.resolve("module-info.class"))) paths.add(path);
       } else if (Files.isRegularFile(path)) {
         try (var jar = new JarFile(path.toFile(), false, ZipFile.OPEN_READ, Runtime.version())) {
-          if (jar.getJarEntry("module-info.class") != null
-              || !ModuleFinder.of(path).findAll().isEmpty()) paths.add(path);
+          var manifest = jar.getManifest();
+          var automaticName =
+              manifest == null
+                  ? null
+                  : manifest.getMainAttributes().getValue("Automatic-Module-Name");
+          if (jar.getJarEntry("module-info.class") != null || automaticName != null)
+            paths.add(path);
         } catch (java.lang.module.FindException ignored) {
         }
       }
