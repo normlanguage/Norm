@@ -70,9 +70,7 @@ final class JavaStubRenderer {
             callable.parameters().stream().map(JavaStubPlan.Parameter::type).toList());
     }
     var projectedConstructors = new java.util.HashMap<List<String>, String>();
-    var projected =
-        new java.util.ArrayList<
-            java.util.Map.Entry<JavaStubPlan.Callable, Integer>>();
+    var projected = new java.util.ArrayList<java.util.Map.Entry<JavaStubPlan.Callable, Integer>>();
     for (var callable : type.callables()) {
       if (callable.construction().isEmpty()) continue;
       var construction = callable.construction().orElseThrow();
