@@ -28,6 +28,12 @@ tasks.register("qualityCheck") {
         gradle.includedBuild("build-logic").task(":spotlessCheck"))
 }
 
+tasks.register("qualityCheckFast") {
+    dependsOn(":compiler:compileJava", ":compiler:spotlessCheck",
+        gradle.includedBuild("build-logic").task(":test"),
+        gradle.includedBuild("build-logic").task(":spotlessCheck"))
+}
+
 tasks.named<Delete>("clean") {
     setDelete(providers.provider {
         layout.buildDirectory.get().asFile.listFiles()

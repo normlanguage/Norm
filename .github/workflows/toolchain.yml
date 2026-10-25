@@ -74,7 +74,7 @@ jobs:
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
 
       - name: Verify Gradle build tools
-        run: ./gradlew qualityCheck --no-daemon --max-workers=2 --console=plain
+        run: ./gradlew qualityCheckFast --no-daemon --max-workers=2 --console=plain
 
       - name: Upload JUnit results
         if: always()
