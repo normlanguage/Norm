@@ -305,10 +305,22 @@ final class Lowerer {
                 new RuntimeValues.DispatchTarget.Callable(
                     callable.target(), defaultReceiverArguments);
           }
-          RuntimeValues.DispatchTarget previous =
-              dispatch.putIfAbsent(identity.slot(requirement), target);
+          DefinitionId slot = identity.slot(requirement);
+          RuntimeValues.DispatchTarget previous = dispatch.putIfAbsent(slot, target);
           if (previous != null && !previous.equals(target)) {
-            throw new IllegalStateException("verified aggregate dispatch is conflicting");
+            boolean previousDefault = isDefaultDispatch(previous);
+            boolean targetDefault = isDefaultDispatch(target);
+            if (previousDefault != targetDefault) {
+              if (previousDefault) dispatch.put(slot, target);
+              continue;
+            }
+            throw new IllegalStateException(
+                "verified aggregate dispatch is conflicting: occurrence="
+                    + occurrence
+                    + " requirement="
+                    + requirement
+                    + " slot="
+                    + slot);
           }
         }
       }
@@ -616,6 +628,15 @@ final class Lowerer {
               parentId, (CoreDefinition.Aggregate) parentDefinition, declared.arguments()));
     }
     return List.copyOf(result);
+  }
+
+  private static String dispatchKey(RuntimeValues.DispatchTarget target) {
+    if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) return "<none>";
+    return LiveBindings.callableKey(callable.target());
+  }
+
+  private static boolean isDefaultDispatch(RuntimeValues.DispatchTarget target) {
+    return dispatchKey(target).endsWith("/default");
   }
 
   private record RuntimeConformance(

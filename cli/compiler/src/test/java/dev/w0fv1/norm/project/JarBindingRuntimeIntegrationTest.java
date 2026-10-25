@@ -99,6 +99,94 @@ final class JarBindingRuntimeIntegrationTest {
   }
 
   @Test
+  void prefersConcreteJavaBindingMethodsOverInheritedInterfaceDefaults() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("default-method"));
+    Path source = root.resolve("Api.java");
+    Files.writeString(
+        source,
+        """
+        package sample;
+        public final class Api {
+          public static Child child() { return new Child(); }
+        }
+        """);
+    Files.writeString(
+        root.resolve("Parent.java"),
+        """
+        package sample;
+        public interface Parent<T> {
+          default boolean contains(T value) { return false; }
+        }
+        """);
+    Files.writeString(
+        root.resolve("Child.java"),
+        """
+        package sample;
+        public final class Child implements Parent<String> {
+          public boolean contains(String value) { return true; }
+        }
+        """);
+    Path classes = Files.createDirectories(root.resolve("classes"));
+    assertEquals(
+        0,
+        javax.tools.ToolProvider.getSystemJavaCompiler()
+            .run(
+                null,
+                null,
+                null,
+                "-d",
+                classes.toString(),
+                source.toString(),
+                root.resolve("Parent.java").toString(),
+                root.resolve("Child.java").toString()));
+    Path jar = root.resolve("default-method.jar");
+    try (var archive = new JarOutputStream(Files.newOutputStream(jar));
+        var files = Files.walk(classes)) {
+      for (Path file : files.filter(Files::isRegularFile).toList()) {
+        archive.putNextEntry(new JarEntry(classes.relativize(file).toString().replace('\\', '/')));
+        archive.write(Files.readAllBytes(file));
+        archive.closeEntry();
+      }
+    }
+    Files.writeString(
+        root.resolve("module.norm"),
+        """
+        Module module() {
+          return module(name: "default.method", version: 1,
+            binding: jarBinding(
+              target: localJar(path: "default-method.jar", integrity: sha256("%s")),
+              api: [
+                jarType(name: "Api", members: ["child"]),
+                jarType(name: "Child", members: ["contains"]),
+                jarType(name: "Parent", members: ["contains"])
+              ]))
+        }
+        """
+            .formatted(Sha256Digest.compute(jar).value()));
+    Path entry =
+        Files.writeString(
+            root.resolve("Main.norm"),
+            """
+            package default.method
+            Void main() {
+              var child = apiChild()!!
+              require(condition: child.contains(arg0: "value"), message: "concrete method lost")
+              printLine("ok")
+            }
+            """);
+    var backend = new NormRuntime();
+    var output = new StringWriter();
+    try (var environment = ProjectEnvironment.bootstrap(backend);
+        var projects =
+            environment.projectLoader(temporaryDirectory.resolve("default-method-cache"));
+        var runner = new ApplicationRunner(projects, environment.compilerSession(), backend)) {
+      var result = runner.run(entry, ExecutionContext.of(new PrintWriter(output)));
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    assertEquals("ok" + System.lineSeparator(), output.toString());
+  }
+
+  @Test
   void catchesAJavaInvocationFailureAsANormException() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("sample/binding"));
     Path jar = failureJar(moduleRoot.resolve("lib/failure.jar"));
