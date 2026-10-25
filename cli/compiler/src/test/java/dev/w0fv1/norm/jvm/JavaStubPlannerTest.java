@@ -90,6 +90,10 @@ final class JavaStubPlannerTest {
               .source();
       assertTrue(defaulted.contains("public Defaulted()"), defaulted);
       assertTrue(defaulted.contains("public Defaulted(int first)"), defaulted);
+      assertTrue(
+          defaulted.indexOf("public Defaulted()")
+              < defaulted.indexOf("public Defaulted(int first)"),
+          defaulted);
       assertEquals(
           1, defaulted.split("@dev.w0fv1.norm.bridge.NormApplicationMethod", -1).length - 1);
       var explicit =

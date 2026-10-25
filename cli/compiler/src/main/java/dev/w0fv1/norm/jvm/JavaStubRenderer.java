@@ -68,9 +68,9 @@ final class JavaStubRenderer {
       if (callable.kind() == JavaStubPlan.CallableKind.CONSTRUCTOR)
         constructorSignatures.add(
             callable.parameters().stream().map(JavaStubPlan.Parameter::type).toList());
-      appendCallable(source, type, callable, callable.parameters().size(), true);
     }
     var projectedConstructors = new java.util.HashMap<List<String>, String>();
+    var projected = new java.util.ArrayList<java.util.Map.Entry<JavaStubPlan.Callable, Integer>>();
     for (var callable : type.callables()) {
       if (callable.construction().isEmpty()) continue;
       var construction = callable.construction().orElseThrow();
@@ -87,9 +87,14 @@ final class JavaStubRenderer {
         if (previous != null && !previous.equals(callable.implementationLiteral()))
           throw new IllegalArgumentException(
               "ambiguous Java constructor omission: " + type.binaryName());
-        if (previous == null) appendCallable(source, type, callable, count, false);
+        if (previous == null) projected.add(java.util.Map.entry(callable, count));
       }
     }
+    projected.sort(java.util.Comparator.comparingInt(java.util.Map.Entry::getValue));
+    for (var constructor : projected)
+      appendCallable(source, type, constructor.getKey(), constructor.getValue(), false);
+    for (var callable : type.callables())
+      appendCallable(source, type, callable, callable.parameters().size(), true);
     type.allocationDefinitionLiteral()
         .ifPresent(
             definition -> {
