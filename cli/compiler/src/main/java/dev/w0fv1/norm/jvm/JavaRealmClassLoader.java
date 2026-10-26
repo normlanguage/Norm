@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 class JavaRealmClassLoader extends URLClassLoader {
+  private static final Object CLASS_LOADING_LOCK = new Object();
   private static final java.lang.ref.Cleaner CLEANER = java.lang.ref.Cleaner.create();
   private final java.lang.ref.Cleaner.Cleanable archiveCleanup;
   private final JarResourceScope resourceArchives = new JarResourceScope();
@@ -62,6 +63,11 @@ class JavaRealmClassLoader extends URLClassLoader {
     } catch (ClassNotFoundException absent) {
       return null;
     }
+  }
+
+  @Override
+  protected Object getClassLoadingLock(String name) {
+    return CLASS_LOADING_LOCK;
   }
 
   @Override
