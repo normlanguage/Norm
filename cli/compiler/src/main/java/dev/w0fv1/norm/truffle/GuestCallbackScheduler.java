@@ -28,6 +28,19 @@ final class GuestCallbackScheduler implements AutoCloseable {
     }
   }
 
+  boolean tryInvoke(Supplier<Object> operation) {
+    requireMigrationOwner();
+    execution.lock();
+    try {
+      requireMigrationOwner();
+      if (closed) return false;
+      operation.get();
+      return true;
+    } finally {
+      execution.unlock();
+    }
+  }
+
   MigrationScope migrationScope() {
     requireOwner();
     requireMigrationOwner();

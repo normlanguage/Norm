@@ -8,6 +8,7 @@ import dev.w0fv1.norm.execution.FutureBindingTask;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 final class TaskCallbackExecutor implements Executor {
   private final ExecutionState execution;
@@ -35,9 +36,11 @@ final class TaskCallbackExecutor implements Executor {
       FutureBindingTask.workerExecutor().execute(pending);
       return;
     }
-    execution
+    if (!execution
         .callbacks()
-        .invoke(() -> RuntimeInvocation.invoke(execution, dispatch, callback(pending)));
+        .tryInvoke(() -> RuntimeInvocation.invoke(execution, dispatch, callback(pending)))) {
+      throw new RejectedExecutionException("Norm execution is closed");
+    }
   }
 
   boolean reportsFailures() {

@@ -15,6 +15,8 @@ var handled = task.then { printLine(result) } error { printLine(failure.message)
 
 默认后续阶段在完成通知后才调度到虚拟线程，未就绪阶段不预先启动等待线程。`startTask(executor: executor) { ... }` 可指定 TaskExecutor；工作仍在虚拟线程执行，后续成功及错误阶段继承该执行器。dispatch 必须将 action 排队执行，不能内联调用或静默丢弃；拒绝调度时应抛出异常，对应阶段会失败结束。任务创建时捕获当前 ResourceOwner，后续阶段继承该归属；GUI 仍需通过执行器连接 UI 队列。任务完成、取消或关闭后解除资源归属，并从执行实例的资源列表移除；已完成结果仍可读取。关闭 owner 可取消其持有的阶段，已关闭 owner 会拒绝新的阶段。Task 不延长执行实例的生命周期；取消一个后续阶段不会取消其前置任务或兄弟阶段。
 
+执行实例关闭后，异步投递会在进入 Norm 代码前被拒绝；任务清理保持幂等，不会再次进入已关闭的执行实例。
+
 既有 `await()` 返回完成值，失败进入 Norm Exception 流程；`completed()` 观察终态，`cancel()` 请求取消。语言级行为见 [TaskExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/TaskExecutionTest.java)，调度、取消和结果转换见 [JvmJarBindingTaskTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JvmJarBindingTaskTest.java)。
 
 指定 TaskExecutor 后，未接管结果的失败会排入该执行器，再调用其 `report(error)`；默认实现抛出异常，GUI 执行器将其交给窗口错误报告。连接后续阶段、await、取消、显式关闭 都表示接管该任务；链末端的新失败仍可单独报告。资源自动释放不表示错误已处理。排队期间注册的处理器会抑制默认报告，已报告的错误不会因后来注册处理器而撤销。取消不作为未处理异常报告；没有指定执行器时，结果由调用者读取。
