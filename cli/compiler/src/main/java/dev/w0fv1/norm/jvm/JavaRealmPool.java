@@ -205,6 +205,10 @@ final class JavaRealmPool implements AutoCloseable {
   }
 
   static final class ViewLoader extends JavaRealmClassLoader {
+    static {
+      registerAsParallelCapable();
+    }
+
     private final Map<String, ComponentLoader> owners;
     private final List<Component> components;
     private final List<RevisionResources.Lease> ownership;
@@ -280,7 +284,7 @@ final class JavaRealmPool implements AutoCloseable {
       if (parentFirst(name)) return super.loadClass(name, resolve);
       ComponentLoader owner = owners.get(name);
       if (owner == null) return super.loadClass(name, resolve);
-      return owner.loadClass(name);
+      return owner.loadLocalClass(name);
     }
 
     @Override
@@ -300,6 +304,10 @@ final class JavaRealmPool implements AutoCloseable {
   }
 
   private static final class ComponentLoader extends JavaRealmClassLoader {
+    static {
+      registerAsParallelCapable();
+    }
+
     private Component component;
     private ViewLoader view;
     private final Set<String> classes;
@@ -345,7 +353,7 @@ final class JavaRealmPool implements AutoCloseable {
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (parentFirst(name) || classes.contains(name)) return super.loadClass(name, resolve);
       ComponentLoader dependency = dependencies.get(name);
-      if (dependency != null) return dependency.loadClass(name);
+      if (dependency != null) return dependency.loadLocalClass(name);
       ViewLoader view = this.view;
       if (view == null
           && Thread.currentThread().getContextClassLoader() instanceof ViewLoader context)

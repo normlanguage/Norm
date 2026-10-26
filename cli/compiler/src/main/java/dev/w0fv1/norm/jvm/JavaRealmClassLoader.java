@@ -13,7 +13,11 @@ import java.util.Map;
 import java.util.Set;
 
 class JavaRealmClassLoader extends URLClassLoader {
-  private static final Object CLASS_LOADING_LOCK = new Object();
+  static {
+    registerAsParallelCapable();
+  }
+
+  private final Object localDefinitionLock = new Object();
   private static final java.lang.ref.Cleaner CLEANER = java.lang.ref.Cleaner.create();
   private final java.lang.ref.Cleaner.Cleanable archiveCleanup;
   private final JarResourceScope resourceArchives = new JarResourceScope();
@@ -66,23 +70,23 @@ class JavaRealmClassLoader extends URLClassLoader {
   }
 
   @Override
-  protected Object getClassLoadingLock(String name) {
-    return CLASS_LOADING_LOCK;
+  protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+    Class<?> type = parentFirst(name) ? getParent().loadClass(name) : loadLocalClass(name);
+    if (resolve) resolveClass(type);
+    return type;
   }
 
-  @Override
-  protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-    synchronized (getClassLoadingLock(name)) {
+  final Class<?> loadLocalClass(String name) throws ClassNotFoundException {
+    synchronized (localDefinitionLock) {
       Class<?> type = findLoadedClass(name);
-      if (type == null) {
-        if (parentFirst(name)) {
-          type = super.loadClass(name, false);
-        } else {
-          type = findClass(name);
-        }
+      if (type != null) return type;
+      try {
+        return findClass(name);
+      } catch (LinkageError failure) {
+        type = findLoadedClass(name);
+        if (type == null) throw failure;
+        return type;
       }
-      if (resolve) resolveClass(type);
-      return type;
     }
   }
 
