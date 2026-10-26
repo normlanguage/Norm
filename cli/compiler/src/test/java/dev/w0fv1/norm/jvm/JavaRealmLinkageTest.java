@@ -224,6 +224,37 @@ class JavaRealmLinkageTest {
     }
   }
 
+  @Test
+  void applicationResourcesRemainVisibleToTheJavaRealm() throws Exception {
+    var output =
+        compile(
+            "resources",
+            Map.of(
+                "fixture/Resource.java",
+                "package fixture; public final class Resource {}"),
+            Set.of());
+    Path resource =
+        output.classes.resolve("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference");
+    Files.createDirectories(resource);
+    Path entry = resource.resolve("fixture.Resource");
+    Files.writeString(entry, "fixture.Resource");
+    try (var runtime =
+        JvmJarBindingRuntime.prepared(List.of(), List.of(output.classes()), List.of())) {
+      ClassLoader loader = runtime.applicationClassLoader();
+      assertNotNull(loader.getResource("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference"));
+      assertNotNull(
+          loader.getResource(
+              "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/fixture.Resource"));
+      assertTrue(
+          java.util.Collections.list(
+                  loader.getResources(
+                      "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference"))
+              .stream()
+              .findAny()
+              .isPresent());
+    }
+  }
+
   private record Output(Path classes, Path jar) {}
 
   private Output compile(String name, Map<String, String> sources, Set<String> jarClasses)

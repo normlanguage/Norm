@@ -256,6 +256,25 @@ final class JavaRealmPool implements AutoCloseable {
     }
 
     @Override
+    public URL getResource(String name) {
+      URL resource = super.getResource(name);
+      if (resource != null) return resource;
+      for (var component : components) {
+        resource = component.loader().getLocalResource(name);
+        if (resource != null) return resource;
+      }
+      return null;
+    }
+
+    @Override
+    public Enumeration<URL> getResources(String name) throws IOException {
+      var resources = new LinkedHashSet<URL>(Collections.list(super.getResources(name)));
+      for (var component : components)
+        resources.addAll(component.loader().getLocalResources(name));
+      return Collections.enumeration(resources);
+    }
+
+    @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (parentFirst(name)) return super.loadClass(name, resolve);
       ComponentLoader owner = owners.get(name);
@@ -291,6 +310,23 @@ final class JavaRealmPool implements AutoCloseable {
       this.dependencies = dependencies;
     }
 
+    private URL getLocalResource(String name) {
+      URL resource = super.getResource(name);
+      if (resource != null) return resource;
+      for (var dependency : new LinkedHashSet<>(dependencies.values())) {
+        resource = dependency.getLocalResource(name);
+        if (resource != null) return resource;
+      }
+      return null;
+    }
+
+    private List<URL> getLocalResources(String name) throws IOException {
+      var resources = new LinkedHashSet<URL>(Collections.list(super.getResources(name)));
+      for (var dependency : new LinkedHashSet<>(dependencies.values()))
+        resources.addAll(dependency.getLocalResources(name));
+      return List.copyOf(resources);
+    }
+
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (parentFirst(name) || classes.contains(name)) return super.loadClass(name, resolve);
@@ -306,23 +342,14 @@ final class JavaRealmPool implements AutoCloseable {
     public URL getResource(String name) {
       ClassLoader context = Thread.currentThread().getContextClassLoader();
       if (context instanceof ViewLoader view) return view.getResource(name);
-      URL resource = super.getResource(name);
-      if (resource != null) return resource;
-      for (var dependency : new LinkedHashSet<>(dependencies.values())) {
-        resource = dependency.getResource(name);
-        if (resource != null) return resource;
-      }
-      return null;
+      return getLocalResource(name);
     }
 
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
       ClassLoader context = Thread.currentThread().getContextClassLoader();
       if (context instanceof ViewLoader view) return view.getResources(name);
-      var resources = new LinkedHashSet<>(Collections.list(super.getResources(name)));
-      for (var dependency : new LinkedHashSet<>(dependencies.values()))
-        resources.addAll(Collections.list(dependency.getResources(name)));
-      return Collections.enumeration(resources);
+      return Collections.enumeration(getLocalResources(name));
     }
   }
 }
