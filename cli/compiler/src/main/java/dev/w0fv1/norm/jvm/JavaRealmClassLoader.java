@@ -90,14 +90,18 @@ class JavaRealmClassLoader extends URLClassLoader {
 
   @Override
   public URL findResource(String name) {
+    URL moduleResource = findModuleResource(name);
+    if (moduleResource != null) return moduleResource;
     var resource = super.findResource(name);
     return resource == null ? null : ownedResource(resource);
   }
 
   @Override
   public Enumeration<URL> findResources(String name) throws IOException {
-    return Collections.enumeration(
+    var resources = new LinkedHashSet<URL>(findModuleResources(name));
+    resources.addAll(
         Collections.list(super.findResources(name)).stream().map(this::ownedResource).toList());
+    return Collections.enumeration(resources);
   }
 
   @Override
@@ -107,6 +111,29 @@ class JavaRealmClassLoader extends URLClassLoader {
     var parent = parentResourceLoader(name);
     if (parent != null) resources.addAll(Collections.list(parent.getResources(name)));
     return Collections.enumeration(resources);
+  }
+
+  private URL findModuleResource(String name) {
+    for (var reference : modules.values()) {
+      try (var reader = reference.open()) {
+        var resource = reader.find(name);
+        if (resource.isPresent()) return ownedResource(resource.orElseThrow().toURL());
+      } catch (IOException failure) {
+        throw new JarBindingRuntimeException("cannot read module resource " + name, failure);
+      }
+    }
+    return null;
+  }
+
+  private List<URL> findModuleResources(String name) throws IOException {
+    var resources = new LinkedHashSet<URL>();
+    for (var reference : modules.values()) {
+      try (var reader = reference.open()) {
+        var resource = reader.find(name);
+        if (resource.isPresent()) resources.add(ownedResource(resource.orElseThrow().toURL()));
+      }
+    }
+    return List.copyOf(resources);
   }
 
   private ClassLoader parentResourceLoader(String name) {
