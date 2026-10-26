@@ -9,8 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -204,10 +204,12 @@ final class GuestCallbackSchedulerTest {
 
     scheduler.close();
 
-    assertFalse(scheduler.tryInvoke(() -> {
-      executed.set(true);
-      return null;
-    }));
+    assertFalse(
+        scheduler.tryInvoke(
+            () -> {
+              executed.set(true);
+              return null;
+            }));
     assertFalse(executed.get());
   }
 
@@ -216,10 +218,12 @@ final class GuestCallbackSchedulerTest {
     var scheduler = new GuestCallbackScheduler();
     var executed = new AtomicBoolean();
 
-    assertTrue(scheduler.tryInvoke(() -> {
-      executed.set(true);
-      return null;
-    }));
+    assertTrue(
+        scheduler.tryInvoke(
+            () -> {
+              executed.set(true);
+              return null;
+            }));
     assertTrue(executed.get());
 
     scheduler.close();
