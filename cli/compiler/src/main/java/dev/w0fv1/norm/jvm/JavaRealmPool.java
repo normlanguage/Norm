@@ -221,6 +221,7 @@ final class JavaRealmPool implements AutoCloseable {
       this.components = new ArrayList<>(components);
       this.ownership = new ArrayList<>(ownership);
       this.retainEscapedValues = retainEscapedValues;
+      components.forEach(component -> component.loader().view = this);
     }
 
     List<ClassLoader> loaders(Set<String> applicationTypes) {
@@ -300,6 +301,7 @@ final class JavaRealmPool implements AutoCloseable {
 
   private static final class ComponentLoader extends JavaRealmClassLoader {
     private Component component;
+    private ViewLoader view;
     private final Set<String> classes;
     private final Map<String, ComponentLoader> dependencies;
 
@@ -344,22 +346,31 @@ final class JavaRealmPool implements AutoCloseable {
       if (parentFirst(name) || classes.contains(name)) return super.loadClass(name, resolve);
       ComponentLoader dependency = dependencies.get(name);
       if (dependency != null) return dependency.loadClass(name);
-      ClassLoader context = Thread.currentThread().getContextClassLoader();
-      if (context instanceof ViewLoader view) return view.loadClass(name);
+      ViewLoader view = this.view;
+      if (view == null
+          && Thread.currentThread().getContextClassLoader() instanceof ViewLoader context)
+        view = context;
+      if (view != null) return view.loadClass(name);
       throw new ClassNotFoundException(name);
     }
 
     @Override
     public URL getResource(String name) {
-      ClassLoader context = Thread.currentThread().getContextClassLoader();
-      if (context instanceof ViewLoader view) return view.getResource(name);
+      ViewLoader view = this.view;
+      if (view == null
+          && Thread.currentThread().getContextClassLoader() instanceof ViewLoader context)
+        view = context;
+      if (view != null) return view.getResource(name);
       return getLocalResource(name);
     }
 
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
-      ClassLoader context = Thread.currentThread().getContextClassLoader();
-      if (context instanceof ViewLoader view) return view.getResources(name);
+      ViewLoader view = this.view;
+      if (view == null
+          && Thread.currentThread().getContextClassLoader() instanceof ViewLoader context)
+        view = context;
+      if (view != null) return view.getResources(name);
       return Collections.enumeration(getLocalResources(name));
     }
   }
