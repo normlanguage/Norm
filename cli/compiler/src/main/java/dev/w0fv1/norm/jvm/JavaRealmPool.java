@@ -208,6 +208,7 @@ final class JavaRealmPool implements AutoCloseable {
     static {
       registerAsParallelCapable();
     }
+
     private final Map<String, ComponentLoader> owners;
     private final List<Component> components;
     private final List<RevisionResources.Lease> ownership;
@@ -306,6 +307,7 @@ final class JavaRealmPool implements AutoCloseable {
     static {
       registerAsParallelCapable();
     }
+
     private Component component;
     private ViewLoader view;
     private final Set<String> classes;

@@ -16,6 +16,7 @@ class JavaRealmClassLoader extends URLClassLoader {
   static {
     registerAsParallelCapable();
   }
+
   private final Object localDefinitionLock = new Object();
   private static final java.lang.ref.Cleaner CLEANER = java.lang.ref.Cleaner.create();
   private final java.lang.ref.Cleaner.Cleanable archiveCleanup;

@@ -22,6 +22,7 @@ final class JavaRealmClassLoaderTest {
     static {
       registerAsParallelCapable();
     }
+
     private ExposedLoader() {
       super(new URL[0], ClassLoader.getPlatformClassLoader());
     }
