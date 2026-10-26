@@ -239,6 +239,7 @@ class JavaRealmLinkageTest {
     try (var runtime =
         JvmJarBindingRuntime.prepared(List.of(), List.of(output.classes()), List.of())) {
       ClassLoader loader = runtime.applicationClassLoader();
+      assertNotNull(loader.loadClass("fixture.Resource"));
       assertNotNull(
           loader.getResource("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference"));
       assertNotNull(
