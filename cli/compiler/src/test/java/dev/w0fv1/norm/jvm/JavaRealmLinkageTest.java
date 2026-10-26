@@ -244,6 +244,11 @@ class JavaRealmLinkageTest {
       assertNotNull(
           loader.getResource(
               "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/fixture.Resource"));
+      assertNotNull(loader.getResource("META-INF/micronaut/"));
+      assertTrue(
+          java.util.Collections.list(loader.getResources("META-INF/micronaut/")).stream()
+              .findAny()
+              .isPresent());
       assertTrue(
           java.util.Collections.list(
                   loader.getResources(
