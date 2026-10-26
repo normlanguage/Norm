@@ -229,9 +229,7 @@ class JavaRealmLinkageTest {
     var output =
         compile(
             "resources",
-            Map.of(
-                "fixture/Resource.java",
-                "package fixture; public final class Resource {}"),
+            Map.of("fixture/Resource.java", "package fixture; public final class Resource {}"),
             Set.of());
     Path resource =
         output.classes.resolve("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference");
@@ -241,7 +239,8 @@ class JavaRealmLinkageTest {
     try (var runtime =
         JvmJarBindingRuntime.prepared(List.of(), List.of(output.classes()), List.of())) {
       ClassLoader loader = runtime.applicationClassLoader();
-      assertNotNull(loader.getResource("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference"));
+      assertNotNull(
+          loader.getResource("META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference"));
       assertNotNull(
           loader.getResource(
               "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/fixture.Resource"));

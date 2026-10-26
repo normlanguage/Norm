@@ -269,8 +269,7 @@ final class JavaRealmPool implements AutoCloseable {
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
       var resources = new LinkedHashSet<URL>(Collections.list(super.getResources(name)));
-      for (var component : components)
-        resources.addAll(component.loader().getLocalResources(name));
+      for (var component : components) resources.addAll(component.loader().getLocalResources(name));
       return Collections.enumeration(resources);
     }
 
