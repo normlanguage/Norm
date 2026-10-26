@@ -106,12 +106,14 @@ final class TaskRegistration implements JarBindingTask {
   }
 
   private void finish() {
-    execution
+    synchronized (this) {
+      if (released) return;
+      released = true;
+    }
+    if (!execution
         .callbacks()
-        .invoke(
+        .tryInvoke(
             () -> {
-              if (released) return null;
-              released = true;
               try {
                 task.close();
                 if (registered) owner.release(handle);
@@ -119,6 +121,9 @@ final class TaskRegistration implements JarBindingTask {
                 if (handle != null) handle.resource.closedExternally();
               }
               return null;
-            });
+            })) {
+      task.close();
+      if (handle != null) handle.resource.closedExternally();
+    }
   }
 }

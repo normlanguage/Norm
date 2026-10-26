@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -193,5 +195,37 @@ final class GuestCallbackSchedulerTest {
     } finally {
       Thread.interrupted();
     }
+  }
+
+  @Test
+  void rejectsAsyncDeliveryAfterClose() {
+    var scheduler = new GuestCallbackScheduler();
+    var executed = new AtomicBoolean();
+
+    scheduler.close();
+
+    assertFalse(
+        scheduler.tryInvoke(
+            () -> {
+              executed.set(true);
+              return null;
+            }));
+    assertFalse(executed.get());
+  }
+
+  @Test
+  void deliversAsyncWorkWhileOpen() {
+    var scheduler = new GuestCallbackScheduler();
+    var executed = new AtomicBoolean();
+
+    assertTrue(
+        scheduler.tryInvoke(
+            () -> {
+              executed.set(true);
+              return null;
+            }));
+    assertTrue(executed.get());
+
+    scheduler.close();
   }
 }
