@@ -345,8 +345,7 @@ final class JavaRealmPool implements AutoCloseable {
       ComponentLoader dependency = dependencies.get(name);
       if (dependency != null) return dependency.loadClass(name);
       ClassLoader context = Thread.currentThread().getContextClassLoader();
-      if (context instanceof ViewLoader view && view.owners.containsKey(name))
-        return view.loadClass(name);
+      if (context instanceof ViewLoader view) return view.loadClass(name);
       throw new ClassNotFoundException(name);
     }
 
