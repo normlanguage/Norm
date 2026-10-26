@@ -278,7 +278,7 @@ final class JavaRealmPool implements AutoCloseable {
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (parentFirst(name)) return super.loadClass(name, resolve);
       ComponentLoader owner = owners.get(name);
-      if (owner == null) throw new ClassNotFoundException(name);
+      if (owner == null) return super.loadClass(name, resolve);
       return owner.loadClass(name);
     }
 
