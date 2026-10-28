@@ -10,6 +10,8 @@ await mkdir(brandRoot, { recursive: true })
 await mkdir(extensionImages, { recursive: true })
 
 const source = await readFile(sourcePath)
+const sourceText = source.toString().trim()
+const logoMarkup = sourceText.slice(sourceText.indexOf('>') + 1, sourceText.lastIndexOf('</svg>')).trim()
 await Promise.all(
   sizes.map((size) =>
     sharp(source)
@@ -30,7 +32,7 @@ await copyFile(resolve(brandRoot, 'norm-32.png'), resolve(extensionImages, 'norm
 
 const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-label="Norm — Familiar syntax. Explicit semantics.">
   <rect width="1280" height="400" rx="20" fill="#0d1117"/>
-  <svg x="72" y="72" width="80" height="80">${source.toString().trim()}</svg>
+  <g transform="translate(72 72) scale(${80 / 512})">${logoMarkup}</g>
   <g font-family="Segoe UI, Arial, sans-serif" fill="#f0f6fc">
     <text x="176" y="130" font-size="56" font-weight="700">Norm</text>
     <text x="72" y="235" font-size="48" font-weight="600">Familiar syntax.</text>
@@ -38,7 +40,7 @@ const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" r
     <text x="74" y="350" font-size="20" fill="#a9b7c6">A statically typed, application-oriented language.</text>
   </g>
   <g transform="translate(980 112) rotate(12 90 90)" opacity="0.16">
-    <svg width="180" height="180">${source.toString().trim()}</svg>
+    <g transform="scale(${180 / 512})">${logoMarkup}</g>
   </g>
 </svg>
 `

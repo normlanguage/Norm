@@ -74,7 +74,9 @@ assert.deepEqual(
 
 const banner = await readFile(resolve(brandRoot, 'norm-banner.svg'), 'utf8')
 assert.match(banner, /viewBox="0 0 1280 400"/)
-assert.ok(banner.includes(source.trim()))
+const logoMarkup = source.trim().slice(source.indexOf('>') + 1, source.lastIndexOf('</svg>')).trim()
+assert.ok(banner.includes(logoMarkup))
+assert.equal((banner.match(/<svg\b/g) ?? []).length, 1)
 assert.doesNotMatch(banner, /https?:\/\/(?!www.w3.org)/)
 const bannerPng = await readFile(resolve(brandRoot, 'norm-banner.png'))
 assert.deepEqual(bannerPng, await sharp(Buffer.from(banner)).png({ compressionLevel: 9 }).toBuffer())
