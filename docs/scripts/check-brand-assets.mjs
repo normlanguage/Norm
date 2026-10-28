@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import pngToIco from 'png-to-ico'
 import sharp from 'sharp'
 import { brandRoot, icoSizes, repositoryRoot, sizes } from './brand-config.mjs'
-
-sharp.concurrency(1)
-sharp.cache(false)
 
 const source = await readFile(resolve(brandRoot, 'norm.svg'), 'utf8')
 assert.match(source, /viewBox="0 0 512 512"/)
@@ -15,7 +11,6 @@ assert.match(source, /#fff(?:fff)?["']/i)
 assert.doesNotMatch(source, /(?:gradient|filter|mask|image)/i)
 
 for (const size of sizes) {
-  console.log(`Checking PNG ${size}`)
   const png = await readFile(resolve(brandRoot, `norm-${size}.png`))
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10])
   assert.equal(png.readUInt32BE(16), size)
@@ -26,23 +21,25 @@ for (const size of sizes) {
   )
 }
 
-console.log('Checking ICO')
 const ico = await readFile(resolve(brandRoot, 'norm.ico'))
 assert.equal(ico.readUInt16LE(0), 0)
 assert.equal(ico.readUInt16LE(2), 1)
-assert.deepEqual(
-  Array.from({ length: ico.readUInt16LE(4) }, (_, index) => {
-    const value = ico[6 + index * 16]
-    return value === 0 ? 256 : value
-  }),
-  icoSizes,
-)
-assert.deepEqual(
-  ico,
-  await pngToIco(icoSizes.map((size) => resolve(brandRoot, `norm-${size}.png`))),
-)
+const icoCount = ico.readUInt16LE(4)
+assert.equal(icoCount, icoSizes.length)
+for (let index = 0; index < icoCount; index += 1) {
+  const directoryOffset = 6 + index * 16
+  const width = ico[directoryOffset] || 256
+  const height = ico[directoryOffset + 1] || 256
+  const size = icoSizes[index]
+  assert.equal(width, size)
+  assert.equal(height, size)
+  const byteLength = ico.readUInt32LE(directoryOffset + 8)
+  const imageOffset = ico.readUInt32LE(directoryOffset + 12)
+  const png = await readFile(resolve(brandRoot, `norm-${size}.png`))
+  assert.equal(byteLength, png.length)
+  assert.deepEqual(ico.subarray(imageOffset, imageOffset + byteLength), png)
+}
 
-console.log('Checking extension assets')
 const extensionRoot = resolve(repositoryRoot, 'cli', 'extensions', 'vscode')
 const extensionPackage = JSON.parse(await readFile(resolve(extensionRoot, 'package.json'), 'utf8'))
 assert.equal(extensionPackage.icon, 'images/norm-256.png')
