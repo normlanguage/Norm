@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { brandRoot, icoSizes, repositoryRoot, sizes } from './brand-config.mjs'
 
 sharp.concurrency(1)
+sharp.cache(false)
 
 const source = await readFile(resolve(brandRoot, 'norm.svg'), 'utf8')
 assert.match(source, /viewBox="0 0 512 512"/)
