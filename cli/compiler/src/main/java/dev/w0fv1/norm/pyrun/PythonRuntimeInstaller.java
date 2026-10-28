@@ -123,13 +123,18 @@ public final class PythonRuntimeInstaller {
       for (TarArchiveEntry entry; (entry = input.getNextEntry()) != null; ) {
         Path target = safeTarget(destination, entry.getName());
         if (entry.isDirectory()) Files.createDirectories(target);
-        else if (entry.isFile()) {
+        else if (entry.isSymbolicLink()) {
+          Path linkTarget = safeLinkTarget(target, entry.getLinkName(), destination);
+          Files.createDirectories(target.getParent());
+          Files.createSymbolicLink(target, target.getParent().relativize(linkTarget));
+        } else if (entry.isLink()) {
+          Path linkTarget = safeTarget(destination, entry.getLinkName());
+          Files.createDirectories(target.getParent());
+          Files.createLink(target, linkTarget);
+        } else if (entry.isFile()) {
           Files.createDirectories(target.getParent());
           Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
           permissions(target, entry.getMode());
-        } else if (entry.isSymbolicLink() || entry.isLink()) {
-          throw new IOException(
-              "Python runtime archive contains unsupported link: " + entry.getName());
         }
       }
     }
@@ -139,6 +144,13 @@ public final class PythonRuntimeInstaller {
     Path target = destination.resolve(name.replace('\\', '/')).normalize();
     if (!target.startsWith(destination))
       throw new IOException("invalid Python archive entry: " + name);
+    return target;
+  }
+
+  private static Path safeLinkTarget(Path link, String name, Path destination) throws IOException {
+    Path target = link.getParent().resolve(name.replace('\\', '/')).normalize();
+    if (!target.startsWith(destination))
+      throw new IOException("invalid Python archive link: " + name);
     return target;
   }
 

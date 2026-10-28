@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.archivers.tar.TarConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,11 +27,15 @@ final class PythonRuntimeInstallerTest {
     try (var file = Files.newOutputStream(archive);
         var gzip = new GZIPOutputStream(file);
         var output = new TarArchiveOutputStream(gzip)) {
-      TarArchiveEntry entry = new TarArchiveEntry("python/bin/python3");
-      entry.setSize(executable.length);
-      entry.setMode(0755);
-      output.putArchiveEntry(entry);
+      TarArchiveEntry target = new TarArchiveEntry("python/bin/python3.14");
+      target.setSize(executable.length);
+      target.setMode(0755);
+      output.putArchiveEntry(target);
       output.write(executable);
+      output.closeArchiveEntry();
+      TarArchiveEntry entry = new TarArchiveEntry("python/bin/python3", TarConstants.LF_SYMLINK);
+      entry.setLinkName("python3.14");
+      output.putArchiveEntry(entry);
       output.closeArchiveEntry();
     }
     PythonRuntimeDistribution distribution =
@@ -56,6 +61,7 @@ final class PythonRuntimeInstallerTest {
     assertEquals(first, second);
     assertEquals(1, downloads.get());
     assertTrue(Files.isRegularFile(first));
+    assertEquals("python", Files.readString(first));
   }
 
   @Test
@@ -84,3 +90,4 @@ final class PythonRuntimeInstallerTest {
     assertTrue(failure.getMessage().contains("integrity mismatch"));
   }
 }
+
