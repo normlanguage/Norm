@@ -89,4 +89,4 @@ final class PythonRuntimeInstallerTest {
 
     assertTrue(failure.getMessage().contains("integrity mismatch"));
   }
-}\n
+}
