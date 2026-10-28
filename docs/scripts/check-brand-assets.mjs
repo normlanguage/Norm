@@ -14,6 +14,7 @@ assert.match(source, /#fff(?:fff)?["']/i)
 assert.doesNotMatch(source, /(?:gradient|filter|mask|image)/i)
 
 for (const size of sizes) {
+  console.log(`Checking PNG ${size}`)
   const png = await readFile(resolve(brandRoot, `norm-${size}.png`))
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10])
   assert.equal(png.readUInt32BE(16), size)
@@ -24,6 +25,7 @@ for (const size of sizes) {
   )
 }
 
+console.log('Checking ICO')
 const ico = await readFile(resolve(brandRoot, 'norm.ico'))
 assert.equal(ico.readUInt16LE(0), 0)
 assert.equal(ico.readUInt16LE(2), 1)
@@ -39,6 +41,7 @@ assert.deepEqual(
   await pngToIco(icoSizes.map((size) => resolve(brandRoot, `norm-${size}.png`))),
 )
 
+console.log('Checking extension assets')
 const extensionRoot = resolve(repositoryRoot, 'cli', 'extensions', 'vscode')
 const extensionPackage = JSON.parse(await readFile(resolve(extensionRoot, 'package.json'), 'utf8'))
 assert.equal(extensionPackage.icon, 'images/norm-256.png')
