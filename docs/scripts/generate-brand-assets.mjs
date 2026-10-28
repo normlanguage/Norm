@@ -10,6 +10,8 @@ await mkdir(brandRoot, { recursive: true })
 await mkdir(extensionImages, { recursive: true })
 
 const source = await readFile(sourcePath)
+const sourceText = source.toString().trim()
+const logoMarkup = sourceText.slice(sourceText.indexOf('>') + 1, sourceText.lastIndexOf('</svg>')).trim()
 await Promise.all(
   sizes.map((size) =>
     sharp(source)
@@ -25,5 +27,24 @@ await writeFile(
 )
 await copyFile(resolve(brandRoot, 'norm-256.png'), resolve(extensionImages, 'norm-256.png'))
 await copyFile(resolve(brandRoot, 'norm-32.png'), resolve(extensionImages, 'norm-file.png'))
+
+
+
+const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-label="Norm — Familiar syntax. Explicit semantics.">
+  <rect width="1280" height="400" rx="20" fill="#0d1117"/>
+  <g transform="translate(72 72) scale(${80 / 512})">${logoMarkup}</g>
+  <g font-family="Segoe UI, Arial, sans-serif" fill="#f0f6fc">
+    <text x="176" y="130" font-size="56" font-weight="700">Norm</text>
+    <text x="72" y="235" font-size="48" font-weight="600">Familiar syntax.</text>
+    <text x="72" y="297" font-size="48" font-weight="600" fill="#79b8ff">Explicit semantics.</text>
+    <text x="74" y="350" font-size="20" fill="#a9b7c6">A statically typed, application-oriented language.</text>
+  </g>
+  <g transform="translate(980 112) rotate(12 90 90)" opacity="0.16">
+    <g transform="scale(${180 / 512})">${logoMarkup}</g>
+  </g>
+</svg>
+`
+await writeFile(resolve(brandRoot, 'norm-banner.svg'), banner)
+await sharp(Buffer.from(banner)).png({ compressionLevel: 9 }).toFile(resolve(brandRoot, 'norm-banner.png'))
 
 console.log('Norm brand assets generated.')

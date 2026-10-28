@@ -33,3 +33,9 @@ aside: false
 - 阅读[正式规范](/zh/spec/language-spec)，关注不同章节之间是否存在冲突。
 - 对照[路线图](/zh/design/roadmap)和[技术计划](/zh/design/technical-plan)，选择适合参与的方向。
 - 提交问题时尽量附带最小代码示例、预期行为与理由。
+
+## GitHub 展示
+
+- [组织首页](https://github.com/normlanguage/.github/blob/main/profile/README.md)
+- [仓库介绍](https://github.com/normlanguage/Norm/blob/main/README.zh-CN.md)
+- [品牌源文件](https://github.com/normlanguage/Norm/blob/main/docs/public/brand/norm.svg) · [资产生成](https://github.com/normlanguage/Norm/blob/main/docs/scripts/generate-brand-assets.mjs)
