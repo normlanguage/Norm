@@ -33,11 +33,25 @@ for (let index = 0; index < icoCount; index += 1) {
   const size = icoSizes[index]
   assert.equal(width, size)
   assert.equal(height, size)
+  assert.equal(ico[directoryOffset + 2], 0)
+  assert.equal(ico[directoryOffset + 3], 0)
+  assert.equal(ico.readUInt16LE(directoryOffset + 4), 1)
+  assert.equal(ico.readUInt16LE(directoryOffset + 6), 32)
   const byteLength = ico.readUInt32LE(directoryOffset + 8)
   const imageOffset = ico.readUInt32LE(directoryOffset + 12)
-  const png = await readFile(resolve(brandRoot, `norm-${size}.png`))
-  assert.equal(byteLength, png.length)
-  assert.deepEqual(ico.subarray(imageOffset, imageOffset + byteLength), png)
+  const dibHeaderLength = 40
+  const pixelLength = size * size * 4
+  const maskRowLength = Math.ceil(size / 32) * 4
+  const maskLength = maskRowLength * size
+  assert.equal(byteLength, dibHeaderLength + pixelLength + maskLength)
+  assert.ok(imageOffset >= 6 + icoCount * 16)
+  assert.ok(imageOffset + byteLength <= ico.length)
+  assert.equal(ico.readUInt32LE(imageOffset), dibHeaderLength)
+  assert.equal(ico.readInt32LE(imageOffset + 4), size)
+  assert.equal(ico.readInt32LE(imageOffset + 8), size * 2)
+  assert.equal(ico.readUInt16LE(imageOffset + 12), 1)
+  assert.equal(ico.readUInt16LE(imageOffset + 14), 32)
+  assert.equal(ico.readUInt32LE(imageOffset + 16), 0)
 }
 
 const extensionRoot = resolve(repositoryRoot, 'cli', 'extensions', 'vscode')
