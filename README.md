@@ -24,23 +24,25 @@ main() {
 
 [Run this example](norm/tests/docs/showcase/simple.norm) · [Explore application examples](https://github.com/normlanguage/examples)
 
-## Get started
+## Start here
 
 - **Learn the language:** follow the [learning path](https://normlanguage.github.io/Norm/learn/).
-- **Get the tools:** find the CLI and matching VS Code extension in [releases](https://github.com/normlanguage/Norm/releases). See the [distribution guide](docs/design/distribution-source-build.md) for source builds.
-- **Build an application:** explore [examples](https://github.com/normlanguage/examples) and the [package registry](https://github.com/normlanguage/registry).
+- **Get the tools:** download the CLI and matching VS Code extension from [releases](https://github.com/normlanguage/Norm/releases). See the [distribution guide](docs/design/distribution-source-build.md) for source builds.
+- **Build an application:** use [examples](https://github.com/normlanguage/examples) and discover packages through the [registry](https://github.com/normlanguage/registry).
 
 **Active development.** Check the [current status](https://normlanguage.github.io/Norm/status) and [version index](https://normlanguage.github.io/Norm/versions/) for delivered capabilities and implementation boundaries.
 
-## Explore
+## Norm ecosystem
 
-| Start here | Find |
+These repositories are the canonical entry points around the language:
+
+| Entry point | Purpose |
 | --- | --- |
-| [Language reference](https://normlanguage.github.io/Norm/spec/language-spec) | Language rules and semantics |
-| [Standard library](https://normlanguage.github.io/Norm/stdlib/overview) | Core types and library APIs |
-| [Agent tools](https://normlanguage.github.io/Norm/tooling/agent) | Inspect, refactor, and verify Norm code |
-| [Awesome Norm](https://github.com/normlanguage/awesome-norm) | Projects and ecosystem resources |
+| [Awesome Norm](https://github.com/normlanguage/awesome-norm) | Applications and high-level libraries built with Norm |
 | [Norm Skill](https://github.com/normlanguage/Norm-Skill) | Reference-driven guidance for coding agents |
+| [Examples](https://github.com/normlanguage/examples) | Integration acceptance and runnable application fixtures |
+| [Package Standards](https://github.com/normlanguage/package-standards) | Maintenance and delivery requirements for packages |
+| [Registry](https://github.com/normlanguage/registry) | Module ownership, immutable releases, and shared package automation |
 
 ## Work on Norm
 
