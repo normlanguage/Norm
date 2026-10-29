@@ -24,38 +24,40 @@ main() {
 
 [运行这个示例](norm/tests/docs/showcase/simple.norm) · [探索应用示例](https://github.com/normlanguage/examples)
 
-## 开始使用
+## 从这里开始
 
 - **学习语言：** 按照[学习路径](https://normlanguage.github.io/Norm/zh/learn/)上手。
 - **获取工具：** 在[发行页面](https://github.com/normlanguage/Norm/releases)获取 CLI 和配套 VS Code 扩展。源码构建见[发行与构建指南](docs/zh/design/distribution-source-build.md)。
-- **开发应用：** 浏览[应用示例](https://github.com/normlanguage/examples)和[包注册表](https://github.com/normlanguage/registry)。
+- **开发应用：** 浏览[应用示例](https://github.com/normlanguage/examples)，通过[包注册表](https://github.com/normlanguage/registry)发现模块。
 
 **持续开发中。** 已交付能力与实现边界以[当前状态](https://normlanguage.github.io/Norm/zh/status)和[版本索引](https://normlanguage.github.io/Norm/zh/versions/)为准。
 
-## 深入探索
+## Norm 生态
 
-| 入口 | 内容 |
+以下仓库是语言生态的唯一入口：
+
+| 入口 | 用途 |
 | --- | --- |
-| [语言参考](https://normlanguage.github.io/Norm/zh/spec/language-spec) | 语言规则与语义 |
-| [标准库](https://normlanguage.github.io/Norm/zh/stdlib/overview) | 核心类型与标准库 API |
-| [Agent 工具](https://normlanguage.github.io/Norm/zh/tooling/agent) | 查询、重构与验证 Norm 代码 |
-| [Awesome Norm](https://github.com/normlanguage/awesome-norm) | 项目与生态资源 |
-| [Norm Skill](https://github.com/normlanguage/Norm-Skill) | 面向编程 Agent 的参考驱动指南 |
+| [Awesome Norm](https://github.com/normlanguage/awesome-norm) | 基于 Norm 构建的应用与高层库 |
+| [Norm Skill](https://github.com/normlanguage/Norm-Skill) | 面向编程代理的参考驱动指引 |
+| [Examples](https://github.com/normlanguage/examples) | 集成验收与可运行应用用例 |
+| [Package Standards](https://github.com/normlanguage/package-standards) | 包的维护与交付要求 |
+| [Registry](https://github.com/normlanguage/registry) | 模块所有权、不可变发布与共享包自动化 |
 
-## 参与开发
+## 参与 Norm
 
-本仓库维护语言规范、编译器与 CLI、标准库、VS Code 扩展、文档和测试。应用示例与生态验收位于 [examples](https://github.com/normlanguage/examples)；适配包在 [Norm 组织](https://github.com/normlanguage)下独立维护。
+本仓库包含语言规范、编译器与 CLI、标准库、VS Code 扩展、文档和测试。[examples](https://github.com/normlanguage/examples)维护应用示例与生态验收；适配包在 [Norm 组织](https://github.com/normlanguage)中独立维护。
 
-| 源码 | 入口 |
+| 内容 | 入口 |
 | --- | --- |
 | 编译器、运行时与 CLI | [cli/compiler](cli/compiler/) |
 | 编辑器扩展 | [cli/extensions/vscode](cli/extensions/vscode/) |
 | 标准库 | [norm/stdlib](norm/stdlib/) |
 | 可执行语言测试 | [norm/tests](norm/tests/) |
-| 文档与经过验证的示例 | [docs](docs/) · [norm/tests/docs](norm/tests/docs/) |
+| 文档与已检查示例 | [docs](docs/) · [norm/tests/docs](norm/tests/docs/) |
 
-阅读[编译器架构](https://normlanguage.github.io/Norm/zh/spec/compiler-design)、[实现策略](https://normlanguage.github.io/Norm/zh/design/implementation-strategy)和[贡献指南](https://normlanguage.github.io/Norm/zh/community)。报告问题时，请在 [Issues](https://github.com/normlanguage/Norm/issues) 中提供最小示例。
+请阅读[编译器架构](https://normlanguage.github.io/Norm/zh/spec/compiler-design)、[实现策略](https://normlanguage.github.io/Norm/zh/design/implementation-strategy)和[贡献指南](https://normlanguage.github.io/Norm/zh/community)，并在 [Issues](https://github.com/normlanguage/Norm/issues)中提供最小复现。
 
-## 许可协议
+## 许可证
 
-[MPL-2.0](LICENSE)。参见[许可范围与源码提供方式](LICENSING.md)。
+[MPL-2.0](LICENSE)。许可范围和源码可用性见 [LICENSING.md](LICENSING.md)。
