@@ -33,19 +33,16 @@ public final class LatestPackageRepositoryFixture implements AutoCloseable {
           exchange.close();
         });
     server.createContext(
-        "/normlanguage/sample-library/releases/latest",
+        "/repos/normlanguage/sample-library/releases",
         exchange -> {
           requests.incrementAndGet();
-          exchange
-              .getResponseHeaders()
-              .set("Location", "/normlanguage/sample-library/releases/tag/v" + version.get());
-          exchange.sendResponseHeaders(302, -1);
-          exchange.close();
-        });
-    server.createContext(
-        "/normlanguage/sample-library/releases/tag/",
-        exchange -> {
-          exchange.sendResponseHeaders(200, -1);
+          byte[] body =
+              ("[{\"tag_name\":\"v" + version.get() + "\",\"draft\":false,\"prerelease\":false}]")
+                  .getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, body.length);
+          try (var output = exchange.getResponseBody()) {
+            output.write(body);
+          }
           exchange.close();
         });
     server.start();
@@ -56,7 +53,8 @@ public final class LatestPackageRepositoryFixture implements AutoCloseable {
             directory.resolve("cache"),
             Map.of(
                 ModuleRepositoryId.GITHUB,
-                new GitHubPackageRepository(root.resolve("registry.json"), root)));
+                new GitHubPackageRepository(
+                    root.resolve("registry.json"), root, root.resolve("repos/"))));
   }
 
   public NormPackageResolver resolver() {

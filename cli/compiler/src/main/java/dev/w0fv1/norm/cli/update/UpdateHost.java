@@ -25,6 +25,8 @@ interface UpdateHost {
 
   int updatePackage(PackageManager manager, Consumer<String> output) throws IOException;
 
+  String installedVersion() throws IOException;
+
   Path launcherPath() throws IOException;
 
   void install(Path staged, Path target) throws IOException;
