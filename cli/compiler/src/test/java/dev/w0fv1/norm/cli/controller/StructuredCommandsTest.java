@@ -65,6 +65,21 @@ final class StructuredCommandsTest {
   }
 
   @Test
+  void checksDirectoryWithEmbeddedModuleInMain() throws IOException {
+    Path project = Files.createDirectories(directory.resolve("single-file"));
+    Files.writeString(
+        project.resolve("main.norm"),
+        "Module module() { module(name: \"single_file\", version: 1) } "
+            + "package single_file import std.testing.Test @Test Void passes() {} Void main() {} ");
+    Result result = run("check", project.toString(), "--format", "json");
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.output() + result.error());
+    assertEquals("success", result.json().get("status").getAsString());
+    Result tested = run("test", project.toString(), "--format", "json");
+    assertEquals(ExitCode.SUCCESS, tested.exitCode(), tested.output() + tested.error());
+    assertEquals(1, tested.json().getAsJsonObject("tests").get("passed").getAsInt());
+  }
+
+  @Test
   void preservesModuleConfigurationDiagnostics() throws IOException {
     Path module = Files.createDirectories(directory.resolve("invalid"));
     Files.writeString(module.resolve("module.norm"), "Module module() { return missing }");

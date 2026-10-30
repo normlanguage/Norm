@@ -6,6 +6,7 @@ import static dev.w0fv1.norm.project.ProjectPaths.repositoryRoot;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.frontend.SourceStructure;
+import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
@@ -87,7 +88,11 @@ final class ProjectLoading {
   private ProjectSourceSet load(Path entryPath, ProjectLoadPurpose purpose) throws IOException {
     Path entry = normalize(entryPath);
     if (Files.isDirectory(entry)) {
-      SourceFile module = SourceFile.read(entry.resolve("module.norm"));
+      Path modulePath = entry.resolve("module.norm");
+      if (!Files.isRegularFile(modulePath)) {
+        return load(SourceFile.read(ApplicationEntry.resolve(entry)), List.of(), purpose);
+      }
+      SourceFile module = SourceFile.read(modulePath);
       ResolvedProjectModule resolved = moduleSources.load(module, Map.of(), true);
       SourceFile first =
           resolved.sources().values().stream()
