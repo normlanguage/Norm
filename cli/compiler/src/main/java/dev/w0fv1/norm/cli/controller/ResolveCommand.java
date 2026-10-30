@@ -37,7 +37,8 @@ final class ResolveCommand implements Command {
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     if (arguments.size() != 1) {
-      err.println("error[NORM-CLI-0003]: 'resolve' expects one module directory or module source file");
+      err.println(
+          "error[NORM-CLI-0003]: 'resolve' expects one module directory or module source file");
       err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
