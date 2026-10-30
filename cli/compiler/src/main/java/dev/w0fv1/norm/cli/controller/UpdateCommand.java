@@ -70,7 +70,7 @@ final class UpdateCommand implements Command {
     out.println(
         "Updates the CLI through its package manager when available, then downloads and installs it manually when needed.");
     out.println(
-        "Project dependencies are resolved to their latest stable versions and written to module.norm atomically.");
+        "Project dependencies are resolved to their latest stable versions and written to the module declaration source atomically.");
     return ExitCode.SUCCESS;
   }
 
@@ -99,11 +99,17 @@ final class UpdateCommand implements Command {
     boolean attempted = false;
     boolean failed = false;
     if (!cliRequested || projectRequested) {
-      Path module =
-          project == null
-              ? Path.of("module.norm").toAbsolutePath().normalize()
-              : (Files.isDirectory(project) ? project.resolve("module.norm") : project);
-      if (Files.isRegularFile(module)) {
+      Path module = null;
+      try {
+        module =
+            dev.w0fv1.norm.project.ModuleInput.resolve(project == null ? Path.of(".") : project);
+      } catch (IOException exception) {
+        if (projectRequested) {
+          err.println("error[NORM-CLI-0004]: " + exception.getMessage());
+          failed = true;
+        }
+      }
+      if (module != null && Files.isRegularFile(module)) {
         attempted = true;
         try {
           var result = projectUpdater.update(module);
@@ -124,8 +130,8 @@ final class UpdateCommand implements Command {
                   + exception.getMessage());
           failed = true;
         }
-      } else if (projectRequested) {
-        err.println("error[NORM-CLI-0004]: project does not contain module.norm: " + module);
+      } else if (projectRequested && !failed) {
+        err.println("error[NORM-CLI-0004]: module source does not exist: " + module);
         failed = true;
       }
     }

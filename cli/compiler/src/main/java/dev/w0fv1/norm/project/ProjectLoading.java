@@ -3,8 +3,6 @@ package dev.w0fv1.norm.project;
 import static dev.w0fv1.norm.project.ProjectPaths.normalize;
 import static dev.w0fv1.norm.project.ProjectPaths.repositoryRoot;
 
-import dev.w0fv1.norm.frontend.ModuleLoader;
-import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.frontend.SourceStructure;
 import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
@@ -15,7 +13,6 @@ import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleRequirement;
 import java.io.IOException;
@@ -87,7 +84,9 @@ final class ProjectLoading {
   private ProjectSourceSet load(Path entryPath, ProjectLoadPurpose purpose) throws IOException {
     Path entry = normalize(entryPath);
     if (Files.isDirectory(entry)) {
-      SourceFile module = SourceFile.read(entry.resolve("module.norm"));
+      Path modulePath = ModuleInput.resolve(entry);
+      SourceFile module = SourceFile.read(modulePath);
+      if (!ModuleSourceFiles.isModuleSource(module)) return load(module, List.of(), purpose);
       ResolvedProjectModule resolved = moduleSources.load(module, Map.of(), true);
       SourceFile first =
           resolved.sources().values().stream()
@@ -144,6 +143,11 @@ final class ProjectLoading {
 
     SourceFile moduleSource = location.module().orElseThrow();
     Path modulePath = normalize(moduleSource.path());
+    if (!ModuleSourceFiles.isModuleSource(moduleSource)) {
+      if (!entry.equals(modulePath))
+        throw new IOException("entry source is not part of the single-file module");
+      return loadEmbeddedModule(entrySource, overlaySources, purpose, entryStructure);
+    }
     if (entry.equals(modulePath)) {
       throw new IOException("module.norm is project configuration, not an application entry");
     }
@@ -243,71 +247,23 @@ final class ProjectLoading {
       ProjectLoadPurpose purpose,
       SourceStructure structure)
       throws IOException {
-    inputs.directory(entrySource.path().getParent().resolve("resources"), false);
-    SourceFile programSource = structure.programSource();
-    Optional<String> packageName = SourceHeader.parse(programSource).packageName();
-    ModuleDeclaration declaration = modules.evaluate(structure.moduleConfiguration().orElseThrow());
-    boolean localApplication = packageName.isEmpty() && declaration.name().isEmpty();
-    ModuleDescriptor descriptor =
-        moduleSources.resolveDeclaration(
-            declaration,
-            localApplication
-                ? Optional.of(ModuleCoordinate.localApplication().name())
-                : packageName);
-    if (!localApplication) dependencies.requireAvailableModuleName(descriptor);
-    if (descriptor.binding().isPresent()) {
-      throw new IOException("an application source cannot declare a Java binding");
-    }
-    String sourcePackage = packageName.orElse("");
-    String modulePackage = descriptor.name();
-    if (!sourcePackage.isEmpty()
-        && !sourcePackage.equals(modulePackage)
-        && !sourcePackage.startsWith(modulePackage + ".")) {
-      throw new IOException(
-          "single-file module source must declare package '"
-              + modulePackage
-              + "' or one of its child packages");
-    }
-    if (sourcePackage.isEmpty() && !descriptor.exports().isEmpty()) {
-      throw new IOException("a package-less single-file application cannot export sources");
-    }
-    String sourcePath =
-        sourcePackage.isEmpty()
-            ? entrySource.path().getFileName().toString()
-            : sourcePackage.replace('.', '/') + "/" + entrySource.path().getFileName().toString();
-    Map<String, SourceFile> moduleSources = Map.of(sourcePath, programSource);
-    ModuleLoader.LoadedModule loaded =
-        sourcePackage.isEmpty()
-            ? new ModuleLoader.LoadedModule(descriptor, moduleSources, Set.of())
-            : new ModuleLoader().load(new ModuleSourceSnapshot(moduleSources), descriptor);
-    Path root = normalize(entrySource.path()).getParent();
-    if (root == null) throw new IOException("application source path has no parent");
     ResolvedProjectModule rootModule =
-        new ResolvedProjectModule(
-            root,
+        moduleSources.load(
             entrySource,
-            descriptor,
-            loaded.sources(),
-            loaded.exportedSources(),
-            Set.of(),
-            Optional.empty(),
-            ProjectModuleSources.collectResources(root),
-            Optional.empty());
+            overlays,
+            purpose != ProjectLoadPurpose.RUNTIME,
+            purpose == ProjectLoadPurpose.RUNTIME);
+    boolean localApplication =
+        dev.w0fv1.norm.frontend.SourceHeader.parse(entrySource).packageName().isEmpty()
+            && modules.evaluate(SourceStructure.configuration(entrySource)).name().isEmpty();
+    if (!localApplication) dependencies.requireAvailableModuleName(rootModule.descriptor());
     List<ResolvedProjectModule> graph = dependencies.resolve(rootModule, overlays, purpose);
     Path entry = normalize(entrySource.path());
-    return sourceSet(root, entry, entry, graph, structure);
+    return sourceSet(rootModule.root(), entry, entry, graph, structure);
   }
 
   public ModuleDescriptor evaluateModule(SourceFile source) throws IOException {
-    if (!ModuleSourceFiles.isModuleSource(source)) {
-      throw new IllegalArgumentException("source is not a module configuration");
-    }
-    ModuleDeclaration declaration = modules.evaluate(source);
-    return moduleSources.resolveDeclaration(
-        declaration,
-        declaration.name().isPresent()
-            ? Optional.empty()
-            : ModuleNameInference.infer(source, Map.of(), declaration.layout()));
+    return moduleSources.evaluate(source, Map.of());
   }
 
   public ResolvedJarGraph resolveJarBinding(SourceFile source) throws IOException {
@@ -321,9 +277,6 @@ final class ProjectLoading {
   }
 
   ProjectLoader.ModuleArchiveContents moduleArchiveContents(SourceFile source) throws IOException {
-    if (!ModuleSourceFiles.isModuleSource(source)) {
-      throw new IllegalArgumentException("source is not a module configuration");
-    }
     ResolvedProjectModule resolved = moduleSources.load(source, Map.of());
     var graph = dependencies.resolve(resolved, Map.of(), ProjectLoadPurpose.RUNTIME);
     resolved = graph.getLast();

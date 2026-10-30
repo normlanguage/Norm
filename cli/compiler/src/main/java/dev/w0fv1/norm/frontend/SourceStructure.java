@@ -15,6 +15,22 @@ public record SourceStructure(
     Objects.requireNonNull(programSource, "programSource");
   }
 
+  public static boolean isStandaloneModule(SourceFile source) {
+    return source.path().getFileName().toString().equals("module.norm")
+        && SourceHeader.parse(source).packageName().isEmpty();
+  }
+
+  public static SourceFile configuration(SourceFile source) {
+    return isStandaloneModule(source)
+        ? source
+        : inspect(source)
+            .moduleConfiguration()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "source does not contain a module declaration: " + source.path()));
+  }
+
   public static SourceStructure inspect(SourceFile source) {
     Objects.requireNonNull(source, "source");
     DiagnosticBag diagnostics = new DiagnosticBag();

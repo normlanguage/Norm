@@ -12,7 +12,7 @@ public final class ModuleDependencySourceEditor {
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(updates, "updates");
     if (updates.isEmpty()) return source.text();
-    Syntax.Program program = parse(source);
+    Syntax.Program program = parse(SourceStructure.configuration(source));
     List<Syntax.Call> dependencies = new ArrayList<>();
     for (Syntax.FunctionDecl function : program.functions())
       collectStatements(function.body(), dependencies);

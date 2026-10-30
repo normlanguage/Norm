@@ -23,11 +23,13 @@ public final class ModuleLoader {
     String modulePrefix = descriptor.name().replace('.', '/') + "/";
     for (String path : resolver.listSources().stream().distinct().sorted().toList()) {
       if (!path.endsWith(".norm")) continue;
-      if (!path.startsWith(modulePrefix)) {
+      SourceFile source = resolver.read(path);
+      boolean unqualified =
+          !path.contains("/") && SourceHeader.parse(source).packageName().isEmpty();
+      if (!unqualified && !path.startsWith(modulePrefix)) {
         throw new IOException(
             "source '" + path + "' is outside module package '" + descriptor.name() + "'");
       }
-      SourceFile source = resolver.read(path);
       requirePackage(source, parent(path).replace('/', '.'));
       sources.put(path, source);
     }

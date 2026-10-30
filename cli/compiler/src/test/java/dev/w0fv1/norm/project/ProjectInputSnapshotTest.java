@@ -13,6 +13,21 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ProjectInputSnapshotTest {
   @Test
+  void tracksOriginalEmbeddedSourceInsteadOfDerivedProgram(@TempDir Path root) throws Exception {
+    Path entry =
+        Files.writeString(
+            root.resolve("main.norm"),
+            "Module module() { module(name: \"sample\", version: 1) } Void main() {}");
+    try (var environment = ProjectEnvironment.bootstrap(new dev.w0fv1.norm.runtime.NormRuntime());
+        var loader = environment.projectLoader()) {
+      var result = loader.load(entry);
+      assertTrue(result.inputs().matches());
+      Files.writeString(entry, Files.readString(entry).replace("version: 1", "version: 2"));
+      assertFalse(result.inputs().matches());
+    }
+  }
+
+  @Test
   void derivesChangeMatchingAndWatchRulesFromTheCapturedInputs(@TempDir Path root)
       throws Exception {
     Path sourceRoot = Files.createDirectories(root.resolve("source"));

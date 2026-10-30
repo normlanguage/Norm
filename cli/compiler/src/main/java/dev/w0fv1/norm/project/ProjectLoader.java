@@ -168,7 +168,9 @@ public final class ProjectLoader implements AutoCloseable {
     SourceFile source = SourceFile.read(normalized);
     var declaration =
         modules
-            .evaluate(source, dev.w0fv1.norm.frontend.CompilationControl.standard())
+            .evaluate(
+                dev.w0fv1.norm.frontend.SourceStructure.configuration(source),
+                dev.w0fv1.norm.frontend.CompilationControl.standard())
             .declaration();
     var edits = new java.util.ArrayList<ModuleDependencySourceEditor.Update>();
     var changed = new java.util.ArrayList<DependencyUpdate>();

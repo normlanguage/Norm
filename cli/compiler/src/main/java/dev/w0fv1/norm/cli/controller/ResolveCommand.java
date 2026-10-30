@@ -6,7 +6,6 @@ import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -14,7 +13,7 @@ import java.util.List;
 final class ResolveCommand implements Command {
   @Override
   public String usage() {
-    return "norm resolve <module-directory|module.norm>";
+    return "norm resolve <module-directory|file.norm>";
   }
 
   @Override
@@ -38,7 +37,8 @@ final class ResolveCommand implements Command {
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     if (arguments.size() != 1) {
-      err.println("error[NORM-CLI-0003]: 'resolve' expects one module directory or module.norm");
+      err.println(
+          "error[NORM-CLI-0003]: 'resolve' expects one module directory or module source file");
       err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
@@ -49,8 +49,8 @@ final class ResolveCommand implements Command {
       err.printf("error[NORM-CLI-0004]: invalid module path '%s'%n", arguments.getFirst());
       return ExitCode.INPUT_ERROR;
     }
-    Path modulePath = Files.isDirectory(requested) ? requested.resolve("module.norm") : requested;
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
+      Path modulePath = dev.w0fv1.norm.project.ModuleInput.resolve(requested);
       try (var projects = environment.projectLoader()) {
         var resolution = new ModuleBindingResolutionService(projects).resolve(modulePath);
         out.printf(

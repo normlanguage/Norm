@@ -63,14 +63,8 @@ final class DocsCommand implements Command {
     if (parsed.isEmpty()) return ExitCode.USAGE_ERROR;
     Options options = parsed.orElseThrow();
     Path moduleRoot = options.moduleRoot().toAbsolutePath().normalize();
-    Path modulePath = moduleRoot.resolve("module.norm");
-    if (!Files.isDirectory(moduleRoot) || !Files.isRegularFile(modulePath)) {
-      err.printf(
-          "error[NORM-DOC-0001]: documentation root must contain module.norm: %s%n", moduleRoot);
-      return ExitCode.INPUT_ERROR;
-    }
-
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
+      Path modulePath = dev.w0fv1.norm.project.ModuleInput.resolve(moduleRoot);
       try (ProjectLoader projects = environment.projectLoader();
           CompilerSession compiler = environment.compilerSession()) {
         SourceFile moduleSource = SourceFile.read(modulePath);
@@ -99,7 +93,7 @@ final class DocsCommand implements Command {
       return ExitCode.COMPILATION_ERROR;
     } catch (DocumentationCompilationException exception) {
       return ExitCode.COMPILATION_ERROR;
-    } catch (IOException exception) {
+    } catch (IOException | IllegalArgumentException exception) {
       err.printf(
           "error[NORM-DOC-0001]: cannot export module documentation: %s%n", exception.getMessage());
       return ExitCode.INPUT_ERROR;

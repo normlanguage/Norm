@@ -81,18 +81,39 @@ final class ProjectModuleSources {
     inputs.source(moduleSource);
     inputs.directory(moduleSource.path().getParent(), true);
     inputs.directory(moduleSource.path().getParent().resolve("resources"), false);
-    ModuleDeclaration declaration = modules.evaluate(moduleSource);
-    ModuleDescriptor descriptor =
-        resolveDeclaration(
-            declaration,
-            declaration.name().isPresent()
-                ? Optional.empty()
-                : ModuleNameInference.infer(moduleSource, overlays, declaration.layout()));
-    Path root = sourceRoot(moduleSource, descriptor);
-    ModuleSourceFiles selected =
-        ModuleSourceFiles.load(
-            moduleSource, descriptor.name(), declaration.layout(), overlays, includeTests);
-    selected.sources().values().forEach(inputs::source);
+    boolean standalone = ModuleSourceFiles.isModuleSource(moduleSource);
+    var structure = dev.w0fv1.norm.frontend.SourceStructure.inspect(moduleSource);
+    SourceFile program = structure.programSource();
+    Optional<String> sourcePackage =
+        dev.w0fv1.norm.frontend.SourceHeader.parse(program).packageName();
+    ModuleDeclaration declaration =
+        modules.evaluate(dev.w0fv1.norm.frontend.SourceStructure.configuration(moduleSource));
+    ModuleDescriptor descriptor = descriptor(moduleSource, declaration, overlays);
+    Path root =
+        standalone
+            ? sourceRoot(moduleSource, descriptor)
+            : normalize(moduleSource.path()).getParent();
+    ModuleSourceFiles selected;
+    if (standalone) {
+      selected =
+          ModuleSourceFiles.load(
+              moduleSource, descriptor.name(), declaration.layout(), overlays, includeTests);
+    } else {
+      if (sourcePackage.isPresent()
+          && !sourcePackage.get().equals(descriptor.name())
+          && !sourcePackage.get().startsWith(descriptor.name() + "."))
+        throw new IOException(
+            "single-file module source must declare package '"
+                + descriptor.name()
+                + "' or one of its child packages");
+      if (sourcePackage.isEmpty() && !descriptor.exports().isEmpty())
+        throw new IOException("a package-less single-file application cannot export sources");
+      String path =
+          sourcePackage.map(value -> value.replace('.', '/') + "/").orElse("")
+              + moduleSource.path().getFileName();
+      selected = new ModuleSourceFiles(Map.of(path, program), Set.of());
+    }
+    if (standalone) selected.sources().values().forEach(inputs::source);
     Map<String, SourceFile> sources = new LinkedHashMap<>(selected.sources());
     Optional<ResolvedJarBinding> binding = Optional.empty();
     Set<DocumentId> bindingSources = Set.of();
@@ -168,8 +189,25 @@ final class ProjectModuleSources {
         selected.tests());
   }
 
-  ModuleDescriptor resolveDeclaration(ModuleDeclaration declaration, Optional<String> inferredName)
+  ModuleDescriptor evaluate(SourceFile source, Map<Path, SourceFile> overlays) throws IOException {
+    return descriptor(
+        source,
+        modules.evaluate(dev.w0fv1.norm.frontend.SourceStructure.configuration(source)),
+        overlays);
+  }
+
+  private ModuleDescriptor descriptor(
+      SourceFile source, ModuleDeclaration declaration, Map<Path, SourceFile> overlays)
       throws IOException {
+    Optional<String> inferredName =
+        declaration.name().isPresent()
+            ? Optional.empty()
+            : ModuleSourceFiles.isModuleSource(source)
+                ? ModuleNameInference.infer(source, overlays, declaration.layout())
+                : Optional.of(
+                    dev.w0fv1.norm.frontend.SourceHeader.parse(source)
+                        .packageName()
+                        .orElse(ModuleCoordinate.localApplication().name()));
     String name =
         declaration
             .name()
