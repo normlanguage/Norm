@@ -1,4 +1,4 @@
-package dev.w0fv1.norm.application;
+package dev.w0fv1.norm.project;
 
 import java.io.IOException;
 import java.nio.file.Files;

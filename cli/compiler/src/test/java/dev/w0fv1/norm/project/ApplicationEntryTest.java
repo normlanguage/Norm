@@ -1,4 +1,4 @@
-package dev.w0fv1.norm.application;
+package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -11,7 +11,7 @@ norm check path/to/source.norm
 norm test path/to/module --filter package.function --format json
 ```
 
-`check` 分析项目生产和测试源码，不要求 `main`，不执行业务入口或测试。模块配置仍会求值，依赖仍按普通项目规则解析。目录入口优先使用 `module.norm`，否则使用 [ApplicationEntry](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationEntry.java) 选定的应用源码及其内嵌模块声明；文件入口必须是业务或测试源码。
+`check` 分析项目生产和测试源码，不要求 `main`，不执行业务入口或测试。模块配置仍会求值，依赖仍按普通项目规则解析。目录入口优先使用 `module.norm`，否则使用 [ApplicationEntry](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ApplicationEntry.java) 选定的应用源码及其内嵌模块声明；文件入口必须是业务或测试源码。
 
 `test` 编译并执行测试，`--filter` 限定 package 或函数。测试声明与筛选语义见[测试 API](/zh/stdlib/testing-api)。
 

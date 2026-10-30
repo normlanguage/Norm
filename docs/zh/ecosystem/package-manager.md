@@ -29,3 +29,5 @@ CLI 更新优先使用当前平台的包管理器（Windows 使用 Scoop，macOS
 目录模块定位入口：[ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java).
 
 模块加载与源码校验入口：[ProjectModuleSources](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectModuleSources.java); [SourceStructure](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceStructure.java).
+
+CLI 更新流程与进度输出：[CliUpdateManager](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/CliUpdateManager.java), [UpdateProgress](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/UpdateProgress.java).

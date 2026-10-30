@@ -28,7 +28,7 @@ public final class ApplicationBuilder {
         && (launcher.isEmpty() || !Files.isRegularFile(launcher.orElseThrow()))) {
       throw new IOException("Norm launcher is unavailable");
     }
-    Path entry = dev.w0fv1.norm.application.ApplicationEntry.resolve(request.input());
+    Path entry = dev.w0fv1.norm.project.ApplicationEntry.resolve(request.input());
     NativeApplicationExecutable nativeBuild =
         request.target() == ApplicationBuildTarget.NATIVE
             ? new NativeApplicationExecutable()
