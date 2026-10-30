@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.project;
 
-import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.ModuleSourceLayout;
@@ -12,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 public record ModuleSourceFiles(Map<String, SourceFile> sources, Set<DocumentId> tests) {
@@ -86,7 +84,7 @@ public record ModuleSourceFiles(Map<String, SourceFile> sources, Set<DocumentId>
       throws IOException {
     Map<Path, SourceFile> candidates = new LinkedHashMap<>();
     for (Path path : diskSources) {
-      if (!path.equals(modulePath) && path.getFileName().toString().equals("module.norm")) {
+      if (!path.equals(modulePath) && ModuleInput.isEntryName(path)) {
         SourceFile overlay = overlays.get(path);
         candidates.put(path, overlay == null ? SourceFile.read(path) : overlay);
       }
@@ -94,12 +92,13 @@ public record ModuleSourceFiles(Map<String, SourceFile> sources, Set<DocumentId>
     overlays.entrySet().stream()
         .filter(source -> source.getKey().startsWith(root))
         .filter(source -> !source.getKey().equals(modulePath))
-        .filter(source -> source.getKey().getFileName().toString().equals("module.norm"))
+        .filter(source -> ModuleInput.isEntryName(source.getKey()))
         .forEach(source -> candidates.put(source.getKey(), source.getValue()));
     List<Path> candidateRoots =
         candidates.entrySet().stream()
-            .filter(source -> isModuleSource(source.getValue()))
+            .filter(source -> ModuleInput.isModuleEntry(source.getValue()))
             .map(source -> source.getKey().getParent())
+            .filter(candidate -> !candidate.equals(root))
             .sorted(
                 Comparator.comparingInt(Path::getNameCount)
                     .thenComparing(Comparator.comparing(Path::toString)))
@@ -120,10 +119,7 @@ public record ModuleSourceFiles(Map<String, SourceFile> sources, Set<DocumentId>
   }
 
   public static boolean isModuleSource(SourceFile source) {
-    Objects.requireNonNull(source, "source");
-    Path path = source.path();
-    return path.getFileName().toString().equals("module.norm")
-        && SourceHeader.parse(source).packageName().isEmpty();
+    return dev.w0fv1.norm.frontend.SourceStructure.isStandaloneModule(source);
   }
 
   private static Path normalize(Path path) {

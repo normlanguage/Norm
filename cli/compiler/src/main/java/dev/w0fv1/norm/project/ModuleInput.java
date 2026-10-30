@@ -8,6 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class ModuleInput {
+  static final java.util.List<String> ENTRY_NAMES =
+      java.util.List.of("module.norm", "application.norm", "main.norm");
+
   private ModuleInput() {}
 
   public static Path resolve(Path input) throws IOException {
@@ -17,12 +20,13 @@ public final class ModuleInput {
     return Files.isRegularFile(module) ? module : ApplicationEntry.resolve(path);
   }
 
-  public static SourceFile configuration(SourceFile source) throws IOException {
-    if (ModuleSourceFiles.isModuleSource(source)) return source;
-    return SourceStructure.inspect(source)
-        .moduleConfiguration()
-        .orElseThrow(
-            () ->
-                new IOException("source does not contain a module declaration: " + source.path()));
+  static boolean isEntryName(Path path) {
+    return ENTRY_NAMES.contains(path.getFileName().toString());
+  }
+
+  static boolean isModuleEntry(SourceFile source) {
+    return ModuleSourceFiles.isModuleSource(source)
+        || isEntryName(source.path())
+            && SourceStructure.inspect(source).moduleConfiguration().isPresent();
   }
 }

@@ -35,6 +35,38 @@ final class ModuleLoaderTest {
     assertEquals(1, loaded.exportedSources().size());
   }
 
+  @Test
+  void validatesUnqualifiedAndNamespacedSourcesThroughTheSameLoader() throws Exception {
+    var descriptor = new ModuleDescriptor("sample", 1, List.of());
+    var loaded =
+        new ModuleLoader()
+            .load(
+                new MemoryResolver(
+                    Map.of(
+                        "main.norm",
+                        "Void main() {}",
+                        "sample/Type.norm",
+                        "package sample Integer answer() { return 42 }")),
+                descriptor);
+    assertEquals(2, loaded.sources().size());
+    assertEquals(0, loaded.exportedSources().size());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IOException.class,
+        () ->
+            new ModuleLoader()
+                .load(
+                    new MemoryResolver(
+                        Map.of("other/Type.norm", "package other Integer answer() { return 42 }")),
+                    descriptor));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IOException.class,
+        () ->
+            new ModuleLoader()
+                .load(
+                    new MemoryResolver(Map.of("main.norm", "package other Void main() {}")),
+                    descriptor));
+  }
+
   private record MemoryResolver(Map<String, String> resources) implements ModuleSourceResolver {
     @Override
     public SourceFile read(String relativePath) throws IOException {

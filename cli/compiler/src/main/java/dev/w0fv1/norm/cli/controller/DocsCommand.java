@@ -93,7 +93,7 @@ final class DocsCommand implements Command {
       return ExitCode.COMPILATION_ERROR;
     } catch (DocumentationCompilationException exception) {
       return ExitCode.COMPILATION_ERROR;
-    } catch (IOException exception) {
+    } catch (IOException | IllegalArgumentException exception) {
       err.printf(
           "error[NORM-DOC-0001]: cannot export module documentation: %s%n", exception.getMessage());
       return ExitCode.INPUT_ERROR;

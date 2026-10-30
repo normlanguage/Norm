@@ -27,3 +27,5 @@ dependency(repository: "github", name: "micronaut.web")
 CLI 更新优先使用当前平台的包管理器（Windows 使用 Scoop，macOS 使用 Homebrew，Linux 使用 apt），包管理器不可用或更新失败时，在 Windows 通过官方 GitHub Release 下载并在当前进程退出后替换启动器。
 
 目录模块定位入口：[ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java).
+
+模块加载与源码校验入口：[ProjectModuleSources](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectModuleSources.java); [SourceStructure](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceStructure.java).

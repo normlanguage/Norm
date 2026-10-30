@@ -21,3 +21,5 @@ dependency(repository: "github", name: "micronaut.web")
 Each Module has its own source repository. `Module module()` remains the single declaration source for identity, dependencies, and an optional Java root artifact. Third parties first claim a module name through a registry pull request, then can publish new versions independently from their own repositories. Adding a `norm` repository in the future will not change `github` resolution semantics.
 
 Directory module selection: [ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java).
+
+Module loading and source validation: [ProjectModuleSources](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectModuleSources.java); [SourceStructure](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceStructure.java).

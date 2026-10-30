@@ -31,6 +31,18 @@ final class ModuleDependencySourceEditorTest {
   }
 
   @Test
+  void updatesDependenciesDeclaredInStandaloneHelpers() {
+    String code =
+        "ModuleDependency dep() { dependency(repository: \"github\", name: \"alpha\", version: 1) } Module module() { module(dependencies: [dep()]) }";
+    SourceFile source = SourceFile.of(DocumentId.of("file:///module.norm"), code);
+    assertEquals(
+        code.replace("version: 1", "version: 2"),
+        new ModuleDependencySourceEditor()
+            .withVersions(
+                source, List.of(new ModuleDependencySourceEditor.Update("github", "alpha", 2))));
+  }
+
+  @Test
   void updatesOnlyConfigurationAndPreservesProgramCalls() {
     String call = "dependency(repository: \"github\", name: \"alpha\", version: 1)";
     String program = "Void main() { " + call + " }\n";

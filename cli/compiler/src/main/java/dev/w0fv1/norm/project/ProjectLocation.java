@@ -28,14 +28,12 @@ record ProjectLocation(Path standaloneRoot, Optional<SourceFile> module, List<Pa
     if (fallback == null) throw new IllegalArgumentException("source path has no parent");
     var candidates = new ArrayList<Path>();
     for (Path current = fallback; current != null; current = current.getParent()) {
-      Path candidate = ProjectPaths.normalize(current.resolve("module.norm"));
-      candidates.add(candidate);
-      SourceFile overlay = overlays.get(candidate);
-      if (overlay != null && ModuleSourceFiles.isModuleSource(overlay))
-        return new ProjectLocation(current, Optional.of(overlay), candidates);
-      if (overlay == null && Files.isRegularFile(candidate)) {
-        SourceFile source = SourceFile.read(candidate);
-        if (ModuleSourceFiles.isModuleSource(source))
+      for (String name : ModuleInput.ENTRY_NAMES) {
+        Path candidate = ProjectPaths.normalize(current.resolve(name));
+        candidates.add(candidate);
+        SourceFile source = overlays.get(candidate);
+        if (source == null && Files.isRegularFile(candidate)) source = SourceFile.read(candidate);
+        if (source != null && ModuleInput.isModuleEntry(source))
           return new ProjectLocation(current, Optional.of(source), candidates);
       }
     }

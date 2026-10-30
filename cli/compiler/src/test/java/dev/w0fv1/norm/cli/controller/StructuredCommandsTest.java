@@ -185,6 +185,66 @@ final class StructuredCommandsTest {
     Result repeated = run("resolve", project.toString());
     assertEquals(ExitCode.SUCCESS, repeated.exitCode(), repeated.error());
     assertEquals(updated, Files.readString(entry));
+    Result packaged =
+        run(
+            "package",
+            project.toString(),
+            "--output",
+            directory.resolve("binding-repo").toString());
+    assertEquals(ExitCode.SUCCESS, packaged.exitCode(), packaged.error());
+    Result checked = run("check", project.toString());
+    assertEquals(ExitCode.SUCCESS, checked.exitCode(), checked.error());
+  }
+
+  @Test
+  void embeddedModuleOwnsItsDirectoryInsideAnotherModule() throws IOException {
+    Files.writeString(
+        directory.resolve("module.norm"),
+        "Module module() { module(name: \"parent\", version: 1) }");
+    Files.writeString(
+        directory.resolve("api.norm"), "package parent Integer answer() { return 1 }");
+    Path child = Files.createDirectories(directory.resolve("child"));
+    Files.writeString(
+        child.resolve("main.norm"),
+        "package child Integer answer() { return 2 } Module module() { module(name: \"child\", version: 1) }");
+    for (Path root : java.util.List.of(directory, child)) {
+      Result checked = run("check", root.toString());
+      assertEquals(ExitCode.SUCCESS, checked.exitCode(), checked.error());
+      Result docs =
+          run(
+              "docs",
+              root.toString(),
+              "--output",
+              directory.resolveSibling(root.getFileName() + "-api").toString());
+      assertEquals(ExitCode.SUCCESS, docs.exitCode(), docs.error());
+      Result packaged =
+          run(
+              "package",
+              root.toString(),
+              "--output",
+              directory.resolveSibling(root.getFileName() + "-repo").toString());
+      assertEquals(ExitCode.SUCCESS, packaged.exitCode(), packaged.error());
+    }
+  }
+
+  @Test
+  void resolvesStandaloneBindingDeclaredByHelper() throws IOException {
+    Path module = directory.resolve("module.norm");
+    Files.writeString(
+        module,
+        "JarTarget target() { return jdkModule(\"java.base\") } Module module() { module(name: \"helper\", version: 1, binding: jarBinding(target: target(), api: [])) }");
+    Result resolved = run("resolve", directory.toString());
+    assertEquals(ExitCode.SUCCESS, resolved.exitCode(), resolved.error());
+    assertTrue(Files.readString(module).contains("resolution: sha256("));
+  }
+
+  @Test
+  void reportsMissingModuleDeclarationWithoutCrashing() throws IOException {
+    Files.writeString(directory.resolve("main.norm"), "Void main() {}");
+    Result result =
+        run("docs", directory.toString(), "--output", directory.resolve("api").toString());
+    assertEquals(ExitCode.INPUT_ERROR, result.exitCode(), result.error());
+    assertTrue(result.error().contains("does not contain a module declaration"));
   }
 
   private Result run(String... arguments) {
