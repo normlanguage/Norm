@@ -107,7 +107,7 @@ public final class CliUpdateManager {
         progress.stage("Preparing installation");
         host.install(staged, target);
         scheduled = true;
-        progress.message("Installation will continue after this command exits.");
+        progress.message("The launcher will now install the downloaded CLI.");
         progress.message("Run 'norm --version' to verify the installed version.");
         return new Result("manual", true);
       } finally {

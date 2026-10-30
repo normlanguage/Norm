@@ -12,6 +12,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 final class SystemUpdateHost implements UpdateHost {
+  private final Path updateRequest;
+
+  SystemUpdateHost() {
+    String request = System.getenv("NORM_UPDATE_REQUEST");
+    updateRequest = request == null || request.isBlank() ? null : Path.of(request);
+  }
+
+  SystemUpdateHost(Path updateRequest) {
+    this.updateRequest = updateRequest;
+  }
+
   @Override
   public Optional<PackageManager> packageManager() throws IOException {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
@@ -90,6 +101,8 @@ final class SystemUpdateHost implements UpdateHost {
   public Path launcherPath() throws IOException {
     if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win"))
       throw new IOException("manual CLI installation currently requires the Windows launcher");
+    if (updateRequest == null)
+      throw new IOException("CLI installation requires the native Norm launcher");
     String value = System.getenv("NORM_LAUNCHER_PATH");
     if (value == null || value.isBlank())
       throw new IOException("Norm launcher path is unavailable; run 'norm setup' first");
@@ -100,18 +113,14 @@ final class SystemUpdateHost implements UpdateHost {
 
   @Override
   public void install(Path staged, Path target) throws IOException {
-    String command =
-        "Wait-Process -Id "
-            + ProcessHandle.current().pid()
-            + " -ErrorAction SilentlyContinue; Move-Item -Force -LiteralPath '"
-            + staged.toString().replace("'", "''")
-            + "' -Destination '"
-            + target.toString().replace("'", "''")
-            + "'";
-    new ProcessBuilder(
-            "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-Command", command)
-        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-        .redirectError(ProcessBuilder.Redirect.DISCARD)
-        .start();
+    if (updateRequest == null)
+      throw new IOException("CLI installation requires the native Norm launcher");
+    if (!Files.isRegularFile(staged))
+      throw new IOException("downloaded CLI does not exist: " + staged);
+    Files.writeString(
+        updateRequest,
+        staged.toAbsolutePath().normalize().toString(),
+        java.nio.charset.StandardCharsets.UTF_8,
+        java.nio.file.StandardOpenOption.CREATE_NEW);
   }
 }

@@ -7,7 +7,9 @@ internal sealed class RuntimeLauncher
     public int Run(string runtimeDirectory, IReadOnlyList<string> arguments)
     {
         ProcessStartInfo start = CreateStartInfo(runtimeDirectory, arguments);
-        return ApplicationProcess.Run(start);
+        string executable = Environment.ProcessPath
+            ?? throw new InvalidOperationException("The launcher executable path is unavailable");
+        return new LauncherUpdate(executable).Run(start);
     }
 
     public int RunApplication(string runtimeDirectory, EmbeddedApplication application, IReadOnlyList<string> arguments)

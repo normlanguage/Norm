@@ -38,7 +38,7 @@ final class CliUpdateManagerTest {
       assertTrue(text.contains("Scoop update failed (exit 1)"));
       assertTrue(text.contains("Latest version: v1.2.3"));
       assertTrue(text.contains("development build"));
-      assertTrue(text.contains("Installation will continue after this command exits"));
+      assertTrue(text.contains("The launcher will now install"));
       assertTrue(text.contains("norm --version"));
       assertFalse(text.contains("Updated Norm"));
     } finally {
@@ -82,7 +82,7 @@ final class CliUpdateManagerTest {
         assertEquals(1, files.count());
       }
       assertFalse(output.toString().contains("Downloaded Norm"));
-      assertFalse(output.toString().contains("Installation will continue"));
+      assertFalse(output.toString().contains("The launcher will now install"));
     } finally {
       server.stop(0);
     }
@@ -100,7 +100,7 @@ final class CliUpdateManagerTest {
           IOException.class,
           () -> new CliUpdateManager(uri(server), host, "1.0.0").update(new PrintWriter(output)));
       assertTrue(output.toString().contains("Downloaded Norm"));
-      assertFalse(output.toString().contains("Installation will continue"));
+      assertFalse(output.toString().contains("The launcher will now install"));
       assertEquals("old", Files.readString(host.target));
       try (var files = Files.list(directory)) {
         assertEquals(1, files.count());

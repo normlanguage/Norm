@@ -25,3 +25,5 @@ Directory module selection: [ModuleInput](https://github.com/normlanguage/Norm/b
 Module loading and source validation: [ProjectModuleSources](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectModuleSources.java); [SourceStructure](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceStructure.java).
 
 CLI update flow and progress: [CliUpdateManager](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/CliUpdateManager.java), [UpdateProgress](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/UpdateProgress.java).
+
+Windows installation ownership: [LauncherUpdate](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/LauncherUpdate.cs).
