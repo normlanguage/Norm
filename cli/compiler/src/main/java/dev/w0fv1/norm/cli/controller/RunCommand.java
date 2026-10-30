@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.application.ApplicationRunResult;
 import dev.w0fv1.norm.application.ApplicationRunner;
-import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;

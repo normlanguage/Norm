@@ -17,7 +17,8 @@ public final class ModuleBindingSourceEditor {
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(target, "target");
     Objects.requireNonNull(digest, "digest");
-    Syntax.Program program = parse(source);
+    Syntax.Program program =
+        parse(SourceStructure.inspect(source).moduleConfiguration().orElse(source));
     List<Syntax.Call> matches =
         calls(program).stream().filter(call -> matches(call, target)).toList();
     if (matches.size() != 1) {

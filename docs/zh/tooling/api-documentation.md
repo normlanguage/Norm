@@ -24,7 +24,7 @@ norm docs check path/to/markdown --format json
 
 ## 生成
 
-指定目录必须直接包含 `module.norm`：
+目录通过 [ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java) 定位模块，支持独立配置和应用源码中的内嵌声明：
 
 ```bash
 norm docs path/to/module --output path/to/api --strict

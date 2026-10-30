@@ -662,7 +662,7 @@ final class CliControllerTest {
   }
 
   @Test
-  void requiresModuleNormAndRejectsUndocumentedExportedDeclarationsInStrictMode()
+  void requiresModuleEntryAndRejectsUndocumentedExportedDeclarationsInStrictMode()
       throws IOException {
     Path missingModule = Files.createDirectories(temporaryDirectory.resolve("missing-module"));
     Result missing =
@@ -672,7 +672,7 @@ final class CliControllerTest {
             "--output",
             temporaryDirectory.resolve("missing-output").toString());
     assertEquals(ExitCode.INPUT_ERROR, missing.exitCode());
-    assertTrue(missing.standardError().contains("module.norm"));
+    assertTrue(missing.standardError().contains("neither application.norm nor main.norm"));
 
     Path sourceRoot = Files.createDirectories(temporaryDirectory.resolve("strict-sources"));
     Path moduleRoot = Files.createDirectories(sourceRoot.resolve("strict"));

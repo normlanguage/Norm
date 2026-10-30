@@ -3,10 +3,10 @@ package dev.w0fv1.norm.project;
 import static dev.w0fv1.norm.project.ProjectPaths.normalize;
 import static dev.w0fv1.norm.project.ProjectPaths.repositoryRoot;
 
+import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.frontend.SourceStructure;
-import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
@@ -248,10 +248,18 @@ final class ProjectLoading {
       ProjectLoadPurpose purpose,
       SourceStructure structure)
       throws IOException {
+    ResolvedProjectModule rootModule = embeddedModule(entrySource, structure);
+    List<ResolvedProjectModule> graph = dependencies.resolve(rootModule, overlays, purpose);
+    Path entry = normalize(entrySource.path());
+    return sourceSet(rootModule.root(), entry, entry, graph, structure);
+  }
+
+  private ResolvedProjectModule embeddedModule(SourceFile entrySource, SourceStructure structure)
+      throws IOException {
     inputs.directory(entrySource.path().getParent().resolve("resources"), false);
     SourceFile programSource = structure.programSource();
     Optional<String> packageName = SourceHeader.parse(programSource).packageName();
-    ModuleDeclaration declaration = modules.evaluate(structure.moduleConfiguration().orElseThrow());
+    ModuleDeclaration declaration = modules.evaluate(ModuleInput.configuration(entrySource));
     boolean localApplication = packageName.isEmpty() && declaration.name().isEmpty();
     ModuleDescriptor descriptor =
         moduleSources.resolveDeclaration(
@@ -287,32 +295,30 @@ final class ProjectLoading {
             : new ModuleLoader().load(new ModuleSourceSnapshot(moduleSources), descriptor);
     Path root = normalize(entrySource.path()).getParent();
     if (root == null) throw new IOException("application source path has no parent");
-    ResolvedProjectModule rootModule =
-        new ResolvedProjectModule(
-            root,
-            entrySource,
-            descriptor,
-            loaded.sources(),
-            loaded.exportedSources(),
-            Set.of(),
-            Optional.empty(),
-            ProjectModuleSources.collectResources(root),
-            Optional.empty());
-    List<ResolvedProjectModule> graph = dependencies.resolve(rootModule, overlays, purpose);
-    Path entry = normalize(entrySource.path());
-    return sourceSet(root, entry, entry, graph, structure);
+    return new ResolvedProjectModule(
+        root,
+        entrySource,
+        descriptor,
+        loaded.sources(),
+        loaded.exportedSources(),
+        Set.of(),
+        Optional.empty(),
+        ProjectModuleSources.collectResources(root),
+        Optional.empty());
   }
 
   public ModuleDescriptor evaluateModule(SourceFile source) throws IOException {
-    if (!ModuleSourceFiles.isModuleSource(source)) {
-      throw new IllegalArgumentException("source is not a module configuration");
-    }
-    ModuleDeclaration declaration = modules.evaluate(source);
+    ModuleDeclaration declaration = modules.evaluate(ModuleInput.configuration(source));
     return moduleSources.resolveDeclaration(
         declaration,
         declaration.name().isPresent()
             ? Optional.empty()
-            : ModuleNameInference.infer(source, Map.of(), declaration.layout()));
+            : ModuleSourceFiles.isModuleSource(source)
+                ? ModuleNameInference.infer(source, Map.of(), declaration.layout())
+                : Optional.of(
+                    SourceHeader.parse(source)
+                        .packageName()
+                        .orElse(ModuleCoordinate.localApplication().name())));
   }
 
   public ResolvedJarGraph resolveJarBinding(SourceFile source) throws IOException {
@@ -326,10 +332,10 @@ final class ProjectLoading {
   }
 
   ProjectLoader.ModuleArchiveContents moduleArchiveContents(SourceFile source) throws IOException {
-    if (!ModuleSourceFiles.isModuleSource(source)) {
-      throw new IllegalArgumentException("source is not a module configuration");
-    }
-    ResolvedProjectModule resolved = moduleSources.load(source, Map.of());
+    ResolvedProjectModule resolved =
+        ModuleSourceFiles.isModuleSource(source)
+            ? moduleSources.load(source, Map.of())
+            : embeddedModule(source, SourceStructure.inspect(source));
     var graph = dependencies.resolve(resolved, Map.of(), ProjectLoadPurpose.RUNTIME);
     resolved = graph.getLast();
     return new ProjectLoader.ModuleArchiveContents(

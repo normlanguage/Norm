@@ -6,7 +6,6 @@ import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -14,7 +13,7 @@ import java.util.List;
 final class PackageCommand implements Command {
   @Override
   public String usage() {
-    return "norm package <module-directory|module.norm> --output <repository>";
+    return "norm package <module-directory|file.norm> --output <repository>";
   }
 
   @Override
@@ -50,8 +49,8 @@ final class PackageCommand implements Command {
       err.println("error[NORM-CLI-0004]: invalid package path");
       return ExitCode.INPUT_ERROR;
     }
-    Path modulePath = Files.isDirectory(requested) ? requested.resolve("module.norm") : requested;
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
+      Path modulePath = dev.w0fv1.norm.project.ModuleInput.resolve(requested);
       try (var compiler = environment.compilerSession();
           var projects = environment.projectLoader()) {
         var packaged = new ModulePackager(projects, compiler).packageModule(modulePath, output);

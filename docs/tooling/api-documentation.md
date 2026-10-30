@@ -24,7 +24,7 @@ This site's build and development preview call the same compiler entry point thr
 
 ## Generation
 
-The specified directory must directly contain `module.norm`:
+The directory identifies its module through [ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java), supporting a separate configuration or an embedded application declaration:
 
 ```bash
 norm docs path/to/module --output path/to/api --strict

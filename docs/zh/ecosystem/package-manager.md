@@ -4,7 +4,7 @@ Module 是唯一依赖和发布单位，`Module module()` 是模块身份与依�
 
 本地模块图与可见性见[模块系统](/zh/spec/module-system)。Java 生态接入、内容身份、派生 Maven 元数据和纯 Norm 迁移边界见 [Java Library Adapter](/zh/design/java-library-adapters)。
 
-带命名空间的 Module `<namespace>.<artifact>` 固定发布为 `<namespace>:<artifact>:<version>`。顶层 Module 使用自身名称作为仓库 group 与 artifact，例如 `orm@1` 发布为 `orm:orm:1`，制品名仍为 `orm-1.nar`。`commons.lang@1` 发布为 `commons:lang:1`，制品名为 `lang-1.nar`。NAR 是 Norm Archive；`norm resolve` 只写 `module.norm` 中的内容摘要，`norm package` 输出 Maven 仓库布局、NAR 和 POM，Gradle 使用同一 Maven 元数据。
+带命名空间的 Module `<namespace>.<artifact>` 固定发布为 `<namespace>:<artifact>:<version>`。顶层 Module 使用自身名称作为仓库 group 与 artifact，例如 `orm@1` 发布为 `orm:orm:1`，制品名仍为 `orm-1.nar`。`commons.lang@1` 发布为 `commons:lang:1`，制品名为 `lang-1.nar`。NAR 是 Norm Archive；`norm resolve` 只写模块声明源文件中的内容摘要，`norm package` 输出 Maven 仓库布局、NAR 和 POM，Gradle 使用同一 Maven 元数据。
 
 NAR 是统一的 Module 制品。纯 Norm Module 与 Java Binding Module 使用相同的坐标、依赖模型和归档格式；Binding 只是可选实现，移除 Binding 后不改变包种类或消费者的调用方式。
 
@@ -18,10 +18,12 @@ dependency(repository: "github", name: "micronaut.web")
 
 `github` 先读取 [`normlanguage/registry`](https://github.com/normlanguage/registry) 的模块名映射，再从模块自己的 GitHub Release `v<version>` 下载 `<artifact>-<version>.nar` 与 SHA-256 sidecar。Release 开启不可变发布；注册表只决定模块由哪个仓库拥有，不保存版本清单或制品。NAR 中的 Java Binding 再由编译器从 Maven Central 解析 JAR、POM、BOM 和传递运行依赖。Norm 包来源与 Java artifact 仓库是独立概念；用户不编写 Maven 或 Gradle 配置。
 
-每个 Module 使用独立源码仓库，`module.norm` 仍是模块身份、依赖与可选 Java 根制品的唯一声明源。第三方先通过注册表 Pull Request 认领模块名，随后可在自己的仓库独立发布新版本；未来增加 `norm` 仓库不会改变 `github` 的解析语义。
+每个 Module 使用独立源码仓库，`Module module()` 是模块身份、依赖与可选 Java 根制品的唯一声明源。第三方先通过注册表 Pull Request 认领模块名，随后可在自己的仓库独立发布新版本；未来增加 `norm` 仓库不会改变 `github` 的解析语义。
 
 ## 更新
 
-`norm update` 是统一更新入口。执行时会先更新当前目录的 `module.norm` 依赖：查询仓库最新稳定整数版本，下载并校验对应 NAR，全部成功后原子写回依赖版本。没有 `module.norm` 时只处理 CLI；也可以显式使用 `norm update --project <module-directory>` 或 `norm update --cli`。
+`norm update` 是统一更新入口。执行时会先更新当前目录的模块依赖：查询仓库最新稳定整数版本，下载并校验对应 NAR，全部成功后原子写回依赖版本。没有模块入口时只处理 CLI；也可以显式使用 `norm update --project <module-directory>` 或 `norm update --cli`。
 
 CLI 更新优先使用当前平台的包管理器（Windows 使用 Scoop，macOS 使用 Homebrew，Linux 使用 apt），包管理器不可用或更新失败时，在 Windows 通过官方 GitHub Release 下载并在当前进程退出后替换启动器。
+
+目录模块定位入口：[ModuleInput](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ModuleInput.java).
