@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.cli.update.CliUpdateManager;
+import dev.w0fv1.norm.cli.update.UpdateProgress;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.project.ProjectLoader;
@@ -111,18 +112,24 @@ final class UpdateCommand implements Command {
       }
       if (module != null && Files.isRegularFile(module)) {
         attempted = true;
-        try {
+        try (var progress = new UpdateProgress(out, System.console() != null)) {
+          progress.stage("Checking project dependencies");
           var result = projectUpdater.update(module);
           if (result.updates().isEmpty())
-            out.println("Project dependencies are already up to date.");
+            progress.message("Project dependencies are already up to date.");
           for (var update : result.updates()) {
             String previous =
                 update.previousVersion() == null
                     ? "latest"
                     : Integer.toString(update.previousVersion());
-            out.printf(
-                "Updated %s:%s %s -> %d%n",
-                update.repository(), update.name(), previous, update.version());
+            progress.message(
+                String.format(
+                    java.util.Locale.ROOT,
+                    "Updated %s:%s %s -> %d",
+                    update.repository(),
+                    update.name(),
+                    previous,
+                    update.version()));
           }
         } catch (IOException | IllegalArgumentException exception) {
           err.println(

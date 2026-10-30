@@ -189,6 +189,7 @@ final class CliControllerTest {
                   out.println("CLI updated");
                 },
                 ignored -> {
+                  assertTrue(output.toString().contains("Checking project dependencies"));
                   throw new IOException("dependency registry unavailable");
                 })
             .execute(
