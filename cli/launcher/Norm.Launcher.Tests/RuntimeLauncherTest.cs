@@ -19,7 +19,7 @@ public sealed class RuntimeLauncherTest : IDisposable
 
         Assert.Equal(Path.Combine(root, "runtime", "bin", "java.exe"), start.FileName);
         Assert.Equal(
-            ["--native", "value with spaces", "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "web.norm", "user value"],
+            ["--native", "value with spaces", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dnorm.console=" + (!Console.IsOutputRedirected).ToString().ToLowerInvariant(), "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "web.norm", "user value"],
             start.ArgumentList);
     }
 
@@ -35,7 +35,7 @@ public sealed class RuntimeLauncherTest : IDisposable
 
         ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application, ["a  b", "--json"]);
 
-        Assert.Equal(["--add-modules=ALL-DEFAULT", "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry, "--", "a  b", "--json"], start.ArgumentList);
+        Assert.Equal(["--add-modules=ALL-DEFAULT", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dnorm.console=" + (!Console.IsOutputRedirected).ToString().ToLowerInvariant(), "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry, "--", "a  b", "--json"], start.ArgumentList);
         Assert.Equal(application.Root, start.Environment["NORM_APPLICATION_BUNDLE"]);
     }
 

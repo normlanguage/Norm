@@ -112,7 +112,7 @@ final class UpdateCommand implements Command {
       }
       if (module != null && Files.isRegularFile(module)) {
         attempted = true;
-        try (var progress = new UpdateProgress(out, System.console() != null)) {
+        try (var progress = new UpdateProgress(out)) {
           progress.stage("Checking project dependencies");
           var result = projectUpdater.update(module);
           if (result.updates().isEmpty())

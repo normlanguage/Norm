@@ -26,3 +26,5 @@ Diagnostic positions use document URIs and zero-based UTF-16 character offsets w
 When no tests are found, the command returns a failing exit code and `no_tests` status. Compile errors and test failures may share an exit code; machine consumers should read `status` for the specific outcome.
 
 A result applies to the inputs captured and analyzed by that invocation, not sources edited later. Current results lack a complete input snapshot identity and cannot serve as a pre-edit version token across calls.
+
+Windows terminal and redirected output: [ProcessOutput](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/ProcessOutput.cs), [encoding acceptance](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher.Tests/ProcessOutputTest.cs).

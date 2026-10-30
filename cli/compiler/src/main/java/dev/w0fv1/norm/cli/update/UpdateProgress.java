@@ -19,6 +19,10 @@ public final class UpdateProgress implements AutoCloseable {
   private int lineWidth;
   private boolean closed;
 
+  public UpdateProgress(PrintWriter output) {
+    this(output, System.console() != null || Boolean.getBoolean("norm.console"));
+  }
+
   public UpdateProgress(PrintWriter output, boolean interactive) {
     this(output, interactive, Duration.ofMillis(interactive ? 250 : 5000));
   }

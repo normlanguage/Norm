@@ -9,6 +9,19 @@ import org.junit.jupiter.api.Test;
 
 final class UpdateProgressTest {
   @Test
+  void preservesLauncherConsoleDetectionWhenTheRuntimeOutputIsPiped() {
+    String previous = System.setProperty("norm.console", "true");
+    var text = new StringWriter();
+    try (var progress = new UpdateProgress(new PrintWriter(text))) {
+      progress.stage("Checking updates");
+      assertTrue(text.toString().contains("\r"));
+    } finally {
+      if (previous == null) System.clearProperty("norm.console");
+      else System.setProperty("norm.console", previous);
+    }
+  }
+
+  @Test
   void flushesStagesAndRendersActualBytesWithoutInventingTotals() {
     var text = new StringWriter();
     try (var progress =

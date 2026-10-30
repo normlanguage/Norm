@@ -16,6 +16,7 @@
     <Compile Include="../Norm.Launcher/NativeApplication.cs" Link="NativeApplication.cs" />
     <Compile Include="../Norm.Launcher/RuntimeExtractor.cs" Link="RuntimeExtractor.cs" />
     <Compile Include="../Norm.Launcher/ApplicationProcess.cs" Link="ApplicationProcess.cs" />
+    <Compile Include="../Norm.Launcher/ProcessOutput.cs" Link="ProcessOutput.cs" />
     <Compile Include="../Norm.Launcher/WindowsProcessJob.cs" Link="WindowsProcessJob.cs" />
   </ItemGroup>
 </Project>
