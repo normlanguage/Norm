@@ -91,6 +91,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Verify Windows launcher and installation lifecycle
+        if: runner.os == 'Windows'
+        run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
+
       - name: Build self-contained Unix CLI and release asset
         if: runner.os != 'Windows'
         shell: bash
