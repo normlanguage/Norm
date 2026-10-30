@@ -28,7 +28,7 @@ public final class CliUpdateManager {
   }
 
   public Result update(PrintWriter out) throws IOException {
-    try (var progress = new UpdateProgress(out, System.console() != null);
+    try (var progress = new UpdateProgress(out);
         var transport = new UpdateTransport(Duration.ofSeconds(30))) {
       progress.stage("Checking Norm updates");
       progress.detail(

@@ -34,6 +34,9 @@ internal sealed class RuntimeLauncher
         {
             start.ArgumentList.Add(argument);
         }
+        start.ArgumentList.Add("-Dstdout.encoding=UTF-8");
+        start.ArgumentList.Add("-Dstderr.encoding=UTF-8");
+        start.ArgumentList.Add("-Dnorm.console=" + (!Console.IsOutputRedirected).ToString().ToLowerInvariant());
         start.ArgumentList.Add("--module-path");
         start.ArgumentList.Add(Path.Combine(runtimeDirectory, "lib"));
         start.ArgumentList.Add("--module");

@@ -26,3 +26,5 @@ norm test path/to/module --filter package.function --format json
 未发现测试返回失败退出码和 `no_tests` 状态。编译错误与测试失败可能具有相同退出码，机器调用方应读取 `status` 判断具体结果。
 
 结果对应本次调用捕获并分析的输入，不代表之后编辑过的源码。当前结果没有完整输入快照标识，不可作为跨调用编辑的前置版本令牌。
+
+Windows 终端与重定向输出：[ProcessOutput](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/ProcessOutput.cs)、[编码验收](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher.Tests/ProcessOutputTest.cs)。

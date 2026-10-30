@@ -16,11 +16,11 @@ internal static class ApplicationProcess
     {
         bool windowed = OperatingSystem.IsWindows() && Environment.ProcessPath is string executable && IsWindowed(executable);
         string? logs = null;
+        start.RedirectStandardOutput = true;
+        start.RedirectStandardError = true;
         if (windowed)
         {
             start.CreateNoWindow = true;
-            start.RedirectStandardOutput = true;
-            start.RedirectStandardError = true;
             logs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Programs", "Norm", "logs", Path.GetFileNameWithoutExtension(Environment.ProcessPath)!,
                 DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + "-" + Environment.ProcessId);
@@ -31,8 +31,8 @@ internal static class ApplicationProcess
         using Process process = Process.Start(start)
             ?? throw new InvalidOperationException("The application could not be started");
         using WindowsProcessJob job = WindowsProcessJob.Attach(process);
-        Task output = stdout is null ? Task.CompletedTask : process.StandardOutput.BaseStream.CopyToAsync(stdout);
-        Task errors = stderr is null ? Task.CompletedTask : process.StandardError.BaseStream.CopyToAsync(stderr);
+        Task output = stdout is null ? ProcessOutput.ForwardAsync(process.StandardOutput.BaseStream, false) : process.StandardOutput.BaseStream.CopyToAsync(stdout);
+        Task errors = stderr is null ? ProcessOutput.ForwardAsync(process.StandardError.BaseStream, true) : process.StandardError.BaseStream.CopyToAsync(stderr);
         ConsoleCancelEventHandler cancel = (_, eventArguments) =>
         {
             eventArguments.Cancel = true;
@@ -48,6 +48,7 @@ internal static class ApplicationProcess
         try
         {
             process.WaitForExit();
+            job.Dispose();
             Task.WhenAll(output, errors).GetAwaiter().GetResult();
             return process.ExitCode;
         }
