@@ -17,3 +17,5 @@ The library source is the single source of truth for public declarations:
 
 - [Agent module](https://github.com/normlanguage/Norm/tree/main/norm/libraries/agent)
 - [OpenAI protocol module](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)
+
+HTTP header configuration is owned by [Client](../../../norm/libraries/openai/client.norm) and exposed by [Agent](../../../norm/libraries/agent/agent.norm), using the standard [HeaderMap](../../../norm/stdlib/std/http/client.norm) type.

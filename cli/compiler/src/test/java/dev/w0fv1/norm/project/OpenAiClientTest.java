@@ -81,6 +81,46 @@ final class OpenAiClientTest {
   }
 
   @ParameterizedTest
+  @ValueSource(strings = {"authorization", "AUTHORIZATION", "content-type", "CONTENT-TYPE"})
+  void rejectsProtocolHeaderOverrides(String name) throws Exception {
+    Path library =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries/openai");
+    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
+    try (var files = Files.list(library)) {
+      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
+        Files.copy(source, dependency.resolve(source.getFileName()));
+    }
+    Path app = Files.createDirectories(directory.resolve("app"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() { return module(name: "app", version: 1,
+          dependencies: [dependency(repository: "github", name: "openai", version: 1)]) }
+        """);
+    Path entry = app.resolve("main.norm");
+    Files.writeString(
+        entry,
+        """
+        package app
+        import openai.Client
+        import openai.OpenAiException
+        import std.http.HeaderMap
+        import std.http.HttpHeader
+        Void main() {
+          try {
+            Client(apiKey: "test", model: "model",
+              headers: HeaderMap(values: [HttpHeader(name: "%s", value: "override")]))
+          } catch OpenAiException error { printLine(error.code) }
+        }
+        """
+            .formatted(name));
+    assertEquals("OPENAI-INVALID-CONFIGURATION\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+  }
+
+  @ParameterizedTest
   @ValueSource(
       strings = {"completed", "incomplete", "refusal", "http_error", "malformed", "json_object"})
   void exchangesRealHttpAndPreservesResponseSemantics(String scenario) throws Exception {
@@ -115,6 +155,8 @@ final class OpenAiClientTest {
                   String headers = headerBytes.toString(StandardCharsets.UTF_8);
                   assertTrue(headers.startsWith("POST /v1/responses HTTP/1.1"), headers);
                   assertTrue(headers.toLowerCase().contains("authorization: bearer test-key"));
+                  assertTrue(headers.toLowerCase().contains("x-opencode-session: client-session"));
+                  assertTrue(headers.toLowerCase().contains("user-agent: norm-test/1.0"));
                   int length =
                       headers
                           .lines()
@@ -203,9 +245,12 @@ final class OpenAiClientTest {
           import openai.StructuredOutputMode
           import openai.OpenAiException
           import std.http.Uri
+          import std.http.HeaderMap
+          import std.http.HttpHeader
           import std.json.parseJson
           Void main() {
-            Client client = Client(apiKey: "test-key", model: "test-model", endpoint: "http://127.0.0.1:%d/v1/responses")
+            Client client = Client(apiKey: "test-key", model: "test-model", endpoint: "http://127.0.0.1:%d/v1/responses",
+              headers: HeaderMap(values: [HttpHeader(name: "x-opencode-session", value: "client-session"), HttpHeader(name: "User-Agent", value: "norm-test/1.0")]))
             try {
               var result = client.exchange(stream: false, request: ResponseRequest(model: "test-model", input: ResponseInput.Text(value: "创建分支"),
                 format: StructuredOutput(mode: StructuredOutputMode.%s, name: "action", schema: parseJson(value: "{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{},\\\"additionalProperties\\\":false}"))))

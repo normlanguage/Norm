@@ -17,6 +17,7 @@ import openai.ToolResult
 import openai.ToolDefinition
 
 
+import std.http.HeaderMap
 import std.core.Exception
 import std.json.JsonValue
 import std.json.writeJson
@@ -93,10 +94,11 @@ public class Agent {
     @Document(description: "The dynamic tool provider.") Function<List<Function<?>>()>? toolProvider = null,
     @Document(description: "The tool scope factory.") Function<ToolScope()>? beginToolScope = null,
     @Document(description: "The context provider.") Function<String?()>? contextProvider = null,
-    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = []
+    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = [],
+    @Document(description: "Additional model HTTP headers forwarded to the protocol client.") HeaderMap headers = HeaderMap(values: [])
   ) {
     if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
-    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
+    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint, headers: headers)
     this.instructions = instruction
     this.tools = tools
     this.toolProvider = toolProvider
