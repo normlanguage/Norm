@@ -27,3 +27,5 @@ Module loading and source validation: [ProjectModuleSources](https://github.com/
 CLI update flow and progress: [CliUpdateManager](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/CliUpdateManager.java), [UpdateProgress](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/UpdateProgress.java).
 
 Windows installation ownership: [LauncherUpdate](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/LauncherUpdate.cs).
+
+Release selection: [GitHubPackageRepository](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/packages/GitHubPackageRepository.java); [acceptance tests](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/packages/GitHubPackageRepositoryTest.java).

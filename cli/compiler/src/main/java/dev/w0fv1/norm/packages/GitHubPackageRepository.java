@@ -22,6 +22,8 @@ final class GitHubPackageRepository implements NormPackageRepository {
       URI.create("https://raw.githubusercontent.com/normlanguage/registry/main/registry.json");
   static final URI RELEASES = URI.create("https://github.com/");
 
+  private static final URI API = URI.create("https://api.github.com/repos/");
+  private final URI apiUri;
   private final URI registryUri;
   private final URI releasesUri;
   private volatile Map<String, GitHubRepository> packages;
@@ -31,6 +33,11 @@ final class GitHubPackageRepository implements NormPackageRepository {
   }
 
   GitHubPackageRepository(URI registryUri, URI releasesUri) {
+    this(registryUri, releasesUri, API);
+  }
+
+  GitHubPackageRepository(URI registryUri, URI releasesUri, URI apiUri) {
+    this.apiUri = Objects.requireNonNull(apiUri, "apiUri");
     this.registryUri = Objects.requireNonNull(registryUri, "registryUri");
     this.releasesUri = Objects.requireNonNull(releasesUri, "releasesUri");
   }
@@ -90,38 +97,34 @@ final class GitHubPackageRepository implements NormPackageRepository {
                         "Norm module '" + moduleName + "' has no stable GitHub release"));
       }
     }
-    URI latest =
-        releasesUri.resolve(
-            repository.owner() + "/" + repository.repository() + "/releases/latest");
+    int latest = 0;
     try {
-      HttpResponse<Void> response =
-          RepositoryHttp.send(
-              client,
-              HttpRequest.newBuilder(latest).GET().build(),
-              HttpResponse.BodyHandlers.discarding());
-      if (response.statusCode() != 200) {
-        throw new IOException(
-            "cannot resolve latest Norm module '"
-                + moduleName
-                + "': HTTP "
-                + response.statusCode());
+      for (int page = 1; ; page++) {
+        URI uri =
+            apiUri.resolve(
+                repository.owner()
+                    + "/"
+                    + repository.repository()
+                    + "/releases?page="
+                    + page
+                    + "&per_page=100");
+        var releases = JsonParser.parseString(read(uri, client)).getAsJsonArray();
+        for (var value : releases) {
+          var release = value.getAsJsonObject();
+          if (release.get("draft").getAsBoolean() || release.get("prerelease").getAsBoolean())
+            continue;
+          latest = Math.max(latest, stableVersion(release.get("tag_name").getAsString()).orElse(0));
+        }
+        if (releases.size() < 100) break;
       }
-      String path = response.uri().getPath();
-      int separator = path.lastIndexOf("/tag/");
-      java.util.OptionalInt version =
-          stableVersion(separator < 0 ? "" : path.substring(separator + 5));
-      if (version.isEmpty()) {
-        throw new IOException(
-            "latest GitHub release for Norm module '"
-                + moduleName
-                + "' must use an integer tag such as v2");
-      }
-      return version.getAsInt();
-    } catch (InterruptedException exception) {
-      Thread.currentThread().interrupt();
+    } catch (RuntimeException exception) {
       throw new IOException(
-          "interrupted while resolving latest Norm module '" + moduleName + "'", exception);
+          "invalid GitHub release information for Norm module '" + moduleName + "'", exception);
     }
+    if (latest == 0)
+      throw new IOException(
+          "Norm module '" + moduleName + "' has no stable integer GitHub release");
+    return latest;
   }
 
   private static java.util.OptionalInt stableVersion(String tag) {
@@ -184,12 +187,12 @@ final class GitHubPackageRepository implements NormPackageRepository {
               HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IOException(
-            "cannot load GitHub package registry " + uri + ": HTTP " + response.statusCode());
+            "cannot load GitHub metadata " + uri + ": HTTP " + response.statusCode());
       }
       return response.body();
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
-      throw new IOException("interrupted while loading GitHub package registry", exception);
+      throw new IOException("interrupted while loading GitHub metadata", exception);
     }
   }
 

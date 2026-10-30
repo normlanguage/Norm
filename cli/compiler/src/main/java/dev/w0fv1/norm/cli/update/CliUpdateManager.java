@@ -35,33 +35,6 @@ public final class CliUpdateManager {
           "Current version: "
               + currentVersion
               + (currentVersion.contains("dev") ? " (development build)" : ""));
-      var manager = host.packageManager();
-      if (manager.isPresent()) {
-        var selected = manager.orElseThrow();
-        progress.stage("Updating Norm via " + selected.label);
-        try {
-          int exit = host.updatePackage(selected, progress::detail);
-          if (exit == 0) {
-            progress.message(
-                selected.label
-                    + " update completed. Run 'norm --version' to verify the installed version.");
-            return new Result(selected.label, false);
-          }
-          progress.message(
-              selected.label
-                  + " update failed (exit "
-                  + exit
-                  + "). Using the official release download.");
-        } catch (IOException exception) {
-          if (Thread.currentThread().isInterrupted()) throw exception;
-          progress.message(
-              selected.label
-                  + " update failed: "
-                  + exception.getMessage()
-                  + ". Using the official release download.");
-        }
-      } else
-        progress.detail("No supported package manager found. Using the official release download.");
       progress.stage("Checking the latest Norm release");
       JsonObject release;
       String version;
@@ -75,10 +48,52 @@ public final class CliUpdateManager {
           throw new IOException("Norm release information has no version tag");
         version = release.get("tag_name").getAsString();
         progress.message("Latest version: " + version);
-        if (version.replaceFirst("^v", "").equals(currentVersion.replaceFirst("^v", ""))) {
+        if (atLeast(currentVersion, version)) {
           progress.message("Norm is up to date (" + version + ").");
           return new Result("current", false);
         }
+
+      } catch (com.google.gson.JsonParseException
+          | IllegalArgumentException
+          | IllegalStateException exception) {
+        throw new IOException("invalid Norm release information", exception);
+      }
+      var manager = host.packageManager();
+      if (manager.isPresent()) {
+        var selected = manager.orElseThrow();
+        progress.stage("Updating Norm via " + selected.label);
+        try {
+          int exit = host.updatePackage(selected, progress::detail);
+          if (exit == 0) {
+            String installed = host.installedVersion();
+            if (atLeast(installed, version)) {
+              progress.message("Verified installed Norm " + installed + ".");
+              return new Result(selected.label, false);
+            }
+            progress.message(
+                selected.label
+                    + " left Norm at "
+                    + installed
+                    + "; official version is "
+                    + version
+                    + ". Using the official release download.");
+          } else
+            progress.message(
+                selected.label
+                    + " update failed (exit "
+                    + exit
+                    + "). Using the official release download.");
+        } catch (IOException exception) {
+          if (Thread.currentThread().isInterrupted()) throw exception;
+          progress.message(
+              selected.label
+                  + " update failed: "
+                  + exception.getMessage()
+                  + ". Using the official release download.");
+        }
+      } else
+        progress.detail("No supported package manager found. Using the official release download.");
+      try {
         if (!release.has("assets") || !release.get("assets").isJsonArray())
           throw new IOException("Norm release information has no assets");
         asset =
@@ -92,10 +107,8 @@ public final class CliUpdateManager {
                     .findFirst()
                     .orElseThrow(
                         () -> new IOException("latest Norm release has no Windows CLI asset")));
-      } catch (com.google.gson.JsonParseException
-          | IllegalArgumentException
-          | IllegalStateException exception) {
-        throw new IOException("invalid Norm release information", exception);
+      } catch (RuntimeException exception) {
+        throw new IOException("invalid Norm release assets", exception);
       }
       Path target = host.launcherPath();
       Path staged = Files.createTempFile(target.getParent(), "norm-update-", ".exe");
@@ -114,6 +127,17 @@ public final class CliUpdateManager {
         if (!scheduled) Files.deleteIfExists(staged);
       }
     }
+  }
+
+  private static boolean atLeast(String installed, String latest) throws IOException {
+    String expected = latest.replaceFirst("^v", "");
+    if (!expected.matches("[0-9]+\\.[0-9]+\\.[0-9]+"))
+      throw new IOException("invalid official Norm version: " + latest);
+    String actual = installed.replaceFirst("^v", "");
+    if (!actual.matches("[0-9]+\\.[0-9]+\\.[0-9]+")) return false;
+    return java.lang.module.ModuleDescriptor.Version.parse(actual)
+            .compareTo(java.lang.module.ModuleDescriptor.Version.parse(expected))
+        >= 0;
   }
 
   public record Result(String method, boolean deferred) {}

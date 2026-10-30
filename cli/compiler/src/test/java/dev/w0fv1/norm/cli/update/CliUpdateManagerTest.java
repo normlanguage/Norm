@@ -50,12 +50,14 @@ final class CliUpdateManagerTest {
   void skipsInstallationWhenAlreadyCurrent() throws Exception {
     var server = server(200);
     var host = new Host(directory);
+    host.manager = Optional.of(UpdateHost.PackageManager.SCOOP);
     var output = new StringWriter();
     server.start();
     try {
       var result = new CliUpdateManager(uri(server), host, "1.2.3").update(new PrintWriter(output));
       assertFalse(result.deferred());
       assertNull(host.staged);
+      assertEquals(0, host.packageCalls);
       assertTrue(output.toString().contains("Norm is up to date (v1.2.3)"));
       assertFalse(output.toString().contains("Downloading Norm"));
     } finally {
@@ -139,18 +141,42 @@ final class CliUpdateManagerTest {
   }
 
   @Test
-  void successfulPackageManagerDoesNotNeedTheReleaseService() throws Exception {
+  void successfulPackageManagerIsVerifiedAgainstTheOfficialRelease() throws Exception {
+    var server = server(200);
     var host = new Host(directory);
     host.manager = Optional.of(UpdateHost.PackageManager.BREW);
     host.exit = 0;
+    host.version = "1.2.3";
     var output = new StringWriter();
-    var result =
-        new CliUpdateManager(URI.create("http://127.0.0.1:1/latest"), host, "1.0.0")
-            .update(new PrintWriter(output));
-    assertFalse(result.deferred());
-    assertNull(host.staged);
-    assertTrue(output.toString().contains("Homebrew update completed"));
-    assertTrue(output.toString().contains("package output"));
+    server.start();
+    try {
+      var result = new CliUpdateManager(uri(server), host, "1.0.0").update(new PrintWriter(output));
+      assertFalse(result.deferred());
+      assertNull(host.staged);
+      assertTrue(output.toString().contains("Verified installed Norm 1.2.3"));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void successfulButStalePackageManagerFallsBackToOfficialRelease() throws Exception {
+    var server = server(200);
+    var host = new Host(directory);
+    host.manager = Optional.of(UpdateHost.PackageManager.SCOOP);
+    host.exit = 0;
+    host.version = "0.26.2";
+    var output = new StringWriter();
+    server.start();
+    try {
+      var result = new CliUpdateManager(uri(server), host, "1.0.0").update(new PrintWriter(output));
+      assertTrue(result.deferred());
+      assertNotNull(host.staged);
+      assertTrue(output.toString().contains("0.26.2"));
+      assertFalse(output.toString().contains("Scoop update completed"));
+    } finally {
+      server.stop(0);
+    }
   }
 
   private HttpServer server(int assetStatus) throws IOException {
@@ -188,6 +214,8 @@ final class CliUpdateManagerTest {
     final Path target;
     Path staged;
     int exit = 1;
+    String version = "1.0.0";
+    int packageCalls;
     boolean installFailure;
     Optional<PackageManager> manager = Optional.empty();
 
@@ -200,8 +228,13 @@ final class CliUpdateManagerTest {
     }
 
     public int updatePackage(PackageManager manager, Consumer<String> output) {
+      packageCalls++;
       output.accept("package output");
       return exit;
+    }
+
+    public String installedVersion() {
+      return version;
     }
 
     public Path launcherPath() {

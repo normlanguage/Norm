@@ -65,6 +65,22 @@ final class SystemUpdateHost implements UpdateHost {
     return execute(command, output, Duration.ofMinutes(15));
   }
 
+  @Override
+  public String installedVersion() throws IOException {
+    String launcher = System.getenv("NORM_LAUNCHER_PATH");
+    var version = new AtomicReference<String>();
+    int exit =
+        execute(
+            List.of(launcher == null || launcher.isBlank() ? "norm" : launcher, "--version"),
+            line -> {
+              if (line.startsWith("norm ")) version.set(line.substring(5).trim());
+            },
+            Duration.ofSeconds(30));
+    if (exit != 0 || version.get() == null)
+      throw new IOException("cannot verify installed Norm version");
+    return version.get();
+  }
+
   private static int execute(List<String> command, Consumer<String> output, Duration timeout)
       throws IOException {
     Process process = new ProcessBuilder(command).redirectErrorStream(true).start();

@@ -33,3 +33,5 @@ CLI 更新优先使用当前平台的包管理器（Windows 使用 Scoop，macOS
 CLI 更新流程与进度输出：[CliUpdateManager](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/CliUpdateManager.java), [UpdateProgress](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/update/UpdateProgress.java).
 
 Windows 安装执行入口：[LauncherUpdate](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/LauncherUpdate.cs).
+
+发布版本选择：[GitHubPackageRepository](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/packages/GitHubPackageRepository.java)；[验收测试](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/packages/GitHubPackageRepositoryTest.java)。
