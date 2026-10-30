@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.cli.controller;
 
-import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.application.ApplicationRunResult;
 import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.value.ExitCode;
@@ -9,6 +8,7 @@ import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
+import dev.w0fv1.norm.project.ApplicationEntry;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.InvalidPathException;

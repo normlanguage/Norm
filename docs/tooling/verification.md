@@ -11,7 +11,7 @@ norm check path/to/source.norm
 norm test path/to/module --filter package.function --format json
 ```
 
-`check` analyzes production and test sources without requiring `main` or running the business entry point or tests. Module configuration is still evaluated, and dependencies resolve under ordinary project rules. Directory inputs use `module.norm` when present; otherwise they use the application entry selected by [ApplicationEntry](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationEntry.java), including its embedded module declaration. A file entry point must be a production or test source.
+`check` analyzes production and test sources without requiring `main` or running the business entry point or tests. Module configuration is still evaluated, and dependencies resolve under ordinary project rules. Directory inputs use `module.norm` when present; otherwise they use the application entry selected by [ApplicationEntry](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ApplicationEntry.java), including its embedded module declaration. A file entry point must be a production or test source.
 
 `test` compiles and runs tests; `--filter` limits the package or function. See the [Testing API](/stdlib/testing-api) for test declarations and filtering semantics.
 

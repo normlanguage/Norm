@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.project;
 
-import dev.w0fv1.norm.application.ApplicationEntry;
 import dev.w0fv1.norm.frontend.SourceStructure;
 import dev.w0fv1.norm.source.SourceFile;
 import java.io.IOException;
