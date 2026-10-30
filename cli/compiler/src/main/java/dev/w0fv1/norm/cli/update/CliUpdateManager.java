@@ -68,22 +68,33 @@ public final class CliUpdateManager {
       URI asset;
       try {
         release = JsonParser.parseString(transport.read(releaseUri)).getAsJsonObject();
+        if (!release.has("tag_name")
+            || !release.get("tag_name").isJsonPrimitive()
+            || !release.get("tag_name").getAsJsonPrimitive().isString()
+            || release.get("tag_name").getAsString().isBlank())
+          throw new IOException("Norm release information has no version tag");
         version = release.get("tag_name").getAsString();
         progress.message("Latest version: " + version);
         if (version.replaceFirst("^v", "").equals(currentVersion.replaceFirst("^v", ""))) {
           progress.message("Norm is up to date (" + version + ").");
           return new Result("current", false);
         }
+        if (!release.has("assets") || !release.get("assets").isJsonArray())
+          throw new IOException("Norm release information has no assets");
         asset =
             URI.create(
                 release.getAsJsonArray("assets").asList().stream()
+                    .filter(value -> value.isJsonObject())
                     .map(value -> value.getAsJsonObject())
+                    .filter(value -> value.has("name") && value.has("browser_download_url"))
                     .filter(value -> value.get("name").getAsString().equals("norm.exe"))
                     .map(value -> value.get("browser_download_url").getAsString())
                     .findFirst()
                     .orElseThrow(
                         () -> new IOException("latest Norm release has no Windows CLI asset")));
-      } catch (IllegalArgumentException | IllegalStateException | NullPointerException exception) {
+      } catch (com.google.gson.JsonParseException
+          | IllegalArgumentException
+          | IllegalStateException exception) {
         throw new IOException("invalid Norm release information", exception);
       }
       Path target = host.launcherPath();

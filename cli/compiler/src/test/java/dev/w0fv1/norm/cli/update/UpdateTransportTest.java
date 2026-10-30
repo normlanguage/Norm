@@ -45,10 +45,17 @@ final class UpdateTransportTest {
           exchange.sendResponseHeaders(404, -1);
           exchange.close();
         });
+    server.createContext(
+        "/redirect",
+        exchange -> {
+          exchange.getResponseHeaders().set("Location", "/known");
+          exchange.sendResponseHeaders(302, -1);
+          exchange.close();
+        });
     server.start();
     try (var transport = new UpdateTransport(Duration.ofSeconds(2));
         var progress = new UpdateProgress(new PrintWriter(new StringWriter()), false)) {
-      for (String endpoint : java.util.List.of("known", "unknown")) {
+      for (String endpoint : java.util.List.of("known", "unknown", "redirect")) {
         Path target = directory.resolve(endpoint);
         transport.download(
             URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/" + endpoint),
@@ -66,6 +73,40 @@ final class UpdateTransportTest {
                       progress));
       assertTrue(failure.getMessage().contains("HTTP 404"));
     } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void timesOutWhileWaitingForReleaseHeaders() throws Exception {
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    var release = new CountDownLatch(1);
+    server.createContext(
+        "/latest",
+        exchange -> {
+          try {
+            release.await(5, TimeUnit.SECONDS);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+          exchange.close();
+        });
+    server.start();
+    try (var transport = new UpdateTransport(Duration.ofMillis(200))) {
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(3),
+          () -> {
+            IOException failure =
+                assertThrows(
+                    IOException.class,
+                    () ->
+                        transport.read(
+                            URI.create(
+                                "http://127.0.0.1:" + server.getAddress().getPort() + "/latest")));
+            assertTrue(failure.getMessage().contains("timed out checking Norm releases"));
+          });
+    } finally {
+      release.countDown();
       server.stop(0);
     }
   }

@@ -89,6 +89,56 @@ final class CliUpdateManagerTest {
   }
 
   @Test
+  void doesNotReportInstallationWhenSchedulingFails() throws Exception {
+    var server = server(200);
+    var host = new Host(directory);
+    host.installFailure = true;
+    var output = new StringWriter();
+    server.start();
+    try {
+      assertThrows(
+          IOException.class,
+          () -> new CliUpdateManager(uri(server), host, "1.0.0").update(new PrintWriter(output)));
+      assertTrue(output.toString().contains("Downloaded Norm"));
+      assertFalse(output.toString().contains("Installation will continue"));
+      assertEquals("old", Files.readString(host.target));
+      try (var files = Files.list(directory)) {
+        assertEquals(1, files.count());
+      }
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void reportsMalformedReleaseInformationAsAnInputFailure() throws Exception {
+    var server = server(200);
+    server.removeContext("/latest");
+    server.createContext(
+        "/latest",
+        exchange -> {
+          exchange.sendResponseHeaders(200, 1);
+          try (var body = exchange.getResponseBody()) {
+            body.write('{');
+          }
+        });
+    var host = new Host(directory);
+    server.start();
+    try {
+      IOException failure =
+          assertThrows(
+              IOException.class,
+              () ->
+                  new CliUpdateManager(uri(server), host, "1.0.0")
+                      .update(new PrintWriter(new StringWriter())));
+      assertTrue(failure.getMessage().contains("invalid Norm release information"));
+      assertNull(host.staged);
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void successfulPackageManagerDoesNotNeedTheReleaseService() throws Exception {
     var host = new Host(directory);
     host.manager = Optional.of(UpdateHost.PackageManager.BREW);
@@ -138,6 +188,7 @@ final class CliUpdateManagerTest {
     final Path target;
     Path staged;
     int exit = 1;
+    boolean installFailure;
     Optional<PackageManager> manager = Optional.empty();
 
     Host(Path directory) throws IOException {
@@ -157,7 +208,8 @@ final class CliUpdateManagerTest {
       return target;
     }
 
-    public void install(Path staged, Path target) {
+    public void install(Path staged, Path target) throws IOException {
+      if (installFailure) throw new IOException("installer could not start");
       this.staged = staged;
     }
   }
