@@ -85,7 +85,17 @@ final class RunLoggingTest {
         import std.system.currentSystem
         import std.application.arguments
         import std.logging.logDebug
+        import std.logging.LogDefaults
+        import std.logging.LogDestination
         import demo.library.emitLibrary
+        class ShopLogs implements LogDefaults {
+          List<LogDestination> outputs() {
+            Map<String, String> options = Map<>()
+            options.put(key: "directory", value: "log")
+            return [LogDestination(name: "std.logging.ConsoleLogOutputer"),
+              LogDestination(name: "std.logging.FileLogOutputer", options: options)]
+          }
+        }
         Void main() {
           logDebug("local-time")
           currentSystem().setTimeZone("Asia/Kathmandu")
@@ -95,6 +105,20 @@ final class RunLoggingTest {
           if !arguments().isEmpty() { printLine(arguments()[0]) }
         }
         """);
+  }
+
+  @Test
+  void applicationDefaultsRouteToConsoleAndFileUnlessTheHostOverridesThem() throws Exception {
+    var overridden = run("[]", "--debug");
+    assertEquals(0, overridden.exitCode(), overridden.err());
+    assertFalse(Files.exists(directory.resolve("log")));
+    var result = run(null, "--debug");
+    assertEquals(0, result.exitCode(), result.err());
+    assertTrue(result.err().contains("[DEBUG] shop application-debug"), result.err());
+    try (var files = Files.walk(directory.resolve("log"))) {
+      var log = files.filter(path -> path.toString().endsWith(".jsonl")).findFirst().orElseThrow();
+      assertTrue(Files.readString(log).contains("application-debug"));
+    }
   }
 
   @Test
@@ -210,9 +234,10 @@ final class RunLoggingTest {
     var out = Files.createTempFile(directory, "cli-", ".out");
     var err = Files.createTempFile(directory, "cli-", ".err");
     var builder =
-        new ProcessBuilder(arguments).redirectOutput(out.toFile()).redirectError(err.toFile());
+        new ProcessBuilder(arguments).directory(directory.toFile()).redirectOutput(out.toFile()).redirectError(err.toFile());
     builder.environment().put("NORM_LOG_LEVEL", "off");
-    builder.environment().put("NORM_LOG_OUTPUTS", outputs);
+    if (outputs == null) builder.environment().remove("NORM_LOG_OUTPUTS");
+    else builder.environment().put("NORM_LOG_OUTPUTS", outputs);
     var process = builder.start();
     try {
       assertTrue(process.waitFor(90, TimeUnit.SECONDS), "CLI invocation timed out");

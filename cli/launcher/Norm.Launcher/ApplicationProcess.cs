@@ -22,7 +22,7 @@ internal static class ApplicationProcess
         {
             start.CreateNoWindow = true;
             logs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Programs", "Norm", "logs", Path.GetFileNameWithoutExtension(Environment.ProcessPath)!,
+                "Programs", "Norm", "log", Path.GetFileNameWithoutExtension(Environment.ProcessPath)!,
                 DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + "-" + Environment.ProcessId);
             Directory.CreateDirectory(logs);
             start.Environment["NORM_WINDOWED_LOG_DIRECTORY"] = Path.GetDirectoryName(logs)!;

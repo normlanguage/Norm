@@ -8,10 +8,12 @@ Console timestamps use the machine’s local time zone by default. Use `currentS
 
 `norm run --debug` applies the debug threshold to the command, application, Norm packages and Java dependencies using SLF4J for that invocation. This explicit host option overrides `NORM_LOG_LEVEL` and every output entry's `level`, including `off`. Output destinations and `source` filters still select where events go. A `--debug` argument after `--` is passed to the application.
 
+An application can implement `std.logging.LogDefaults` to select its default destinations. `NORM_LOG_OUTPUTS` takes precedence.
+
 ```json
 [
   {"name": "std.logging.ConsoleLogOutputer", "level": "warn"},
-  {"name": "std.logging.FileLogOutputer", "source": "shop", "options": {"directory": "logs"}}
+  {"name": "std.logging.FileLogOutputer", "source": "shop", "options": {"directory": "log"}}
 ]
 ```
 

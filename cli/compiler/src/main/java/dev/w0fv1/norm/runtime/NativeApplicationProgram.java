@@ -38,7 +38,7 @@ record NativeApplicationProgram(
         var name = executable.replaceFirst("(?i)\\.exe$", "");
         environment.put(
             "NORM_WINDOWED_LOG_DIRECTORY",
-            java.nio.file.Path.of(environment.get("LOCALAPPDATA"), "Programs", "Norm", "logs", name)
+            java.nio.file.Path.of(environment.get("LOCALAPPDATA"), "Programs", "Norm", "log", name)
                 .toString());
       }
       var context =

@@ -14,11 +14,18 @@ import std.time.systemClock
 import std.serialization.Serializable
 
 @Serializable
-private value Destination {
-  String name
-  String? level = null
-  String? source = null
-  Map<String, String>? options = null
+@Document(description: "Configures an application log output.")
+public value LogDestination {
+  @Document(description: "Qualified output implementation name.") String name
+  @Document(description: "Optional minimum severity.") String? level = null
+  @Document(description: "Optional package prefix filter.") String? source = null
+  @Document(description: "Options passed to the output implementation.") Map<String, String>? options = null
+}
+
+@Document(description: "Supplies default destinations for application logging.")
+public interface LogDefaults {
+  @Document(description: "Returns the destinations used when the host has not configured log outputs.")
+  List<LogDestination> outputs()
 }
 
 private class Route {
@@ -84,12 +91,18 @@ private class ApplicationLogs {
     threshold(level: base)
     var configured = environmentVariable(name: "NORM_LOG_OUTPUTS")
     var window = environmentVariable(name: "NORM_WINDOWED_LOG_DIRECTORY")
-    List<Destination> targets = if configured != null { fromJson<List<Destination>>(value: configured) }
-      else if window != null {
-        Map<String, String> options = Map<>()
-        options.put(key: "directory", value: window)
-        break [Destination(name: "std.logging.FileLogOutputer", options: options)]
-      } else { [Destination(name: "std.logging.ConsoleLogOutputer")] }
+    List<LogDestination> targets = if configured != null { fromJson<List<LogDestination>>(value: configured) }
+      else {
+        var defaults = providers<LogDefaults>()
+        if defaults.size() > 1 { throw Exception(message: "Multiple application log defaults") }
+        if !defaults.isEmpty() { break defaults[0].create().outputs() }
+        if window != null {
+          Map<String, String> options = Map<>()
+          options.put(key: "directory", value: window)
+          break [LogDestination(name: "std.logging.FileLogOutputer", options: options)]
+        }
+        break [LogDestination(name: "std.logging.ConsoleLogOutputer")]
+      }
     for target : targets {
       Integer minimum = threshold(level: override ?? target.level ?? base)
       Boolean found = false

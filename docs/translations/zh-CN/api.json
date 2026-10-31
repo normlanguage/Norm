@@ -791,5 +791,12 @@
   "An IANA time zone ID or UTC offset.": "IANA 时区 ID 或 UTC 偏移量。",
   "Sets the time zone for the current execution.": "设置当前执行使用的时区。",
   "The instant to display.": "要显示的时间点。",
-  "Formats an instant to whole seconds with the execution's local date, time and UTC offset.": "按当前执行的本地日期、时间和 UTC 偏移量格式化时间点，精确到秒。"
+  "Formats an instant to whole seconds with the execution's local date, time and UTC offset.": "按当前执行的本地日期、时间和 UTC 偏移量格式化时间点，精确到秒。",
+  "Configures an application log output.": "配置应用日志输出。",
+  "Qualified output implementation name.": "输出实现的限定名。",
+  "Optional minimum severity.": "可选的最低日志级别。",
+  "Optional package prefix filter.": "可选的包名前缀过滤条件。",
+  "Options passed to the output implementation.": "传给输出实现的选项。",
+  "Supplies default destinations for application logging.": "提供应用的默认日志输出。",
+  "Returns the destinations used when the host has not configured log outputs.": "返回宿主未配置日志输出时使用的目标。"
 }
