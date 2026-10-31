@@ -294,12 +294,12 @@ final class CliControllerTest {
       Path executable = temporaryDirectory.resolve("web.norm.exe");
       assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
       assertTrue(Files.size(executable) > Files.size(launcher));
-      assertTrue(result.standardOut().contains("Built " + executable));
-      assertTrue(result.standardOut().contains("Target: jvm"));
-      assertTrue(result.standardOut().contains("Resolving sources and dependencies"));
-      assertTrue(result.standardOut().contains("Compiling Norm sources"));
-      assertTrue(result.standardOut().contains("Processing Java annotations"));
-      assertTrue(result.standardOut().contains("Packaging JVM executable"));
+      assertEquals("Built " + executable + System.lineSeparator(), result.standardOut());
+      assertTrue(result.standardError().contains("Target: jvm"));
+      assertTrue(result.standardError().contains("Resolving sources and dependencies"));
+      assertTrue(result.standardError().contains("Compiling Norm sources"));
+      assertTrue(result.standardError().contains("Processing Java annotations"));
+      assertTrue(result.standardError().contains("Packaging JVM executable"));
     } finally {
       if (previous == null) System.clearProperty("norm.launcher.path");
       else System.setProperty("norm.launcher.path", previous);

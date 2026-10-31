@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.w0fv1.norm.cli.value.CommandReport;
+import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.GuestStackFrame;
 import dev.w0fv1.norm.source.SourceSpan;
@@ -12,13 +13,15 @@ import java.io.PrintWriter;
 import java.util.Locale;
 
 public final class CommandReportWriter {
+  public static void writeDiagnostics(Iterable<Diagnostic> diagnostics, PrintWriter err) {
+    diagnostics.forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+  }
+
   public int write(CommandReport report, boolean json, PrintWriter out, PrintWriter err) {
     if (json) {
       out.println(new GsonBuilder().disableHtmlEscaping().create().toJson(json(report)));
     } else {
-      report
-          .diagnostics()
-          .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+      writeDiagnostics(report.diagnostics(), err);
       report
           .failure()
           .ifPresent(

@@ -2,8 +2,8 @@ package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.application.ApplicationRunResult;
 import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.cli.component.CommandReportWriter;
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
@@ -120,9 +120,7 @@ final class RunCommand implements Command {
       return ExitCode.RUNTIME_ERROR;
     }
     if (!result.isSuccess()) {
-      for (var diagnostic : result.diagnostics()) {
-        err.println(DiagnosticRenderer.render(diagnostic));
-      }
+      CommandReportWriter.writeDiagnostics(result.diagnostics(), err);
       return ExitCode.COMPILATION_ERROR;
     }
 
