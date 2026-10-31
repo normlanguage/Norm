@@ -172,7 +172,7 @@ final class CoreProgramVerifier {
     }
     verifyAggregateDispatch(id, declaration, parentId, parentInstance);
     Set<DefinitionId> interfaces = new HashSet<>();
-    Map<DefinitionId, CoreType.Declared> inheritedInterfaces = new LinkedHashMap<>();
+    var implementedInterfaces = CoreInterfaceHierarchy.implementedBy(program, id, declaration);
     for (CoreConformance conformance : declaration.conformances()) {
       validationTypes.verifyValueType(
           id, conformance.interfaceType(), declaration.typeParameters().size());
@@ -181,8 +181,7 @@ final class CoreProgramVerifier {
       if (!interfaces.add(instance.definition())) {
         throw new IllegalArgumentException("aggregate conformances must be unique");
       }
-      validationTypes.collectInterfaceInstances(instance, inheritedInterfaces);
-      verifyConformance(id, declaration, instance, conformance);
+      verifyConformance(id, declaration, instance, conformance, implementedInterfaces);
     }
   }
 
@@ -446,7 +445,8 @@ final class CoreProgramVerifier {
       DefinitionId aggregateId,
       CoreDefinition.Aggregate declaration,
       InterfaceInstance instance,
-      CoreConformance conformance) {
+      CoreConformance conformance,
+      Map<DefinitionId, CoreType.Declared> implementedInterfaces) {
     Map<DefinitionId, CoreDefinition.MethodSignature> requirements =
         validationTypes.inheritedRequirements(instance.definition());
     Map<DefinitionId, CoreWitnessTarget> witnesses = new LinkedHashMap<>();
@@ -483,9 +483,8 @@ final class CoreProgramVerifier {
               && validationTypes.absolute(implementationId, candidate.receiverType().orElseThrow())
                   instanceof CoreType.Declared receiver
               && receiver.constructor() instanceof CoreTypeConstructor.User user
-              && validationTypes.interfaceSubstitutions(
-                      instance, CoreVerificationTypes.resolveExternal(user.definition()))
-                  != null;
+              && implementedInterfaces.containsKey(
+                  CoreVerificationTypes.resolveExternal(user.definition()));
       int expectedReified =
           aggregateReceiver
               ? declaration.typeParameters().size() + requirement.typeParameters().size()
@@ -520,11 +519,8 @@ final class CoreProgramVerifier {
         InterfaceInstance implementationOwner =
             validationTypes.interfaceInstance(
                 implementationId, implementation.receiverType().orElseThrow());
-        List<CoreType> receiverSubstitutions =
-            validationTypes.interfaceSubstitutions(instance, implementationOwner.definition());
-        if (receiverSubstitutions != null) {
-          implementationSubstitutions.addAll(receiverSubstitutions);
-        }
+        implementationSubstitutions.addAll(
+            implementedInterfaces.get(implementationOwner.definition()).arguments());
       }
       for (int index = 0; index < requirement.typeParameters().size(); index++) {
         implementationSubstitutions.add(

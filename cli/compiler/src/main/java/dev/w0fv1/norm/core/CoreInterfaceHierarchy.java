@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.core;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public final class CoreInterfaceHierarchy {
@@ -11,14 +10,14 @@ public final class CoreInterfaceHierarchy {
     this.program = java.util.Objects.requireNonNull(program, "program");
   }
 
-  public static List<CoreType> arguments(
-      CoreProgram program, DefinitionId owner, CoreType root, DefinitionId target) {
-    CoreType.Declared instance =
-        new CoreInterfaceHierarchy(program).instances(owner, root).get(target);
-    if (instance == null) {
-      throw new IllegalArgumentException("target interface is absent from the interface hierarchy");
+  public static Map<DefinitionId, CoreType.Declared> implementedBy(
+      CoreProgram program, DefinitionId owner, CoreDefinition.Aggregate declaration) {
+    var hierarchy = new CoreInterfaceHierarchy(program);
+    Map<DefinitionId, CoreType.Declared> result = new LinkedHashMap<>();
+    for (var conformance : declaration.conformances()) {
+      hierarchy.collect(owner, conformance.interfaceType(), result);
     }
-    return instance.arguments();
+    return Map.copyOf(result);
   }
 
   Map<DefinitionId, CoreType.Declared> instances(DefinitionId owner, CoreType root) {

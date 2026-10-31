@@ -680,10 +680,6 @@ final class LiveBindings implements AutoCloseable {
       this.origin = origin;
     }
 
-    String key() {
-      return key;
-    }
-
     @Override
     public Object execute(VirtualFrame frame) {
       var execution = (ExecutionState) frame.getArguments()[0];
@@ -755,12 +751,6 @@ final class LiveBindings implements AutoCloseable {
           ? result
           : RuntimeInvocation.adaptResult(execution, result, resultVersion);
     }
-  }
-
-  static String callableKey(com.oracle.truffle.api.CallTarget target) {
-    if (!(target instanceof com.oracle.truffle.api.RootCallTarget rootTarget)) return "<unknown>";
-    var root = rootTarget.getRootNode();
-    return root instanceof CallableBinding binding ? binding.key() : "<norm>";
   }
 
   private record AdoptedRegion(Key key) {}

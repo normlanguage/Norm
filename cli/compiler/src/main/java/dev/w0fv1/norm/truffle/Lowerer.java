@@ -307,6 +307,7 @@ final class Lowerer {
           java.util.stream.IntStream.range(0, entry.getValue().typeParameters().size())
               .mapToObj(index -> (CoreType) new CoreType.Parameter(index, CoreNullability.NON_NULL))
               .toList();
+      Map<DefinitionId, DefinitionId> defaultOwners = new HashMap<>();
       for (RuntimeConformance inherited :
           aggregateConformances(occurrence.representative(), entry.getValue(), rootArguments)) {
         CoreConformance conformance = inherited.conformance();
@@ -323,7 +324,7 @@ final class Lowerer {
           }
           List<CoreType> defaultReceiverArguments =
               defaultWitnessReceiverArguments(
-                  inherited.owner(), witness.implementation(), inherited.interfaceType());
+                  inherited.owner(), witness.implementation(), inherited.interfaces());
           if (target instanceof RuntimeValues.DispatchTarget.Callable callable
               && defaultReceiverArguments != null) {
             target =
@@ -332,13 +333,16 @@ final class Lowerer {
           }
           DefinitionId slot = identity.slot(requirement);
           RuntimeValues.DispatchTarget previous = dispatch.putIfAbsent(slot, target);
+          boolean targetDefault = defaultReceiverArguments != null;
+          if (previous == null && targetDefault) defaultOwners.put(slot, inherited.owner());
           if (previous != null && !previous.equals(target)) {
-            boolean previousDefault = isDefaultDispatch(previous);
-            boolean targetDefault = isDefaultDispatch(target);
-            if (previousDefault != targetDefault) {
-              if (previousDefault) dispatch.put(slot, target);
+            DefinitionId defaultOwner = defaultOwners.get(slot);
+            if (defaultOwner != null && !targetDefault) {
+              dispatch.put(slot, target);
+              defaultOwners.remove(slot);
               continue;
             }
+            if (targetDefault && !inherited.owner().equals(defaultOwner)) continue;
             throw new IllegalStateException(
                 "verified aggregate dispatch is conflicting: occurrence="
                     + occurrence
@@ -468,6 +472,7 @@ final class Lowerer {
           || !aggregate.nominalType().name().endsWith("BindingValue")) {
         continue;
       }
+      var interfaces = CoreInterfaceHierarchy.implementedBy(program, record.id(), aggregate);
       for (CoreConformance conformance : aggregate.conformances()) {
         CoreType interfaceType =
             CoreTypes.absolute(conformance.interfaceType(), record.id(), program);
@@ -496,7 +501,7 @@ final class Lowerer {
                     ((CoreWitnessTarget.Intrinsic) witness.implementation()).intrinsic());
           }
           List<CoreType> receiverArguments =
-              defaultWitnessReceiverArguments(record.id(), witness.implementation(), interfaceType);
+              defaultWitnessReceiverArguments(record.id(), witness.implementation(), interfaces);
           if (target instanceof RuntimeValues.DispatchTarget.Callable callable
               && receiverArguments != null) {
             target =
@@ -632,11 +637,13 @@ final class Lowerer {
   private List<RuntimeConformance> aggregateConformances(
       DefinitionId owner, CoreDefinition.Aggregate aggregate, List<CoreType> ownerArguments) {
     List<RuntimeConformance> result = new ArrayList<>();
+    Map<DefinitionId, CoreType.Declared> interfaces = new LinkedHashMap<>();
+    CoreInterfaceHierarchy.implementedBy(program, owner, aggregate)
+        .forEach(
+            (id, type) ->
+                interfaces.put(id, (CoreType.Declared) type.substitute(ownerArguments::get)));
     for (CoreConformance conformance : aggregate.conformances()) {
-      CoreType interfaceType =
-          CoreTypes.absolute(conformance.interfaceType(), owner, program)
-              .substitute(ownerArguments::get);
-      result.add(new RuntimeConformance(owner, conformance, interfaceType));
+      result.add(new RuntimeConformance(owner, conformance, interfaces));
     }
     if (aggregate.parentType().isPresent()) {
       CoreType parent =
@@ -655,20 +662,15 @@ final class Lowerer {
     return List.copyOf(result);
   }
 
-  private static String dispatchKey(RuntimeValues.DispatchTarget target) {
-    if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) return "<none>";
-    return LiveBindings.callableKey(callable.target());
-  }
-
-  private static boolean isDefaultDispatch(RuntimeValues.DispatchTarget target) {
-    return dispatchKey(target).endsWith("/default");
-  }
-
   private record RuntimeConformance(
-      DefinitionId owner, CoreConformance conformance, CoreType interfaceType) {}
+      DefinitionId owner,
+      CoreConformance conformance,
+      Map<DefinitionId, CoreType.Declared> interfaces) {}
 
   private List<CoreType> defaultWitnessReceiverArguments(
-      DefinitionId owner, CoreWitnessTarget target, CoreType interfaceType) {
+      DefinitionId owner,
+      CoreWitnessTarget target,
+      Map<DefinitionId, CoreType.Declared> interfaces) {
     if (!(target instanceof CoreWitnessTarget.Callable callable)) return null;
     DefinitionId implementationId = resolve(owner, callable.definition());
     CoreDefinition implementation = program.definition(implementationId).orElseThrow();
@@ -684,7 +686,7 @@ final class Lowerer {
         || external.definition().equals(owner)) {
       return null;
     }
-    return CoreInterfaceHierarchy.arguments(program, owner, interfaceType, external.definition());
+    return interfaces.get(external.definition()).arguments();
   }
 
   private java.util.Set<DefinitionId> aggregateAncestors(DefinitionId definition) {

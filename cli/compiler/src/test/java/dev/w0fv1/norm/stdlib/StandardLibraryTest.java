@@ -116,15 +116,15 @@ final class StandardLibraryTest {
   void rebuildsStringsFromCodePoints() {
     assertOutput(
         "import std.text.fromCodePoints Void main() { "
-            + "printLine(fromCodePoints(values: ['N', 'o', 'r', 'm', '馃榾'])) }",
-        "Norm馃榾");
+            + "printLine(fromCodePoints(values: ['N', 'o', 'r', 'm', '😀'])) }",
+        "Norm😀");
   }
 
   @Test
   void normalizesUnicodeTextThroughTheStandardLibrary() {
     assertOutput(
         "import std.text.Normalization import std.text.isNormalized import std.text.normalize "
-            + "Void main() { String value = normalize(value: \"e虂\", form: Normalization.Nfc) "
+            + "Void main() { String value = normalize(value: \"é\", form: Normalization.Nfc) "
             + "printLine(value.codePointSize()) printLine(isNormalized(value: value, form: Normalization.Nfc)) }",
         "1",
         "true");
