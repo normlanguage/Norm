@@ -1245,6 +1245,11 @@
       "name": "EMIT_APPLICATION_LOG",
       "requiresResultRuntimeType": false,
       "writesState": true
+    },
+    {
+      "name": "LOG_OPEN_FILE",
+      "requiresResultRuntimeType": true,
+      "writesState": true
     }
   ],
   "opaqueValues": [
@@ -3567,6 +3572,14 @@
     "std.core.__providerCreate/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__providerCreate/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__openLogFile/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__openLogFile/T",
       "name": "T",
       "category": "POLYMORPHIC",
       "arguments": [],
@@ -9419,6 +9432,43 @@
         "documentation": "Application logging lifecycle."
       },
       "intrinsic": "EMIT_APPLICATION_LOG"
+    },
+    {
+      "symbol": {
+        "name": "__openLogFile",
+        "kind": "FUNCTION",
+        "type": "std.core.__openLogFile/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__openLogFile/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "directory",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "segmentBytes",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "retainDays",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "totalBytes",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Opens an application log file."
+      },
+      "intrinsic": "LOG_OPEN_FILE"
     }
   ]
 }

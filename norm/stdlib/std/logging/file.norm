@@ -1,0 +1,50 @@
+package std.logging
+
+import std.annotation.Document
+import std.io.TextEncoding
+import std.io.encodeText
+import std.json.toJson
+import std.serialization.Serializable
+
+@Serializable
+private value StoredEvent {
+  Integer schemaVersion
+  Long epochSecond
+  Integer nanosecond
+  String level
+  String source
+  String message
+}
+
+private class LogFile {
+  Void append(String line) { __fileWrite(writer: this, content: encodeText(text: line, encoding: TextEncoding.Utf8)) }
+  Void flush() { __fileFlush(writer: this) }
+  Void close() { __fileClose(resource: this) }
+}
+
+@Document(description: "Persists JSON Lines in size-limited files with per-run isolation.")
+public class FileLogOutputer implements LogOutputer {
+  private LogFile? file = null
+
+  @Document(description: "Opens the destination directory and applies its retention settings.")
+  Void open(@Document(description: "Directory, segmentBytes, retainDays and totalBytes options.") Map<String, String> configuration) {
+    file = __openLogFile<LogFile>(
+      directory: configuration.get(key: "directory") ?? "",
+      segmentBytes: configuration.get(key: "segmentBytes") ?? "10485760",
+      retainDays: configuration.get(key: "retainDays") ?? "7",
+      totalBytes: configuration.get(key: "totalBytes") ?? "209715200"
+    )
+  }
+
+  @Document(description: "Appends one JSON record to the current segment.")
+  Void output(@Document(description: "The event to persist.") LogEvent event) {
+    var stored = StoredEvent(schemaVersion: 1, epochSecond: event.time.epochSecond(), nanosecond: event.time.nanosecond(), level: logLevelName(level: event.level), source: event.source, message: event.message)
+    file?.append(line: toJson<StoredEvent>(value: stored) + "\n")
+  }
+
+  @Document(description: "Flushes pending file output.")
+  Void flush() { file?.flush() }
+
+  @Document(description: "Closes the active segment and releases the run lock.")
+  Void close() { file?.close() }
+}

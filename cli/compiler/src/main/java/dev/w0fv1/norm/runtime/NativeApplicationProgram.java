@@ -13,6 +13,7 @@ record NativeApplicationProgram(
     PreparedExecution executable,
     JvmJarBindingRuntime.LinkedCalls calls,
     String packageName,
+    boolean windowed,
     LinkedJavaClasses classes,
     dev.w0fv1.norm.execution.JavaApplicationLinkage applicationCalls) {
   NativeApplicationProgram {
@@ -25,11 +26,26 @@ record NativeApplicationProgram(
 
   int execute(List<String> arguments, PrintWriter output, java.nio.file.Path directory) {
     try (var runtime = JvmJarBindingRuntime.closedWorld(calls, classes, applicationCalls)) {
+      var environment = new java.util.HashMap<>(System.getenv());
+      if (windowed) {
+        var executable =
+            java.nio.file.Path.of(
+                    environment.getOrDefault(
+                        "NORM_APPLICATION_EXECUTABLE",
+                        org.graalvm.nativeimage.ProcessProperties.getExecutableName()))
+                .getFileName()
+                .toString();
+        var name = executable.replaceFirst("(?i)\\.exe$", "");
+        environment.put(
+            "NORM_WINDOWED_LOG_DIRECTORY",
+            java.nio.file.Path.of(environment.get("LOCALAPPDATA"), "Programs", "Norm", "logs", name)
+                .toString());
+      }
       var context =
           ExecutionContext.builder()
               .input(NativeStandardStreams.input())
               .error(NativeStandardStreams.error())
-              .environment(System.getenv())
+              .environment(environment)
               .output(output)
               .arguments(arguments)
               .platform(JdkSystemPlatform.standard())

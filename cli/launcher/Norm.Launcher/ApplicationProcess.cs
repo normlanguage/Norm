@@ -25,6 +25,7 @@ internal static class ApplicationProcess
                 "Programs", "Norm", "logs", Path.GetFileNameWithoutExtension(Environment.ProcessPath)!,
                 DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + "-" + Environment.ProcessId);
             Directory.CreateDirectory(logs);
+            start.Environment["NORM_WINDOWED_LOG_DIRECTORY"] = Path.GetDirectoryName(logs)!;
         }
         using FileStream? stdout = logs is null ? null : new FileStream(Path.Combine(logs, "stdout.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         using FileStream? stderr = logs is null ? null : new FileStream(Path.Combine(logs, "stderr.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);

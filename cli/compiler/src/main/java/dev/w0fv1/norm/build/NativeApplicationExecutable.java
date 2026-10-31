@@ -112,7 +112,7 @@ final class NativeApplicationExecutable {
               javaClasspath.artifacts(),
               toolchain.unmanaged());
       var imageArguments =
-          arguments(compilation, archive, imageClasspath, imageBase, report.arguments());
+          arguments(compilation, archive, imageClasspath, imageBase, report.arguments(), subsystem);
       Files.writeString(
           arguments,
           imageArguments.stream()
@@ -147,7 +147,8 @@ final class NativeApplicationExecutable {
       Path archive,
       List<Path> classpath,
       Path imageBase,
-      List<String> reportArguments)
+      List<String> reportArguments,
+      WindowsSubsystem subsystem)
       throws IOException {
     List<String> arguments = new ArrayList<>();
     var applicationPaths =
@@ -187,6 +188,7 @@ final class NativeApplicationExecutable {
     arguments.addAll(reportArguments);
     arguments.add("-H:-UnlockExperimentalVMOptions");
     arguments.add("-J-Dnorm.native.application.archive=" + archive);
+    arguments.add("-J-Dnorm.native.windowed=" + (subsystem == WindowsSubsystem.WINDOWED));
     arguments.add("-cp");
     arguments.add(
         classpath.stream()

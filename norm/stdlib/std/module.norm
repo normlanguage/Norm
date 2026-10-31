@@ -34,6 +34,7 @@ Module module() {
       "io.system",
       "json.json",
       "logging.output",
+      "logging.file",
       "logging.log",
       "math.integer",
       "process.process",

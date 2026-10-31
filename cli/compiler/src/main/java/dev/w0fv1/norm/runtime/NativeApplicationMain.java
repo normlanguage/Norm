@@ -69,6 +69,7 @@ public final class NativeApplicationMain {
             prepared,
             JvmJarBindingRuntime.prepareCalls(LinkedJarBinding.linkCalls(value.bindings()), calls),
             value.packageName(),
+            Boolean.getBoolean("norm.native.windowed"),
             classes,
             applicationCalls);
   }

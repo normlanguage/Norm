@@ -13,7 +13,7 @@ The current standard library builds strongly typed APIs around core values, Unic
 | `std.configuration` | Structural mapping from typed framework configuration to host properties | [Configuration](/stdlib/configuration) |
 | `std.math` | Integer math functions | [Math](/stdlib/math) |
 | `std.cli` | Long options, positional arguments, and help | [CLI](/stdlib/cli) |
-| `std.logging` | Application log events and output destinations | [Log functions](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/logging/log.norm) · [Output contract](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/logging/output.norm) |
+| `std.logging` | Application logs and persistence | [Logging](/stdlib/logging) |
 | `std.application` | Arguments, environment, directories, and completion codes | [CLI](/stdlib/cli) |
 | `std.process` | Child processes, output budgets, timeouts, and cancellation | [CLI](/stdlib/cli) |
 | `std.time` | Instant, Duration, and Clock | [Time](/stdlib/time) |

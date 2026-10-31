@@ -19,6 +19,31 @@ final class FileIntrinsicDispatcher {
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     IntrinsicOperation operation =
         switch (intrinsic) {
+          case LOG_OPEN_FILE ->
+              (receiver, arguments, type, context, location, annotations, execution) -> {
+                var configured = (String) arguments[0];
+                var root =
+                    configured.isEmpty()
+                        ? java.nio.file.Path.of(
+                            System.getProperty("user.home"),
+                            ".norm",
+                            "logs",
+                            context.applicationPackage().isEmpty()
+                                ? "application"
+                                : context.applicationPackage())
+                        : context.workingDirectory().resolve(configured);
+                try {
+                  var writer =
+                      new dev.w0fv1.norm.logging.RollingLogFile(
+                          root,
+                          Long.parseLong((String) arguments[1]),
+                          Long.parseLong((String) arguments[2]),
+                          Long.parseLong((String) arguments[3]));
+                  return execution.values().resource(type, writer, "Application log", execution);
+                } catch (java.io.IOException | IllegalArgumentException failure) {
+                  throw execution.values().javaException(failure, execution, location);
+                }
+              };
           case FILE_WRITE_ATOMIC ->
               (receiver, arguments, type, context, location, annotations, execution) ->
                   writeAtomic(context, (String) arguments[0], bytes(arguments[1]));
@@ -49,6 +74,8 @@ final class FileIntrinsicDispatcher {
       try {
         return operation.execute(
             receiver, arguments, type, context, location, annotations, execution);
+      } catch (java.io.UncheckedIOException failure) {
+        throw execution.values().javaException(failure.getCause(), execution, location);
       } catch (PlatformFileException failure) {
         if (execution == null) {
           throw new IllegalStateException("system exception runtime is unavailable", failure);
