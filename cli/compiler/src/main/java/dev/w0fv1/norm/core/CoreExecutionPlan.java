@@ -6,10 +6,14 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> dispatchSlots) {
+public record CoreExecutionPlan(
+    Set<DefinitionId> callables,
+    Set<DefinitionId> dispatchSlots,
+    Map<CoreType, java.util.List<DefinitionId>> providers) {
   public CoreExecutionPlan {
     callables = Set.copyOf(callables);
     dispatchSlots = Set.copyOf(dispatchSlots);
+    providers = Map.copyOf(providers);
   }
 
   public static CoreExecutionPlan forArtifact(CoreArtifact artifact) {
@@ -76,12 +80,15 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
         }
       }
     }
-    return new CoreExecutionPlan(analysis.required, analysis.slots);
+    return new CoreExecutionPlan(analysis.required, analysis.slots, analysis.providers);
   }
 
   private static final class Analysis {
     private final CoreProgram program;
     private final boolean retainDeclarations;
+    private final java.util.Optional<DefinitionId> providerQuery;
+    private final Map<CoreType, java.util.List<DefinitionId>> providers = new HashMap<>();
+    private CoreTypeRelations providerTypes;
     private final Map<DefinitionId, Set<DefinitionId>> representatives = new HashMap<>();
     private final Set<DefinitionId> required = new HashSet<>();
     private final ArrayDeque<DefinitionId> pending = new ArrayDeque<>();
@@ -94,6 +101,7 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
 
     private Analysis(CoreArtifact artifact, boolean retainDeclarations) {
       program = artifact.program();
+      providerQuery = artifact.namespace().definition("std.application", "providers");
       this.retainDeclarations = retainDeclarations;
       for (var binding : artifact.namespace().bindings()) {
         binding.shape().parameters().stream()
@@ -224,8 +232,63 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
       }
     }
 
+    private java.util.List<DefinitionId> discover(CoreType service) {
+      if (!(service instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+          || !(user.definition() instanceof DefinitionReference.External external)
+          || !(program.definition(external.definition()).orElseThrow()
+              instanceof CoreDefinition.Interface))
+        throw new IllegalArgumentException("application providers require an interface");
+      if (providerTypes == null) providerTypes = new CoreTypeRelations(program.definitions());
+      var matches = new java.util.TreeMap<String, DefinitionId>();
+      for (var record : program.definitions()) {
+        if (!(record.definition() instanceof CoreDefinition.Aggregate aggregate)
+            || aggregate.nominalType().visibility() != CoreVisibility.PUBLIC
+            || aggregate.kind() == CoreAggregateKind.ANNOTATION
+            || !aggregate.typeParameters().isEmpty()) continue;
+        var concrete =
+            new CoreType.Declared(
+                new CoreTypeConstructor.User(new DefinitionReference.External(record.id())),
+                java.util.List.of(),
+                aggregate.valueCategory(),
+                CoreNullability.NON_NULL);
+        if (!providerTypes.isAssignable(service, concrete)) continue;
+        String name = aggregate.nominalType().qualifiedName();
+        var factories =
+            aggregate.constructors().stream()
+                .map(link -> resolve(record.id(), link))
+                .filter(
+                    id ->
+                        CoreConstructorParameters.forCallable(
+                                (CoreDefinition.Callable) program.definition(id).orElseThrow())
+                            .acceptsEmpty())
+                .toList();
+        if (factories.size() != 1)
+          throw new IllegalArgumentException(
+              "application provider requires one constructor accepting no arguments: " + name);
+        if (matches.putIfAbsent(name, record.id()) != null)
+          throw new IllegalArgumentException("ambiguous application provider: " + name);
+        require(factories.getFirst());
+      }
+      return java.util.List.copyOf(matches.values());
+    }
+
     private CoreWalker walker(DefinitionId owner) {
       return new CoreWalker() {
+        @Override
+        protected void visitExpression(CoreExpression expression) {
+          if (expression instanceof CoreExpression.Call call
+              && providerQuery.isPresent()
+              && resolve(owner, call.target()).equals(providerQuery.orElseThrow())) {
+            var service = call.reifiedArguments().getFirst();
+            if (!service.captures().isEmpty())
+              throw new IllegalArgumentException(
+                  "application provider queries require a concrete interface");
+            providers.computeIfAbsent(
+                CoreTypes.absolute(service.template(), owner, program), Analysis.this::discover);
+          }
+        }
+
         @Override
         protected void visitDependency(CoreDependency.Kind kind, CoreDefinitionLink link) {
           var id = resolve(owner, link);

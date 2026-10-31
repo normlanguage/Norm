@@ -161,7 +161,15 @@ final class Lowerer {
                         (CoreDefinition.Enum)
                             identity.definition(record.id(), record.definition())))
             .toList();
-    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations);
+    Map<CoreType, List<DefinitionId>> providers = new LinkedHashMap<>();
+    execution
+        .providers()
+        .forEach(
+            (service, implementations) ->
+                providers.put(
+                    identity.absoluteType(service),
+                    implementations.stream().map(identity::id).toList()));
+    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations, providers);
   }
 
   private void indexDefinitions(CoreExecutionPlan execution) {

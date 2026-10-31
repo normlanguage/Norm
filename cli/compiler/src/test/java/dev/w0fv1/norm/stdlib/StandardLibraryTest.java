@@ -14,6 +14,31 @@ import org.junit.jupiter.api.Test;
 
 final class StandardLibraryTest {
   @Test
+  void discoversPublicImplementationsAndCreatesThemOnDemand() {
+    assertOutput(
+        """
+        package demo
+        import std.application.providers
+        interface Service { String label() }
+        interface Child extends Service {}
+        class Alpha implements Child {
+          String label() { return "alpha" }
+        }
+        private class Hidden implements Service {
+          String label() { return "hidden" }
+        }
+        Void main() {
+          for provider : providers<Service>() {
+            printLine(provider.name())
+            printLine(provider.create().label())
+          }
+        }
+        """,
+        "demo.Alpha",
+        "alpha");
+  }
+
+  @Test
   void executesImportedIntegerMathImplementedByTheStandardLibrary() {
     assertOutput(
         "import std.math.abs import std.math.clamp import std.math.max import std.math.min "

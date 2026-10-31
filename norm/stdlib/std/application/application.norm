@@ -41,3 +41,26 @@ public Void setExitCode(@Document(description: "The portable completion code in 
   if code < 0 || code > 255 { throw Exception(message: "exit code must be in 0..255") }
   __applicationExitCode(code: code)
 }
+@Document(description: "Creates one discovered application service implementation.")
+public interface Provider<T> {
+  @Document(description: "Returns the qualified name of the implementation.")
+  String name()
+  @Document(description: "Creates a new instance of the implementation.")
+  T create()
+}
+
+private value ApplicationProvider<T> implements Provider<T> {
+  String qualifiedName
+  Class<?> implementation
+  String name() { return qualifiedName }
+  T create() { return __providerCreate<T>(implementation: implementation) }
+}
+
+@Document(description: "Returns the public implementations of an application service interface.")
+public List<Provider<T>> providers<T>() {
+  List<Provider<T>> result = List<>()
+  for item : __applicationProviders<T, ApplicationProvider<T>>(service: T.class) {
+    result.add(item)
+  }
+  return result
+}

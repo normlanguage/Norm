@@ -106,6 +106,8 @@ public final class IntrinsicDispatcher {
           EXPECTED_OUTPUT_LINE,
           AWAIT_CANCELLATION,
           DELAY,
+          APPLICATION_PROVIDERS,
+          PROVIDER_CREATE,
           APPLICATION_PACKAGE,
           APPLICATION_DIRECTORY,
           REQUIRE_ARGUMENT,

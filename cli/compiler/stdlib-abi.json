@@ -1,5 +1,5 @@
 {
-  "version": 51,
+  "version": 52,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1225,6 +1225,16 @@
       "name": "CLASS_SNAPSHOT",
       "requiresResultRuntimeType": false,
       "writesState": false
+    },
+    {
+      "name": "APPLICATION_PROVIDERS",
+      "requiresResultRuntimeType": true,
+      "writesState": false
+    },
+    {
+      "name": "PROVIDER_CREATE",
+      "requiresResultRuntimeType": true,
+      "writesState": true
     }
   ],
   "opaqueValues": [
@@ -3439,7 +3449,6 @@
       "arguments": [],
       "nullable": false
     },
-
     "std.core.__runtimeBegin/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__runtimeBegin/T",
@@ -3507,6 +3516,50 @@
       "arguments": [
         "std.core.Class/T"
       ],
+      "nullable": false
+    },
+    "std.core.__applicationProviders/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__applicationProviders/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__applicationProviders/P": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__applicationProviders/P",
+      "name": "P",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.List<std.core.__applicationProviders/P>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__applicationProviders/P"
+      ],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__applicationProviders/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__applicationProviders/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__providerCreate/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__providerCreate/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
       "nullable": false
     }
   },
@@ -9259,6 +9312,54 @@
         "documentation": "Version-bound state migration operation."
       },
       "intrinsic": "STATE_MIGRATION_REPLACE"
+    },
+    {
+      "symbol": {
+        "name": "__applicationProviders",
+        "kind": "FUNCTION",
+        "type": "std.core.List<std.core.__applicationProviders/P>",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__applicationProviders/T"
+          },
+          {
+            "name": "P",
+            "type": "std.core.__applicationProviders/P"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "service",
+            "type": "std.core.Class<std.core.__applicationProviders/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Application service discovery."
+      },
+      "intrinsic": "APPLICATION_PROVIDERS"
+    },
+    {
+      "symbol": {
+        "name": "__providerCreate",
+        "kind": "FUNCTION",
+        "type": "std.core.__providerCreate/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__providerCreate/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "implementation",
+            "type": "std.core.Class<std.core.existential>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Application service discovery."
+      },
+      "intrinsic": "PROVIDER_CREATE"
     }
   ]
 }
