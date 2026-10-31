@@ -348,7 +348,7 @@ class Page {
     );
 
     assert.ok(reflectionCompletions.items.some((item) => labelOf(item) === 'fields'));
-    assert.deepEqual(vscode.languages.getDiagnostics(document.uri), []);
+    await eventually(() => vscode.languages.getDiagnostics(document.uri).length === 0 ? true : undefined);
   });
 
   test('accepts structured documentation on standard-library declarations', async () => {
