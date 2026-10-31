@@ -6,7 +6,7 @@ import std.filesystem.readText
 import std.io.TextEncoding
 import std.testing.expectedOutputLines
 
-@Test(types: [Path.class, TextEncoding.class], functions: [readText.function])
+@Test(types: [Path.class, TextEncoding.class])
 Void fileReadTextTest() {
   String text = readText(
     path: Path(value: "file_read_text.txt"),
@@ -14,5 +14,6 @@ Void fileReadTextTest() {
     maximumBytes: 1024
   ).trim()
   printLine(text)
-  expectedOutputLines(["Norm filesystem"])
+  printLine(readText("file_read_text.txt").trim())
+  expectedOutputLines(["Norm filesystem", "Norm filesystem"])
 }
