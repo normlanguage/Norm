@@ -2,6 +2,7 @@ package dev.w0fv1.norm.execution;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.platform.PlatformInstant;
 import dev.w0fv1.norm.platform.SystemPlatform;
@@ -18,11 +19,13 @@ final class ExecutionContextTest {
     ExecutionContext context =
         ExecutionContext.builder()
             .applicationPackage("norm.generated.application")
+            .debugLogging(true)
             .applicationDirectory(java.nio.file.Path.of("sample"))
             .build()
             .withJarBindingRuntime(JarBindingRuntime.unavailable());
 
     assertEquals("norm.generated.application", context.applicationPackage());
+    assertTrue(context.debugLogging());
     assertEquals(
         java.nio.file.Path.of("sample").toAbsolutePath().normalize(),
         context.applicationDirectory().orElseThrow());

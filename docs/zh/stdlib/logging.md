@@ -4,6 +4,8 @@
 
 `NORM_LOG_OUTPUTS` 接受 JSON 数组。每项的 `name` 使用输出实现的完整类型名，`level` 覆盖默认级别，`source` 匹配指定包及其子包，`options` 将字符串配置传给该实现。
 
+`norm run --debug` 在本次调用中将命令、应用、Norm 包及使用 SLF4J 的 Java 依赖统一设为 debug 阈值。显式命令选项优先于 `NORM_LOG_LEVEL` 和各输出项的 `level`，包括 `off`。输出目的地及 `source` 过滤继续决定事件投递位置。`--` 后的 `--debug` 作为应用参数传入。
+
 ```json
 [
   {"name": "std.logging.ConsoleLogOutputer", "level": "warn"},

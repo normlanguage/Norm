@@ -13,6 +13,9 @@ final class ApplicationIntrinsicDispatcher {
       case APPLICATION_ARGUMENTS ->
           (receiver, arguments, type, context, location, annotations, execution) ->
               new RuntimeValues.ListValue(type, new ArrayList<>(context.arguments()));
+      case APPLICATION_LOG_DEBUG ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              context.debugLogging();
       case APPLICATION_ENVIRONMENT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             String value = context.environment().get((String) arguments[0]);

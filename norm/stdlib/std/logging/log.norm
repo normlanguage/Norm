@@ -77,7 +77,8 @@ private class ApplicationLogs {
 
   Void start() {
     var available = providers<LogOutputer>()
-    String base = environmentVariable(name: "NORM_LOG_LEVEL") ?? "info"
+    String? override = if __applicationLogDebug() { "debug" } else { null }
+    String base = override ?? environmentVariable(name: "NORM_LOG_LEVEL") ?? "info"
     threshold(level: base)
     var configured = environmentVariable(name: "NORM_LOG_OUTPUTS")
     var window = environmentVariable(name: "NORM_WINDOWED_LOG_DIRECTORY")
@@ -88,7 +89,7 @@ private class ApplicationLogs {
         break [Destination(name: "std.logging.FileLogOutputer", options: options)]
       } else { [Destination(name: "std.logging.ConsoleLogOutputer")] }
     for target : targets {
-      Integer minimum = threshold(level: target.level ?? base)
+      Integer minimum = threshold(level: override ?? target.level ?? base)
       Boolean found = false
       for provider : available {
         if provider.name() == target.name {

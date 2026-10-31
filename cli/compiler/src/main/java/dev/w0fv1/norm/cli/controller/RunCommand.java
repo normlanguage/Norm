@@ -48,7 +48,7 @@ final class RunCommand implements Command {
     List<String> applicationArguments =
         separator < 0 ? List.of() : List.copyOf(arguments.subList(separator + 1, arguments.size()));
     if (separator >= 0) arguments = new ArrayList<>(arguments.subList(0, separator));
-    boolean debug = arguments.remove("--debug");
+    boolean debug = CommandInvocation.current().debug();
     if (arguments.size() > 1) {
       err.println(
           "error[NORM-CLI-0003]: 'run' expects at most one source file or module directory");

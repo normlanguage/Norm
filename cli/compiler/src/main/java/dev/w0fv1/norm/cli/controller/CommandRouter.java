@@ -39,17 +39,9 @@ final class CommandRouter {
     if (arguments.length == argumentStart + 1
         && (arguments[argumentStart].equals("-h") || arguments[argumentStart].equals("--help")))
       return command.help(out, err);
-    var options =
-        new java.util.ArrayList<>(List.of(arguments).subList(argumentStart, arguments.length));
-    int separator = options.indexOf("--");
-    var flags = options.subList(0, separator < 0 ? options.size() : separator);
-    boolean diagnostics = flags.contains("--diagnostics");
-    if (!requested.equals("build")) flags.remove("--diagnostics");
-    if (!requested.equals("run")) flags.remove("--debug");
-    return diagnostics
-        ? dev.w0fv1.norm.cli.component.CommandJournal.capture(
-            requested, err, () -> command.execute(options, out, err))
-        : command.execute(options, out, err);
+    return CommandInvocation.parse(
+            List.of(arguments).subList(argumentStart, arguments.length), requested.equals("build"))
+        .execute(command, out, err);
   }
 
   List<Command> commands() {

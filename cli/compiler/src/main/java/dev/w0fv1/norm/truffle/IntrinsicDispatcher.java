@@ -41,6 +41,7 @@ public final class IntrinsicDispatcher {
           MigrationIntrinsicDispatcher.resolve(intrinsic);
       case APPLICATION_ARGUMENTS,
           APPLICATION_ENVIRONMENT,
+          APPLICATION_LOG_DEBUG,
           APPLICATION_WORKING_DIRECTORY,
           APPLICATION_EXIT_CODE,
           CONSOLE_READ,
