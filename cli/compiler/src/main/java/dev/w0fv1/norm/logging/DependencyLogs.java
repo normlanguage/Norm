@@ -28,21 +28,7 @@ public final class DependencyLogs {
     return ScopedValue.where(CURRENT, destination).call(action::get);
   }
 
-  public static <T> T command(PrintWriter errors, boolean debug, Supplier<T> action) {
-    return within(
-        new Destination() {
-          public boolean enabled(Level level) {
-            return level.toInt() >= (debug ? Level.DEBUG : Level.WARN).toInt();
-          }
-
-          public void write(Level level, String source, String message, Throwable cause) {
-            print(errors, level, source, message, cause);
-          }
-        },
-        action);
-  }
-
-  private static void print(
+  public static void print(
       PrintWriter target, Level level, String source, String message, Throwable cause) {
     synchronized (target) {
       target.printf("[%s] %s %s%n", level, source, message);

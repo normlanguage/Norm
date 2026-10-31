@@ -13,13 +13,13 @@ final class DependencyLogProviderTest {
     var logger = LoggerFactory.getLogger("org.example.transport");
     var outer = new StringWriter();
     var inner = new StringWriter();
-    DependencyLogs.command(
+    dev.w0fv1.norm.cli.component.CommandJournal.withDependencyLogs(
         new PrintWriter(outer),
         false,
         () -> {
           logger.debug("hidden");
           logger.warn("retry {}", 2);
-          DependencyLogs.command(
+          dev.w0fv1.norm.cli.component.CommandJournal.withDependencyLogs(
               new PrintWriter(inner),
               true,
               () -> {

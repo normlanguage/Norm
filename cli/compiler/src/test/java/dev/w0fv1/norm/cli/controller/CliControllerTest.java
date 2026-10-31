@@ -33,6 +33,38 @@ final class CliControllerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void retainsCommandDiagnosticsWithoutChangingMachineOutput() throws Exception {
+    Path source =
+        Files.writeString(temporaryDirectory.resolve("invalid.norm"), "Void main() { missing() }");
+    Result result = run("check", source.toString(), "--format", "json", "--diagnostics");
+    var report = com.google.gson.JsonParser.parseString(result.standardOut()).getAsJsonObject();
+    assertEquals(ExitCode.COMPILATION_ERROR, result.exitCode(), result.standardError());
+    String path =
+        result
+            .standardError()
+            .lines()
+            .filter(line -> line.startsWith("Command diagnostics: "))
+            .findFirst()
+            .orElseThrow()
+            .substring("Command diagnostics: ".length());
+    try (var files = Files.list(Path.of(path))) {
+      var file = files.filter(item -> item.toString().endsWith(".jsonl")).findFirst().orElseThrow();
+      var events =
+          Files.readAllLines(file).stream()
+              .map(line -> com.google.gson.JsonParser.parseString(line).getAsJsonObject())
+              .toList();
+      assertEquals(
+          report,
+          events.stream()
+              .filter(event -> event.get("kind").getAsString().equals("report"))
+              .findFirst()
+              .orElseThrow()
+              .get("data"));
+      assertEquals(result.exitCode(), events.getLast().get("data").getAsInt());
+    }
+  }
+
+  @Test
   void forwardsApplicationArgumentsAndCompletionAcrossPreparedRuns() throws IOException {
     Path source = temporaryDirectory.resolve("arguments.norm");
     Files.writeString(

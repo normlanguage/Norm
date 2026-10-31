@@ -14,14 +14,23 @@ import java.util.Locale;
 
 public final class CommandReportWriter {
   public static void writeDiagnostics(Iterable<Diagnostic> diagnostics, PrintWriter err) {
-    diagnostics.forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+    diagnostics.forEach(
+        diagnostic -> {
+          CommandJournal.record("diagnostic", () -> diagnostic(diagnostic));
+          renderDiagnostic(diagnostic, err);
+        });
+  }
+
+  private static void renderDiagnostic(Diagnostic diagnostic, PrintWriter err) {
+    err.println(DiagnosticRenderer.render(diagnostic));
   }
 
   public int write(CommandReport report, boolean json, PrintWriter out, PrintWriter err) {
+    CommandJournal.record("report", () -> json(report));
     if (json) {
       out.println(new GsonBuilder().disableHtmlEscaping().create().toJson(json(report)));
     } else {
-      writeDiagnostics(report.diagnostics(), err);
+      report.diagnostics().forEach(diagnostic -> renderDiagnostic(diagnostic, err));
       report
           .failure()
           .ifPresent(
@@ -65,23 +74,7 @@ public final class CommandReportWriter {
     result.addProperty("positionEncoding", "utf-16");
     JsonArray diagnostics = new JsonArray();
     for (var diagnostic : report.diagnostics()) {
-      JsonObject value = new JsonObject();
-      value.addProperty("code", diagnostic.code().value());
-      value.addProperty("severity", diagnostic.severity().name().toLowerCase(Locale.ROOT));
-      value.addProperty("message", diagnostic.message());
-      value.add("location", location(diagnostic.primarySpan()));
-      JsonArray related = new JsonArray();
-      for (var information : diagnostic.relatedInformation()) {
-        JsonObject entry = new JsonObject();
-        entry.addProperty("message", information.message());
-        entry.add("location", location(information.span()));
-        related.add(entry);
-      }
-      value.add("relatedInformation", related);
-      JsonArray notes = new JsonArray();
-      diagnostic.notes().forEach(notes::add);
-      value.add("notes", notes);
-      diagnostics.add(value);
+      diagnostics.add(diagnostic(diagnostic));
     }
     result.add("diagnostics", diagnostics);
     report
@@ -130,6 +123,26 @@ public final class CommandReportWriter {
               result.add("failure", value);
             });
     return result;
+  }
+
+  private static JsonObject diagnostic(Diagnostic diagnostic) {
+    JsonObject value = new JsonObject();
+    value.addProperty("code", diagnostic.code().value());
+    value.addProperty("severity", diagnostic.severity().name().toLowerCase(Locale.ROOT));
+    value.addProperty("message", diagnostic.message());
+    value.add("location", location(diagnostic.primarySpan()));
+    JsonArray related = new JsonArray();
+    for (var information : diagnostic.relatedInformation()) {
+      JsonObject entry = new JsonObject();
+      entry.addProperty("message", information.message());
+      entry.add("location", location(information.span()));
+      related.add(entry);
+    }
+    value.add("relatedInformation", related);
+    JsonArray notes = new JsonArray();
+    diagnostic.notes().forEach(notes::add);
+    value.add("notes", notes);
+    return value;
   }
 
   private static JsonObject location(SourceSpan span) {

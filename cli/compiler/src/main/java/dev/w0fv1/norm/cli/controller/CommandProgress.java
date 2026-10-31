@@ -16,6 +16,8 @@ final class CommandProgress implements Consumer<String> {
 
   @Override
   public void accept(String message) {
+    dev.w0fv1.norm.cli.component.CommandJournal.record(
+        "progress", () -> new com.google.gson.JsonPrimitive(message));
     output.printf(
         Locale.ROOT,
         "[%s +%.1fs] %s%n",

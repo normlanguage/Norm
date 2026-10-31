@@ -48,6 +48,10 @@ public final class RollingLogFile implements PlatformByteWriter {
     }
   }
 
+  public Path directory() {
+    return run;
+  }
+
   @Override
   public synchronized int write(byte[] bytes, int offset, int length) {
     try {

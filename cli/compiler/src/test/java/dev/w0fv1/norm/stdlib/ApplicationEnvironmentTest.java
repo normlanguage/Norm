@@ -45,7 +45,7 @@ final class ApplicationEnvironmentTest {
                   })
               .jarBindingRuntime(runtime)
               .build();
-      dev.w0fv1.norm.logging.DependencyLogs.command(
+      dev.w0fv1.norm.cli.component.CommandJournal.withDependencyLogs(
           new PrintWriter(command),
           true,
           () -> {

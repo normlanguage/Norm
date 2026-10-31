@@ -33,7 +33,7 @@ public final class CliController {
           java.util.Arrays.stream(invocation)
               .takeWhile(value -> !value.equals("--"))
               .anyMatch("--debug"::equals);
-      return dev.w0fv1.norm.logging.DependencyLogs.command(
+      return dev.w0fv1.norm.cli.component.CommandJournal.withDependencyLogs(
           err, debug, () -> router.route(invocation, out, err));
     } finally {
       out.flush();

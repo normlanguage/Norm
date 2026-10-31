@@ -4,10 +4,8 @@ import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.component.CommandReportWriter;
 import dev.w0fv1.norm.cli.value.CommandReport;
 import dev.w0fv1.norm.cli.value.CommandReport.Status;
-import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
-import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ModuleCompilationException;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -109,7 +107,7 @@ final class VerificationCommand implements Command {
             var result =
                 launcher.test(
                     options.entry(),
-                    ExecutionContext.of(options.json() ? err : out, JdkSystemPlatform.standard()),
+                    Command.execution(options.json() ? err : out, err).build(),
                     options.filter());
             report =
                 result.compilation().isSuccess()
