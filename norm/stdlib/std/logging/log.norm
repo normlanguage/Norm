@@ -1,0 +1,143 @@
+package std.logging
+
+import std.annotation.Document
+import std.application.providers
+import std.application.environmentVariable
+import std.core.Exception
+import std.context.currentContext
+import std.context.withContext
+import std.io.printError
+import std.json.fromJson
+import std.time.systemClock
+
+import std.serialization.Serializable
+
+@Serializable
+private value Destination {
+  String name
+  String? level = null
+  String? source = null
+  Map<String, String>? options = null
+}
+
+private value Route {
+  String name
+  LogOutputer outputer
+  Integer minimum
+  String? source
+}
+
+private class Delivery {
+  LogOutputer outputer
+  Delivery? previous
+  Boolean contains(LogOutputer target) {
+    if outputer == target { return true }
+    return previous?.contains(target: target) ?? false
+  }
+}
+
+private Integer threshold(String level) {
+  return switch level {
+    case "debug" { break 0 }
+    case "info" { break 1 }
+    case "warn" { break 2 }
+    case "error" { break 3 }
+    case "off" { break 4 }
+    case _ { throw Exception(message: "Invalid log level: " + level) }
+  }
+}
+
+@Document(description: "Writes timestamped application log events to standard error.")
+public class ConsoleLogOutputer implements LogOutputer {
+  public Void open(Map<String, String> configuration) {}
+  public Void output(LogEvent event) {
+    printError(text: event.time.epochSecond().toString() + " [" + switch event.level { case Debug { break "DEBUG" } case Info { break "INFO" } case Warn { break "WARN" } case Error { break "ERROR" } } + "] " + event.source + " " + event.message + "\n")
+  }
+  public Void flush() {}
+  public Void close() {}
+}
+
+private class ApplicationLogs {
+  List<Route> routes = List<>()
+
+  Void start() {
+    var available = providers<LogOutputer>()
+    String base = environmentVariable(name: "NORM_LOG_LEVEL") ?? "info"
+    threshold(level: base)
+    var configured = environmentVariable(name: "NORM_LOG_OUTPUTS")
+    List<Destination> targets = if configured == null { [Destination(name: "std.logging.ConsoleLogOutputer")] } else { fromJson<List<Destination>>(value: configured) }
+    for target : targets {
+      Integer minimum = threshold(level: target.level ?? base)
+      Boolean found = false
+      for provider : available {
+        if provider.name() == target.name {
+          for route : routes {
+            if route.name == provider.name() { throw Exception(message: "Duplicate log output: " + target.name) }
+          }
+          var outputer = provider.create()
+          routes.add(Route(name: target.name, outputer: outputer, minimum: minimum, source: target.source))
+          outputer.open(configuration: target.options ?? Map<String, String>())
+          found = true
+        }
+      }
+      if !found { throw Exception(message: "Unknown log output: " + target.name) }
+    }
+  }
+
+  Void emit(LogLevel level, String source, String message) {
+    Integer priority = switch level {
+      case Debug { break 0 }
+      case Info { break 1 }
+      case Warn { break 2 }
+      case Error { break 3 }
+    }
+    var active = currentContext<Delivery>()
+    LogEvent? event = null
+    for route : routes {
+      var prefix = route.source
+      if priority >= route.minimum && (prefix == null || source == prefix || source.startsWith(prefix: prefix + ".")) && !(active?.contains(target: route.outputer) ?? false) {
+        if event == null { event = LogEvent(time: systemClock().now(), level: level, source: source, message: message) }
+        LogEvent selected = event!!
+        withContext<Delivery>(value: Delivery(outputer: route.outputer, previous: active), action: () { route.outputer.output(event: selected) })
+      }
+    }
+  }
+
+  Void close() {
+    for route : routes {
+      try { route.outputer.flush() } finally { route.outputer.close() }
+    }
+  }
+}
+
+private Void startApplicationLogs() {
+  var logs = ApplicationLogs()
+  Function<Void(LogLevel, String, String)> emit = logs.emit
+  Function<Void()> close = logs.close
+  __bindApplicationLogs(emit: emit, close: close)
+  logs.start()
+}
+
+@Document(description: "Emits an application debug event.")
+public Void logDebug(@Document(description: "The message to record.") String message) {
+  Function<Void()> start = startApplicationLogs.function
+  __emitApplicationLog(level: LogLevel.Debug, message: message, start: start)
+}
+
+@Document(description: "Emits an application info event.")
+public Void logInfo(@Document(description: "The message to record.") String message) {
+  Function<Void()> start = startApplicationLogs.function
+  __emitApplicationLog(level: LogLevel.Info, message: message, start: start)
+}
+
+@Document(description: "Emits an application warn event.")
+public Void logWarn(@Document(description: "The message to record.") String message) {
+  Function<Void()> start = startApplicationLogs.function
+  __emitApplicationLog(level: LogLevel.Warn, message: message, start: start)
+}
+
+@Document(description: "Emits an application error event.")
+public Void logError(@Document(description: "The message to record.") String message) {
+  Function<Void()> start = startApplicationLogs.function
+  __emitApplicationLog(level: LogLevel.Error, message: message, start: start)
+}

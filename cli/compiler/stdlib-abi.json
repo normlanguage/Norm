@@ -1235,6 +1235,16 @@
       "name": "PROVIDER_CREATE",
       "requiresResultRuntimeType": true,
       "writesState": true
+    },
+    {
+      "name": "BIND_APPLICATION_LOGS",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "EMIT_APPLICATION_LOG",
+      "requiresResultRuntimeType": false,
+      "writesState": true
     }
   ],
   "opaqueValues": [
@@ -9360,6 +9370,55 @@
         "documentation": "Application service discovery."
       },
       "intrinsic": "PROVIDER_CREATE"
+    },
+    {
+      "symbol": {
+        "name": "__bindApplicationLogs",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "emit",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "close",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Application logging lifecycle."
+      },
+      "intrinsic": "BIND_APPLICATION_LOGS"
+    },
+    {
+      "symbol": {
+        "name": "__emitApplicationLog",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "level",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "message",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "start",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Application logging lifecycle."
+      },
+      "intrinsic": "EMIT_APPLICATION_LOG"
     }
   ]
 }

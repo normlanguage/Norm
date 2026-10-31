@@ -10,6 +10,7 @@ import java.util.Map;
 
 record ExecutableProgram(
     RootCallTarget entryPoint,
+    java.util.Optional<CallTarget> logStartup,
     AnnotationRuntime annotations,
     GuestValueFactory values,
     RuntimeProgram program,
@@ -26,6 +27,7 @@ record ExecutableProgram(
         new ResourceScope(),
         new GuestCallbackScheduler(),
         new ExecutionContexts(),
+        new ApplicationLogSession(),
         bindings);
   }
 
@@ -45,6 +47,9 @@ record ExecutableProgram(
               JavaApplicationBridge.install(
                   runtime.applicationClassLoaders(),
                   new JavaApplicationDispatch(program, bridgeTargets, values, state, runtime));
+      }
+      logStartup.ifPresent(target -> target.call(state));
+      if (context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
         if (context.javaApplicationEntrypoint().isPresent()) {
           context
               .javaApplicationEntrypoint()
@@ -59,7 +64,11 @@ record ExecutableProgram(
       throw exception;
     } finally {
       try {
-        state.close(failure);
+        try {
+          state.logs().close(state);
+        } finally {
+          state.close(failure);
+        }
       } finally {
         if (bridge != null) bridge.close();
         if (bindings != null) bindings.endExecution();

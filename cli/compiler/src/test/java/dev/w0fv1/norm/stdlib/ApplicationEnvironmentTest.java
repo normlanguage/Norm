@@ -17,6 +17,37 @@ import org.junit.jupiter.api.Test;
 
 final class ApplicationEnvironmentTest {
   @Test
+  void routesApplicationLogsThroughDiscoveredOutputBeforeMain() {
+    var compilation =
+        compile(
+            """
+        package demo
+        import std.logging.LogOutputer
+        import std.logging.LogEvent
+        import std.logging.logInfo
+        import std.logging.logDebug
+        class Database implements LogOutputer {
+          Void open(Map<String, String> configuration) { printLine("open") }
+          Void output(LogEvent event) { printLine(event.source) printLine(event.message) }
+          Void flush() { printLine("flush") }
+          Void close() { printLine("close") }
+        }
+        Void main() { printLine("ready") logDebug("hidden") logInfo("saved") }
+        """);
+    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
+    var output = new StringWriter();
+    var context =
+        ExecutionContext.builder()
+            .output(new PrintWriter(output))
+            .environment(Map.of("NORM_LOG_OUTPUTS", "[{\"name\":\"demo.Database\"}]"))
+            .platform(JdkSystemPlatform.standard())
+            .build();
+    new NormRuntime().run(compilation.output().orElseThrow().artifact(), context);
+    assertEquals(
+        "open\nready\ndemo\nsaved\nflush\nclose\n", output.toString().replace("\r\n", "\n"));
+  }
+
+  @Test
   void exposesIsolatedArgumentsStreamsEnvironmentAndCompletion() {
     var compilation =
         compile(

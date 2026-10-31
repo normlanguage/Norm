@@ -23,6 +23,7 @@ final class ExecutionContextAccess {
             state.resources(),
             state.callbacks(),
             state.contexts(),
+            state.logs(),
             state.liveBindings());
   }
 
