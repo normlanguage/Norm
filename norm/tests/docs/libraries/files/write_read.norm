@@ -10,7 +10,7 @@ main() {
   var writer = openWrite(path: note, mode: FileWriteMode.CreateNew)
   try {
     var content = encodeText(
-      text: "Learn Norm",
+      text: "Learn Norm 世界",
       encoding: TextEncoding.Utf8
     )
     writer.write(content)
@@ -23,4 +23,5 @@ main() {
     maximumBytes: 1024
   )
   printLine(text)
+  printLine(readText(note.value))
 }
