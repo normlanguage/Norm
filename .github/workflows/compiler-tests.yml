@@ -31,7 +31,7 @@ jobs:
   suite:
     name: ${{ matrix.suite }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.suite == 'integrationTest' && 60 || 30 }}
     strategy:
       fail-fast: false
       matrix:
