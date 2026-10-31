@@ -14,6 +14,33 @@ import org.junit.jupiter.api.Test;
 
 final class StandardLibraryTest {
   @Test
+  void constructsOrderedHttpHeadersFromNamesPairsAndLines() {
+    assertOutput(
+        """
+        import std.http.HeaderMap
+        import std.core.Exception
+        Void main() {
+          var one = HeaderMap(k1: "A", v1: "")
+          var two = HeaderMap(k1: "A", v1: "", k2: "A", v2: "https://host:8080")
+          var lines = HeaderMap(["A:", "A: https://host:8080"])
+          var pairs = HeaderMap(["A", "", "A", "https://host:8080"])
+          printLine(one.values.size())
+          printLine(HeaderMap(["X-Trace:   id:2   "]).values[0].value)
+          printLine(two == lines && lines == pairs)
+          printLine(HeaderMap(entries: []).values.size())
+          try { HeaderMap(["A", "B", "C"]) } catch Exception error { printLine(error.message) }
+          try { HeaderMap(["A: B", "C"]) } catch Exception error { printLine(error.message) }
+        }
+        """,
+        "1",
+        "id:2",
+        "true",
+        "0",
+        "Missing header value at index 3",
+        "Missing colon in header at index 1");
+  }
+
+  @Test
   void executesImportedIntegerMathImplementedByTheStandardLibrary() {
     assertOutput(
         "import std.math.abs import std.math.clamp import std.math.max import std.math.min "

@@ -250,9 +250,25 @@ private value WireObject {
   }
 }
 
+private HeaderMap modelHeaders(String apiKey, String model, Integer maximumResponseBytes, HeaderMap headers) {
+  if apiKey.isBlank || model.isBlank || maximumResponseBytes < 1 {
+    throw OpenAiException(code: "OPENAI-INVALID-CONFIGURATION", message: "A key and positive response budget are required")
+  }
+  Array<HttpHeader> values = Array.filled(size: headers.values.size() + 2, value: HttpHeader(name: "", value: ""))
+  values[0] = HttpHeader(name: "Authorization", value: "Bearer " + apiKey)
+  values[1] = HttpHeader(name: "Content-Type", value: "application/json")
+  for HttpHeader header,index : headers.values {
+    if header.name.equalsIgnoreCaseAscii(other: "Authorization") || header.name.equalsIgnoreCaseAscii(other: "Content-Type") {
+      throw OpenAiException(code: "OPENAI-INVALID-CONFIGURATION", message: "Authorization and Content-Type are managed by the client")
+    }
+    values[index + 2] = header
+  }
+  return HeaderMap(values: values)
+}
+
 @Document(description: "Public API declaration Client.")
 public class Client {
-  private String apiKey
+  private HeaderMap headers
   private String model
   private Uri endpoint
   private HttpClient transport
@@ -261,11 +277,21 @@ public class Client {
 
   @Document(description: "Creates an OpenAI protocol client.") Client(@Document(description: "The API key.") String apiKey, @Document(description: "The model name.") String model, @Document(description: "The endpoint URL.") String endpoint = "https://api.openai.com/v1/responses",
     @Document(description: "The HTTP transport.") HttpClient transport = systemHttpClient(), @Document(description: "The request timeout.") Duration timeout = duration(seconds: 60, nanoseconds: 0),
+    @Document(description: "The response byte limit.") Integer maximumResponseBytes = 1048576,
+    @Document(description: "Additional HTTP headers; Authorization and Content-Type are managed by the client.") HeaderMap headers = HeaderMap(values: [])) {
+    this.headers = modelHeaders(apiKey: apiKey, model: model, maximumResponseBytes: maximumResponseBytes, headers: headers)
+    this.model = model
+    this.endpoint = Uri(value: endpoint)
+    this.transport = transport
+    this.timeout = timeout
+    this.maximumResponseBytes = maximumResponseBytes
+  }
+
+  @Document(description: "Creates an OpenAI protocol client.") Client(@Document(description: "The API key.") String apiKey, @Document(description: "The model name.") String model, @Document(description: "Additional HTTP headers; Authorization and Content-Type are managed by the client.") Array<String> headers,
+    @Document(description: "The endpoint URL.") String endpoint = "https://api.openai.com/v1/responses",
+    @Document(description: "The HTTP transport.") HttpClient transport = systemHttpClient(), @Document(description: "The request timeout.") Duration timeout = duration(seconds: 60, nanoseconds: 0),
     @Document(description: "The response byte limit.") Integer maximumResponseBytes = 1048576) {
-    if apiKey.isBlank || model.isBlank || maximumResponseBytes < 1 {
-      throw OpenAiException(code: "OPENAI-INVALID-CONFIGURATION", message: "A key and positive response budget are required")
-    }
-    this.apiKey = apiKey
+    this.headers = modelHeaders(apiKey: apiKey, model: model, maximumResponseBytes: maximumResponseBytes, headers: HeaderMap(entries: headers))
     this.model = model
     this.endpoint = Uri(value: endpoint)
     this.transport = transport
@@ -390,7 +416,7 @@ public class Client {
     Boolean chat = endpoint.value.endsWith(suffix: "/chat/completions")
     if chat { payload = chatPayload(payload: payload) }
     HttpRequest outgoing = HttpRequest(method: HttpMethod.Post, uri: endpoint,
-      headers: HeaderMap(values: [HttpHeader(name: "Authorization", value: "Bearer " + apiKey), HttpHeader(name: "Content-Type", value: "application/json")]),
+      headers: headers,
       body: encodeText(text: writeJson(value: JsonValue.Object(fields: payload)), encoding: TextEncoding.Utf8))
     HttpResponse incoming = transport.send(request: outgoing, timeout: timeout)
     return use<Response>(resource: incoming, body: () {

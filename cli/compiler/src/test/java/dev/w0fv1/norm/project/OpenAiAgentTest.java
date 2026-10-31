@@ -33,6 +33,10 @@ final class OpenAiAgentTest {
                         new String(
                             exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
                     .getAsJsonObject();
+            assertEquals(
+                "agent-session", exchange.getRequestHeaders().getFirst("x-opencode-session"));
+            assertEquals("norm-test/1.0", exchange.getRequestHeaders().getFirst("User-Agent"));
+            assertEquals("Bearer test", exchange.getRequestHeaders().getFirst("Authorization"));
             int round = requests.getAndIncrement();
             assertEquals(
                 round < 2 ? "install" : "added",
@@ -98,6 +102,7 @@ final class OpenAiAgentTest {
         Void main() {
           var catalog = Catalog()
           var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+            headers: ["x-opencode-session", "agent-session", "User-Agent", "norm-test/1.0"],
             toolProvider: catalog.tools)
           agent.chat("install and repair")
           require(condition: catalog.stage == 2, message: "accepted catalog remains callable")

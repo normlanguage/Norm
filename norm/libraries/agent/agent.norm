@@ -17,6 +17,7 @@ import openai.ToolResult
 import openai.ToolDefinition
 
 
+import std.http.HeaderMap
 import std.core.Exception
 import std.json.JsonValue
 import std.json.writeJson
@@ -63,6 +64,11 @@ public interface ToolScope {
   @Document(description: "Closes the tool scope.") Void close()
 }
 
+private Integer positiveRoundLimit(Integer maximumRounds) {
+  if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
+  return maximumRounds
+}
+
 @Document(description: "Public API declaration Agent.")
 public class Agent {
   private Client client
@@ -76,10 +82,10 @@ public class Agent {
   private Integer maximumOutputTokens
   private List<McpToolProvider> mcpProviders
   private List<Skill> skills
-  private Function<Void(String)>? textCallback
-  private SkillLoader skillLoader
-  private String? instructionSnapshot
-  private Boolean instructionSnapshotReady
+  private Function<Void(String)>? textCallback = null
+  private SkillLoader skillLoader = SkillLoader()
+  private String? instructionSnapshot = null
+  private Boolean instructionSnapshotReady = false
 
   @Document(description: "Creates an Agent with tools, Skills, and model configuration.") Agent(
     @Document(description: "The API key.") String apiKey,
@@ -93,23 +99,46 @@ public class Agent {
     @Document(description: "The dynamic tool provider.") Function<List<Function<?>>()>? toolProvider = null,
     @Document(description: "The tool scope factory.") Function<ToolScope()>? beginToolScope = null,
     @Document(description: "The context provider.") Function<String?()>? contextProvider = null,
-    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = []
+    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = [],
+    @Document(description: "Additional model HTTP headers forwarded to the protocol client.") HeaderMap headers = HeaderMap(values: [])
   ) {
-    if maximumRounds < 1 { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A positive round limit is required") }
-    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint)
+    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint, headers: headers)
     this.instructions = instruction
     this.tools = tools
     this.toolProvider = toolProvider
     this.beginToolScope = beginToolScope
     this.contextProvider = contextProvider
-    this.maximumRounds = maximumRounds
+    this.maximumRounds = positiveRoundLimit(maximumRounds)
     this.maximumOutputTokens = maximumOutputTokens
     this.mcpProviders = mcp
     this.skills = skills
-    this.textCallback = null
-    this.skillLoader = SkillLoader()
-    this.instructionSnapshot = null
-    this.instructionSnapshotReady = false
+  }
+
+  @Document(description: "Creates an Agent with tools, Skills, and model configuration.") Agent(
+    @Document(description: "The API key.") String apiKey,
+    @Document(description: "The model name.") String model,
+    @Document(description: "The endpoint URL.") String endpoint,
+    @Document(description: "Additional model HTTP headers forwarded to the protocol client.") Array<String> headers,
+    @Document(description: "The instructions.") String? instruction = null,
+    @Document(description: "The initial Skills.") List<Skill> skills = [],
+    @Document(description: "The initial tools.") List<Function<?>> tools = [],
+    @Document(description: "The maximum rounds.") Integer maximumRounds = 64,
+    @Document(description: "The maximum output tokens.") Integer maximumOutputTokens = 8192,
+    @Document(description: "The dynamic tool provider.") Function<List<Function<?>>()>? toolProvider = null,
+    @Document(description: "The tool scope factory.") Function<ToolScope()>? beginToolScope = null,
+    @Document(description: "The context provider.") Function<String?()>? contextProvider = null,
+    @Document(description: "The MCP providers.") List<McpToolProvider> mcp = []
+  ) {
+    this.client = Client(apiKey: apiKey, model: model, endpoint: endpoint, headers: headers)
+    this.instructions = instruction
+    this.tools = tools
+    this.toolProvider = toolProvider
+    this.beginToolScope = beginToolScope
+    this.contextProvider = contextProvider
+    this.maximumRounds = positiveRoundLimit(maximumRounds)
+    this.maximumOutputTokens = maximumOutputTokens
+    this.mcpProviders = mcp
+    this.skills = skills
   }
 
   @Document(description: "Public API declaration skill.")
