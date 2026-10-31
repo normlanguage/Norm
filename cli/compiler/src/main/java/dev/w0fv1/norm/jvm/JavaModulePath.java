@@ -40,6 +40,17 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
   }
 
   public static JavaModulePath inspect(Collection<Path> entries) throws IOException {
+    var modules =
+        ModuleFinder.of(candidates(entries).toArray(Path[]::new)).findAll().stream()
+            .filter(reference -> !reference.descriptor().isAutomatic())
+            .sorted(java.util.Comparator.comparing(reference -> reference.descriptor().name()))
+            .toList();
+    return new JavaModulePath(
+        modules.stream().map(reference -> Path.of(reference.location().orElseThrow())).toList(),
+        modules.stream().map(reference -> reference.descriptor().name()).toList());
+  }
+
+  private static List<Path> candidates(Collection<Path> entries) throws IOException {
     var paths = new ArrayList<Path>();
     for (Path path : entries) {
       if (Files.isDirectory(path)) {
@@ -53,16 +64,10 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
                   : manifest.getMainAttributes().getValue("Automatic-Module-Name");
           if (jar.getJarEntry("module-info.class") != null || automaticName != null)
             paths.add(path);
-        } catch (java.lang.module.FindException ignored) {
         }
       }
     }
-    var names =
-        ModuleFinder.of(paths.toArray(Path[]::new)).findAll().stream()
-            .map(reference -> reference.descriptor().name())
-            .sorted()
-            .toList();
-    return new JavaModulePath(paths, names);
+    return paths;
   }
 
   public static JavaModulePath nativeImage(Collection<Path> entries, Collection<String> userRoots)
@@ -103,8 +108,7 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
   private static JavaModulePath select(
       Collection<Path> entries, Collection<String> roots, Collection<Path> forcedPaths)
       throws IOException {
-    var available = inspect(entries);
-    var candidatePaths = new java.util.LinkedHashSet<>(available.paths());
+    var candidatePaths = new java.util.LinkedHashSet<>(candidates(entries));
     candidatePaths.addAll(forcedPaths);
     var references =
         ModuleFinder.of(candidatePaths.toArray(Path[]::new)).findAll().stream()
