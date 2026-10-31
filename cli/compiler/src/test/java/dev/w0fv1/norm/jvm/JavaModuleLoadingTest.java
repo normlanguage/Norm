@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -116,10 +117,59 @@ final class JavaModuleLoadingTest {
 
     assertEquals(List.of("sample.forced.automatic"), selected.names());
     assertEquals(List.of(forced), selected.paths());
-    assertEquals(
-        List.of("sample.forced.automatic", "sample.ordinary.automatic"),
-        JavaModulePath.inspect(List.of(forced, ordinary)).names());
+    assertTrue(JavaModulePath.inspect(List.of(forced, ordinary)).names().isEmpty());
     assertTrue(JavaModulePath.select(List.of(forced, ordinary), List.of()).paths().isEmpty());
+  }
+
+  @Test
+  void keepsSplitPackageAutomaticLibrariesOnTheJvmAndNativeClasspath() throws Exception {
+    Path first = writeAutomaticJar("sample.first", "shared/ModuleInfoOne");
+    Path second = writeAutomaticJar("sample.second", "shared/ModuleInfoTwo");
+    var paths = List.of(first, second);
+    var roots = JavaModulePath.inspect(paths).names();
+    assertTrue(roots.isEmpty());
+    assertTrue(JavaModulePath.nativeImage(paths, roots).paths().isEmpty());
+    try (var runtime = new JvmJarBindingRuntime(List.of(), paths)) {
+      var loader = runtime.applicationClassLoader();
+      assertFalse(loader.loadClass("shared.ModuleInfoOne").getModule().isNamed());
+      assertFalse(loader.loadClass("shared.ModuleInfoTwo").getModule().isNamed());
+    }
+  }
+
+  @Test
+  void resolvesAutomaticLibrariesRequiredByAnExplicitModule() throws Exception {
+    Path automatic = writeAutomaticJar("sample.automatic", "automatic/Widget");
+    Path consumer = writeModuleJar("sample.consumer", List.of("sample.automatic"), false, Map.of());
+    var paths = List.of(consumer, automatic);
+    var roots = JavaModulePath.inspect(paths).names();
+    assertEquals(List.of("sample.consumer"), roots);
+    assertEquals(
+        List.of("sample.automatic", "sample.consumer"),
+        JavaModulePath.select(paths, roots).names());
+    assertEquals(
+        List.of("sample.automatic", "sample.consumer"),
+        JavaModulePath.nativeImage(paths, roots).names());
+    try (var runtime = new JvmJarBindingRuntime(List.of(), paths)) {
+      assertEquals(
+          "sample.automatic",
+          runtime.applicationClassLoader().loadClass("automatic.Widget").getModule().getName());
+    }
+  }
+
+  private Path writeAutomaticJar(String name, String className) throws Exception {
+    var manifest = new Manifest();
+    manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    manifest.getMainAttributes().putValue("Automatic-Module-Name", name);
+    var type = new ClassWriter(0);
+    type.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, className, null, "java/lang/Object", null);
+    type.visitEnd();
+    Path path = directory.resolve(name + ".jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(path), manifest)) {
+      output.putNextEntry(new JarEntry(className + ".class"));
+      output.write(type.toByteArray());
+      output.closeEntry();
+    }
+    return path;
   }
 
   private Path writeModuleJar(
