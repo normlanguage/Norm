@@ -27,7 +27,7 @@ final class FileIntrinsicDispatcher {
                         ? java.nio.file.Path.of(
                             System.getProperty("user.home"),
                             ".norm",
-                            "logs",
+                            "log",
                             context.applicationPackage().isEmpty()
                                 ? "application"
                                 : context.applicationPackage())
