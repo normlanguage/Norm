@@ -172,14 +172,14 @@
     "package:local": "node scripts/package-local.mjs"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.2"
+    "vscode-languageclient": "11.0.0"
   },
   "overrides": {
     "diff": "8.0.3",
     "serialize-javascript": "7.1.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/mocha": "10.0.10",
     "@types/vscode": "1.100.0",
     "@vscode/test-cli": "0.0.15",
