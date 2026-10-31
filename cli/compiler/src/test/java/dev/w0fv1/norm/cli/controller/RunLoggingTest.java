@@ -234,7 +234,10 @@ final class RunLoggingTest {
     var out = Files.createTempFile(directory, "cli-", ".out");
     var err = Files.createTempFile(directory, "cli-", ".err");
     var builder =
-        new ProcessBuilder(arguments).directory(directory.toFile()).redirectOutput(out.toFile()).redirectError(err.toFile());
+        new ProcessBuilder(arguments)
+            .directory(directory.toFile())
+            .redirectOutput(out.toFile())
+            .redirectError(err.toFile());
     builder.environment().put("NORM_LOG_LEVEL", "off");
     if (outputs == null) builder.environment().remove("NORM_LOG_OUTPUTS");
     else builder.environment().put("NORM_LOG_OUTPUTS", outputs);
