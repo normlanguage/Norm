@@ -86,14 +86,12 @@ final class RunLoggingTest {
         import std.application.arguments
         import std.logging.logDebug
         import std.logging.LogDefaults
-        import std.logging.LogDestination
         import demo.library.emitLibrary
         class ShopLogs implements LogDefaults {
-          List<LogDestination> outputs() {
-            Map<String, String> options = Map<>()
-            options.put(key: "directory", value: "log")
-            return [LogDestination(name: "std.logging.ConsoleLogOutputer"),
-              LogDestination(name: "std.logging.FileLogOutputer", options: options)]
+          String outputs() {
+            return \"\"\"
+            [{"name":"std.logging.ConsoleLogOutputer"},{"name":"std.logging.FileLogOutputer","options":{"directory":"log"}}]
+            \"\"\"
           }
         }
         Void main() {
