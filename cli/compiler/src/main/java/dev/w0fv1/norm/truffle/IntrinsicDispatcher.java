@@ -106,6 +106,10 @@ public final class IntrinsicDispatcher {
           EXPECTED_OUTPUT_LINE,
           AWAIT_CANCELLATION,
           DELAY,
+          EMIT_APPLICATION_LOG,
+          BIND_APPLICATION_LOGS,
+          APPLICATION_PROVIDERS,
+          PROVIDER_CREATE,
           APPLICATION_PACKAGE,
           APPLICATION_DIRECTORY,
           REQUIRE_ARGUMENT,
@@ -249,7 +253,8 @@ public final class IntrinsicDispatcher {
           JAR_TASK_COMPLETED,
           JAR_TASK_CLOSE ->
           JarTaskIntrinsicDispatcher.resolve(intrinsic);
-      case FILE_WRITE_ATOMIC,
+      case LOG_OPEN_FILE,
+          FILE_WRITE_ATOMIC,
           FILE_OPEN_READ,
           FILE_READER_READ,
           FILE_OPEN_WRITE,

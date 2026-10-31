@@ -114,7 +114,16 @@ final class Lowerer {
     GuestValueFactory values = guestValues();
     annotations.initializeValues(values);
     return new ExecutableProgram(
-        entryPlan.target, annotations, values, annotations.program(), Map.copyOf(bridgeTargets));
+        entryPlan.target,
+        artifact
+            .namespace()
+            .occurrence("std.logging", "startApplicationLogs")
+            .map(callables::get)
+            .map(plan -> plan.target),
+        annotations,
+        values,
+        annotations.program(),
+        Map.copyOf(bridgeTargets));
   }
 
   private GuestValueFactory guestValues() {
@@ -161,7 +170,15 @@ final class Lowerer {
                         (CoreDefinition.Enum)
                             identity.definition(record.id(), record.definition())))
             .toList();
-    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations);
+    Map<CoreType, List<DefinitionId>> providers = new LinkedHashMap<>();
+    execution
+        .providers()
+        .forEach(
+            (service, implementations) ->
+                providers.put(
+                    identity.absoluteType(service),
+                    implementations.stream().map(identity::id).toList()));
+    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations, providers);
   }
 
   private void indexDefinitions(CoreExecutionPlan execution) {
@@ -195,11 +212,19 @@ final class Lowerer {
   }
 
   private void createCallTargets() {
+    var packages = new java.util.HashMap<DocumentId, String>();
+    for (var binding : artifact.namespace().bindings()) {
+      packages.put(
+          artifact.authoring().origin(binding.occurrence()).rootSpan().source().id(),
+          binding.packageName());
+    }
     for (FunctionPlan plan : callables.values()) {
       plan.root =
           new FunctionRootNode(
               language,
               artifact.displayName(plan.id),
+              packages.getOrDefault(
+                  artifact.authoring().origin(plan.id).rootSpan().source().id(), ""),
               plan.id,
               plan.descriptor,
               plan.arguments.toArray(FrameBinding[]::new),

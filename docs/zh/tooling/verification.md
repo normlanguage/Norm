@@ -28,3 +28,5 @@ norm test path/to/module --filter package.function --format json
 结果对应本次调用捕获并分析的输入，不代表之后编辑过的源码。当前结果没有完整输入快照标识，不可作为跨调用编辑的前置版本令牌。
 
 Windows 终端与重定向输出：[ProcessOutput](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/ProcessOutput.cs)、[编码验收](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher.Tests/ProcessOutputTest.cs)。
+
+使用 `--diagnostics` 保留本次命令的结构化诊断。命令将报告目录写入 stderr，`--format json` 的结果仍单独写入 stdout。记录入口见 [CommandJournal](../../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/component/CommandJournal.java)。

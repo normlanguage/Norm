@@ -24,4 +24,8 @@ public record CoreNominalTypeKey(
     privateSourcePath =
         privateSourcePath.map(path -> new ModuleSourceCoordinate(module, path).relativePath());
   }
+
+  public String qualifiedName() {
+    return packageName.isEmpty() ? name : packageName + "." + name;
+  }
 }

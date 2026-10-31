@@ -10,6 +10,7 @@ import java.util.Map;
 
 record ExecutableProgram(
     RootCallTarget entryPoint,
+    java.util.Optional<CallTarget> logStartup,
     AnnotationRuntime annotations,
     GuestValueFactory values,
     RuntimeProgram program,
@@ -26,6 +27,7 @@ record ExecutableProgram(
         new ResourceScope(),
         new GuestCallbackScheduler(),
         new ExecutionContexts(),
+        new ApplicationLogSession(),
         bindings);
   }
 
@@ -45,21 +47,31 @@ record ExecutableProgram(
               JavaApplicationBridge.install(
                   runtime.applicationClassLoaders(),
                   new JavaApplicationDispatch(program, bridgeTargets, values, state, runtime));
-        if (context.javaApplicationEntrypoint().isPresent()) {
-          context
-              .javaApplicationEntrypoint()
-              .orElseThrow()
-              .execute(runtime.applicationClassLoader());
-          return null;
-        }
       }
-      return entryPoint.call(state);
+      return dev.w0fv1.norm.logging.DependencyLogs.within(
+          state.logs().dependencies(state),
+          () -> {
+            logStartup.ifPresent(target -> target.call(state));
+            if (context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime
+                && context.javaApplicationEntrypoint().isPresent()) {
+              context
+                  .javaApplicationEntrypoint()
+                  .orElseThrow()
+                  .execute(runtime.applicationClassLoader());
+              return null;
+            }
+            return entryPoint.call(state);
+          });
     } catch (RuntimeException | Error exception) {
       failure = exception;
       throw exception;
     } finally {
       try {
-        state.close(failure);
+        try {
+          state.logs().close(state);
+        } finally {
+          state.close(failure);
+        }
       } finally {
         if (bridge != null) bridge.close();
         if (bindings != null) bindings.endExecution();

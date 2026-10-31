@@ -47,7 +47,7 @@ Output goes to `<module>/build/<artifact>[.exe]`. `artifact` derives from the Mo
 
 For a Windows desktop application, `norm build --windowed <project-directory>` creates a native EXE without a command-line window. It also works with an explicitly selected `--jvm` target. Command-line applications remain the default. Standard-output and error logs for windowed mode are under `%LOCALAPPDATA%/Programs/Norm/logs/<application-name>/<start-time>-<process-id>/`. See [WindowsSubsystem](../../cli/compiler/src/main/java/dev/w0fv1/norm/build/WindowsSubsystem.java) and [ApplicationProcess](../../cli/launcher/Norm.Launcher/ApplicationProcess.cs).
 
-By default, build logs show target, dependency resolution, NAR cache path, compilation, annotation processing, packaging phases, and total elapsed time. A repository request failure retains its URL and underlying exception chain. `Built` appears only after the artifact is written successfully.
+Build progress goes to stderr. The final artifact path is reported on stdout. By default, build logs show target, dependency resolution, NAR cache path, compilation, annotation processing, packaging phases, and total elapsed time. A repository request failure retains its URL and underlying exception chain. `Built` appears only after the artifact is written successfully.
 
 The default target is `native`. To diagnose JVM behavior, select it explicitly:
 

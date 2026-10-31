@@ -95,6 +95,7 @@ final class LiveBindings implements AutoCloseable {
               shared.resources(),
               shared.callbacks(),
               shared.contexts(),
+              shared.logs(),
               shared.liveBindings());
       dispatch =
           new JavaApplicationDispatch(

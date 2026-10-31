@@ -36,6 +36,7 @@ final class NativeApplicationProgramTest {
             new TruffleExecutionBackend().prepare(artifact),
             JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
+            false,
             LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
             dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY);
     for (int attempt = 0; attempt < 2; attempt++) {
@@ -57,6 +58,7 @@ final class NativeApplicationProgramTest {
             new TruffleExecutionBackend().prepare(artifact),
             JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
+            false,
             LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
             dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY);
     var failure =

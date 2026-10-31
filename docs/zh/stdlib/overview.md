@@ -13,6 +13,7 @@
 | `std.configuration` | 类型化框架配置到宿主属性的结构映射 | [Configuration](/zh/stdlib/configuration) |
 | `std.math` | Integer 数学函数 | [Math](/zh/stdlib/math) |
 | `std.cli` | 长选项、位置参数与帮助 | [CLI](/zh/stdlib/cli) |
+| `std.logging` | 应用日志与持久化 | [日志](/zh/stdlib/logging) |
 | `std.application` | 参数、环境、目录与完成码 | [CLI](/zh/stdlib/cli) |
 | `std.process` | 子进程、输出预算、超时与取消 | [CLI](/zh/stdlib/cli) |
 | `std.time` | Instant、Duration 与 Clock | [Time](/zh/stdlib/time) |

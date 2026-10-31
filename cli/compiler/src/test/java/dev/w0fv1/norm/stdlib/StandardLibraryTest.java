@@ -14,6 +14,31 @@ import org.junit.jupiter.api.Test;
 
 final class StandardLibraryTest {
   @Test
+  void discoversPublicImplementationsAndCreatesThemOnDemand() {
+    assertOutput(
+        """
+        package demo
+        import std.application.providers
+        interface Service { String label() }
+        interface Child extends Service {}
+        class Alpha implements Child {
+          String label() { return "alpha" }
+        }
+        private class Hidden implements Service {
+          String label() { return "hidden" }
+        }
+        Void main() {
+          for provider : providers<Service>() {
+            printLine(provider.name())
+            printLine(provider.create().label())
+          }
+        }
+        """,
+        "demo.Alpha",
+        "alpha");
+  }
+
+  @Test
   void constructsOrderedHttpHeadersFromNamesPairsAndLines() {
     assertOutput(
         """
@@ -91,15 +116,15 @@ final class StandardLibraryTest {
   void rebuildsStringsFromCodePoints() {
     assertOutput(
         "import std.text.fromCodePoints Void main() { "
-            + "printLine(fromCodePoints(values: ['N', 'o', 'r', 'm', '😀'])) }",
-        "Norm😀");
+            + "printLine(fromCodePoints(values: ['N', 'o', 'r', 'm', '馃榾'])) }",
+        "Norm馃榾");
   }
 
   @Test
   void normalizesUnicodeTextThroughTheStandardLibrary() {
     assertOutput(
         "import std.text.Normalization import std.text.isNormalized import std.text.normalize "
-            + "Void main() { String value = normalize(value: \"é\", form: Normalization.Nfc) "
+            + "Void main() { String value = normalize(value: \"e虂\", form: Normalization.Nfc) "
             + "printLine(value.codePointSize()) printLine(isNormalized(value: value, form: Normalization.Nfc)) }",
         "1",
         "true");

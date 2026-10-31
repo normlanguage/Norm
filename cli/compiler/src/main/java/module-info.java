@@ -33,6 +33,10 @@ module dev.w0fv1.norm {
   requires org.codehaus.plexus.interpolation;
   requires org.codehaus.plexus.util;
   requires org.slf4j;
+
+  provides org.slf4j.spi.SLF4JServiceProvider with
+      dev.w0fv1.norm.logging.DependencyLogProvider;
+
   requires org.objectweb.asm;
   requires org.objectweb.asm.commons;
   requires org.objectweb.asm.tree;

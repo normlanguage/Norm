@@ -8,6 +8,7 @@ import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 
 final class FunctionRootNode extends RootNode implements RuntimeLocation {
   private final String name;
+  private final String packageName;
   private final FrameBinding[] parameters;
   private final SourceSection sourceSection;
   private final DefinitionOccurrenceId occurrence;
@@ -17,6 +18,7 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
   FunctionRootNode(
       com.oracle.truffle.api.TruffleLanguage<?> language,
       String name,
+      String packageName,
       DefinitionOccurrenceId occurrence,
       FrameDescriptor frameDescriptor,
       FrameBinding[] parameters,
@@ -24,10 +26,15 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
       SourceSection sourceSection) {
     super(language, frameDescriptor);
     this.name = name;
+    this.packageName = packageName;
     this.occurrence = occurrence;
     this.parameters = parameters;
     this.constructor = constructor;
     this.sourceSection = sourceSection;
+  }
+
+  String packageName() {
+    return packageName;
   }
 
   void initialize(StatementNode body) {

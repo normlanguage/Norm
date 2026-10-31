@@ -30,7 +30,12 @@ class JavaRealmClassLoader extends URLClassLoader {
           .flatMap(reference -> reference.descriptor().packages().stream())
           .collect(java.util.stream.Collectors.toUnmodifiableSet());
   private static final List<String> SHARED_PACKAGES =
-      List.of("dev.w0fv1.norm.bridge.", "org.junit.", "org.opentest4j.", "org.apiguardian.");
+      List.of(
+          "org.slf4j.",
+          "dev.w0fv1.norm.bridge.",
+          "org.junit.",
+          "org.opentest4j.",
+          "org.apiguardian.");
 
   JavaRealmClassLoader(URL[] urls, ClassLoader parent) {
     super(urls, parent);

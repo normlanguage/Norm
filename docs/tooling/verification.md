@@ -28,3 +28,5 @@ When no tests are found, the command returns a failing exit code and `no_tests` 
 A result applies to the inputs captured and analyzed by that invocation, not sources edited later. Current results lack a complete input snapshot identity and cannot serve as a pre-edit version token across calls.
 
 Windows terminal and redirected output: [ProcessOutput](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher/ProcessOutput.cs), [encoding acceptance](https://github.com/normlanguage/Norm/blob/main/cli/launcher/Norm.Launcher.Tests/ProcessOutputTest.cs).
+
+Use `--diagnostics` to retain structured command diagnostics. The command prints the report directory to stderr and reserves stdout for the `--format json` result. See [CommandJournal](../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/component/CommandJournal.java).

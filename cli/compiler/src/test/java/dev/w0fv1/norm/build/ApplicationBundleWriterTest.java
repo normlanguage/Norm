@@ -31,8 +31,9 @@ final class ApplicationBundleWriterTest {
             app.resolve("main.norm"),
             """
         package app
-        import example.library.value
-        Void main() { printLine(value()) }
+        import example.library.Service
+        import std.application.providers
+        Void main() { for provider : providers<Service>() { printLine(provider.create().value()) } }
         """);
     Files.writeString(
         library.resolve("module.norm"),
@@ -42,7 +43,11 @@ final class ApplicationBundleWriterTest {
     Path source =
         Files.writeString(
             library.resolve("value.norm"),
-            "package example.library public String value() { \"captured\" }");
+            """
+            package example.library
+            public interface Service { String value() }
+            public class Captured implements Service { String value() { "captured" } }
+            """);
     Path resources = Files.createDirectories(library.resolve("resources"));
     Path resource = Files.writeString(resources.resolve("value.txt"), "captured resource");
     Path bundle = root.resolve("delivery");

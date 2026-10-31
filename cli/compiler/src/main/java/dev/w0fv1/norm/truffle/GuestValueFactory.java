@@ -77,6 +77,7 @@ final class GuestValueFactory {
               new FieldContract(YamlAbi.FIELD_OFFSET_ORDINAL, YamlAbi.FIELD_OFFSET_NAME),
               new FieldContract(YamlAbi.FIELD_LINE_ORDINAL, YamlAbi.FIELD_LINE_NAME),
               new FieldContract(YamlAbi.FIELD_COLUMN_ORDINAL, YamlAbi.FIELD_COLUMN_NAME)));
+  private final Map<CoreType, List<DefinitionId>> providers;
   private final AnnotationRuntime annotations;
   private final Map<Key, AggregatePlan> aggregates;
   private final Map<DefinitionId, AggregatePlan> aggregatesByDefinition;
@@ -88,7 +89,9 @@ final class GuestValueFactory {
       List<AggregatePlan> aggregatePlans,
       Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces,
       List<EnumPlan> enumPlans,
-      AnnotationRuntime annotations) {
+      AnnotationRuntime annotations,
+      Map<CoreType, List<DefinitionId>> providers) {
+    this.providers = Map.copyOf(providers);
     this.annotations = java.util.Objects.requireNonNull(annotations);
     Map<Key, AggregatePlan> indexedAggregates = new LinkedHashMap<>();
     for (AggregatePlan plan : aggregatePlans) {
@@ -379,6 +382,19 @@ final class GuestValueFactory {
   RuntimeValues.ObjectValue construct(
       CoreType type, ExecutionState execution, Object... arguments) {
     return construct(requireAggregate(type), type, execution, arguments);
+  }
+
+  RuntimeValues.ListValue providers(
+      RuntimeValues.ClassValue service, CoreType list, ExecutionState execution) {
+    CoreType descriptor = ((CoreType.Declared) list).arguments().getFirst();
+    var result = new RuntimeValues.ListValue(list);
+    for (DefinitionId id : providers.getOrDefault(service.reflectedType(), List.of())) {
+      var plan = aggregatesByDefinition.get(id);
+      var reflected = new RuntimeValues.ClassValue(service.type(), plan.type(), annotations);
+      result.values.add(
+          construct(descriptor, execution, plan.nominal().qualifiedName(), reflected));
+    }
+    return result;
   }
 
   RuntimeValues.ObjectValue allocate(CoreType type) {

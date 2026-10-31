@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.cli.component.ApiDocumentationWriter;
+import dev.w0fv1.norm.cli.component.CommandReportWriter;
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.documentation.DocumentationGenerator;
 import dev.w0fv1.norm.documentation.MissingDocumentationException;
 import dev.w0fv1.norm.documentation.SkillGenerator;
@@ -116,10 +116,7 @@ final class DocsCommand implements Command {
     try {
       LoadedModule loaded = projectModule(moduleRoot, modulePath, descriptor, projects, compiler);
       if (loaded.snapshot().analysis().hasErrors()) {
-        loaded
-            .snapshot()
-            .diagnostics()
-            .forEach(diagnostic -> err.println(DiagnosticRenderer.render(diagnostic)));
+        CommandReportWriter.writeDiagnostics(loaded.snapshot().diagnostics(), err);
         throw new DocumentationCompilationException();
       }
       return new DocumentationGenerator()

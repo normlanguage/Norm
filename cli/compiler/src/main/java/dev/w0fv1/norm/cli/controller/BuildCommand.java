@@ -5,8 +5,8 @@ import dev.w0fv1.norm.build.ApplicationBuildTarget;
 import dev.w0fv1.norm.build.ApplicationBuilder;
 import dev.w0fv1.norm.build.BuildRequest;
 import dev.w0fv1.norm.build.BuildResult;
+import dev.w0fv1.norm.cli.component.CommandReportWriter;
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -72,7 +72,7 @@ final class BuildCommand implements Command {
               + " norm.exe");
       return ExitCode.INPUT_ERROR;
     }
-    java.util.function.Consumer<String> progress = new CommandProgress("build", out);
+    java.util.function.Consumer<String> progress = new CommandProgress("build", err);
     try {
       NormRuntime backend = new NormRuntime();
       progress.accept("Target: " + options.target().name().toLowerCase(java.util.Locale.ROOT));
@@ -90,9 +90,7 @@ final class BuildCommand implements Command {
       }
       return switch (result) {
         case BuildResult.CompilationFailure failure -> {
-          for (var diagnostic : failure.diagnostics()) {
-            err.println(DiagnosticRenderer.render(diagnostic));
-          }
+          CommandReportWriter.writeDiagnostics(failure.diagnostics(), err);
           yield ExitCode.COMPILATION_ERROR;
         }
         case BuildResult.Success success -> {

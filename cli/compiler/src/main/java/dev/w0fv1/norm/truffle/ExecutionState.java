@@ -13,6 +13,7 @@ record ExecutionState(
     ResourceScope resources,
     GuestCallbackScheduler callbacks,
     ExecutionContexts contexts,
+    ApplicationLogSession logs,
     LiveBindings liveBindings) {
   ExecutionState {
     Objects.requireNonNull(context, "context");

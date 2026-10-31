@@ -42,7 +42,7 @@ asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 codec = { module = "commons-codec:commons-codec", version.ref = "codec" }
 compress = { module = "org.apache.commons:commons-compress", version.ref = "compress" }
 jcl-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
-slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
 junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", version.ref = "junit" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }

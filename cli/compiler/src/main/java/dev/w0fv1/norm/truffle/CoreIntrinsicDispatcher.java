@@ -139,6 +139,28 @@ final class CoreIntrinsicDispatcher {
               throw execution.values().javaException(error, execution, location);
             }
           };
+      case BIND_APPLICATION_LOGS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            execution
+                .logs()
+                .bind((RuntimeValues.Closure) arguments[0], (RuntimeValues.Closure) arguments[1]);
+            return null;
+          };
+      case EMIT_APPLICATION_LOG ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            execution.logs().emit(execution, arguments[0], (String) arguments[1]);
+            return null;
+          };
+      case APPLICATION_PROVIDERS ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              execution
+                  .values()
+                  .providers((RuntimeValues.ClassValue) arguments[0], type, execution);
+      case PROVIDER_CREATE ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              execution
+                  .values()
+                  .construct(((RuntimeValues.ClassValue) arguments[0]).reflectedType(), execution);
       case APPLICATION_PACKAGE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             return context.applicationPackage();
