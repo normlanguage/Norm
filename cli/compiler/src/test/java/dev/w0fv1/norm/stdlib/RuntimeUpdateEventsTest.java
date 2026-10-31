@@ -77,7 +77,6 @@ final class RuntimeUpdateEventsTest {
         class State { Boolean observed = false }
         Integer marker() { %d }
         Void main() {
-          printLine("ready")
           var runtime = currentSystem().runtime()
           var state = State()
           var subscription = runtime.onUpdate {
@@ -87,6 +86,7 @@ final class RuntimeUpdateEventsTest {
               printLine(event.changes.size() > 0)
             }
           }
+          printLine("ready")
           for !state.observed { delay(duration(seconds: 0, nanoseconds: 1000000)) }
           subscription.close()
         }
