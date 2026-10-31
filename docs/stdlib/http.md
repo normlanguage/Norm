@@ -2,6 +2,8 @@
 
 The HTTP module provides typed requests, streaming responses, and a client adapter. [`client.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/client.norm) and [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/json.norm) define public signatures. An HTTP server, routing, controllers, and authentication have not yet been delivered.
 
+See the [HeaderMap constructor examples](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/stdlib/StandardLibraryTest.java) for named pairs, header lines and alternating names and values.
+
 ## Client
 
 ```norm

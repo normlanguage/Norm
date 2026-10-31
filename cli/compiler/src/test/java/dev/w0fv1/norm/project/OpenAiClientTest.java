@@ -244,13 +244,10 @@ final class OpenAiClientTest {
           import openai.StructuredOutput
           import openai.StructuredOutputMode
           import openai.OpenAiException
-          import std.http.Uri
-          import std.http.HeaderMap
-          import std.http.HttpHeader
           import std.json.parseJson
           Void main() {
             Client client = Client(apiKey: "test-key", model: "test-model", endpoint: "http://127.0.0.1:%d/v1/responses",
-              headers: HeaderMap(values: [HttpHeader(name: "x-opencode-session", value: "client-session"), HttpHeader(name: "User-Agent", value: "norm-test/1.0")]))
+              headers: ["x-opencode-session: client-session", "User-Agent: norm-test/1.0"])
             try {
               var result = client.exchange(stream: false, request: ResponseRequest(model: "test-model", input: ResponseInput.Text(value: "创建分支"),
                 format: StructuredOutput(mode: StructuredOutputMode.%s, name: "action", schema: parseJson(value: "{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{},\\\"additionalProperties\\\":false}"))))

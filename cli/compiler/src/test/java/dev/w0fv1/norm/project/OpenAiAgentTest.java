@@ -83,8 +83,6 @@ final class OpenAiAgentTest {
           """
         package app
         import agent.Agent
-        import std.http.HeaderMap
-        import std.http.HttpHeader
         import openai.Tool
         class Unsupported {}
         class Catalog {
@@ -104,7 +102,7 @@ final class OpenAiAgentTest {
         Void main() {
           var catalog = Catalog()
           var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
-            headers: HeaderMap(values: [HttpHeader(name: "x-opencode-session", value: "agent-session"), HttpHeader(name: "User-Agent", value: "norm-test/1.0")]),
+            headers: ["x-opencode-session", "agent-session", "User-Agent", "norm-test/1.0"],
             toolProvider: catalog.tools)
           agent.chat("install and repair")
           require(condition: catalog.stage == 2, message: "accepted catalog remains callable")

@@ -2,6 +2,8 @@
 
 HTTP 模块提供强类型请求、流式响应和客户端 adapter。公开签名以 [`client.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/client.norm) 与 [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/json.norm) 为准。HTTP server、路由、Controller 和 Authentication 尚未交付。
 
+命名键值对、请求头行和交替名称和值的用法见 [HeaderMap 构造示例](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/stdlib/StandardLibraryTest.java)。
+
 ## 客户端
 
 ```norm
