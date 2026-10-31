@@ -293,25 +293,22 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
 
   @Override
   public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
-    return workspace
-        .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(List.of());
-              return CompletableFuture.completedFuture(
-                  language
-                      .format(state.source())
-                      .filter(formatted -> !formatted.equals(state.source().text()))
-                      .map(
-                          formatted ->
-                              List.of(
-                                  new TextEdit(
-                                      range(
-                                          state.source().positionAt(0),
-                                          state.source().positionAt(state.source().length())),
-                                      formatted)))
-                      .orElse(List.of()));
-            });
+    var edits =
+        workspace
+            .openSource(params.getTextDocument().getUri())
+            .flatMap(
+                source ->
+                    language
+                        .format(source)
+                        .filter(formatted -> !formatted.equals(source.text()))
+                        .map(
+                            formatted ->
+                                new TextEdit(
+                                    range(source.positionAt(0), source.positionAt(source.length())),
+                                    formatted)))
+            .stream()
+            .toList();
+    return CompletableFuture.completedFuture(edits);
   }
 
   private static org.eclipse.lsp4j.Diagnostic diagnostic(Diagnostic diagnostic) {
