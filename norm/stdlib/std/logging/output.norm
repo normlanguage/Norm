@@ -1,0 +1,30 @@
+@Document(description: "Defines application log events and output destinations.")
+package std.logging
+
+import std.annotation.Document
+import std.io.Flushable
+import std.io.Resource
+import std.time.Instant
+
+@Document(description: "Identifies the severity of a log event.")
+public enum LogLevel { Debug, Info, Warn, Error }
+
+@Document(description: "Carries a timestamped message from its originating package.")
+public value LogEvent {
+  @Document(description: "The time the caller emitted the event.")
+  Instant time
+  @Document(description: "The severity assigned by the caller.")
+  LogLevel level
+  @Document(description: "The qualified package name of the caller.")
+  String source
+  @Document(description: "The message supplied by the caller.")
+  String message
+}
+
+@Document(description: "Consumes application logs for one configured destination.")
+public interface LogOutputer extends Flushable, Resource {
+  @Document(description: "Initializes the destination with its instance configuration.")
+  Void open(@Document(description: "Options for this destination.") Map<String, String> configuration)
+  @Document(description: "Receives one matching event.")
+  Void output(@Document(description: "The event to deliver.") LogEvent event)
+}

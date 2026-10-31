@@ -1,0 +1,25 @@
+package std.test.logging.outputer
+
+import std.logging.LogEvent
+import std.logging.LogLevel
+import std.logging.LogOutputer
+import std.testing.Test
+import std.testing.expectedOutputLines
+import std.time.instant
+
+class RecordingOutput implements LogOutputer {
+  Void open(Map<String, String> configuration) { printLine("open") }
+  Void output(LogEvent event) { printLine(event.source) printLine(event.message) }
+  Void flush() { printLine("flush") }
+  Void close() { printLine("close") }
+}
+
+@Test(types: [LogOutputer.class, LogEvent.class, LogLevel.class])
+Void acceptsLibraryOutput() {
+  LogOutputer recorder = RecordingOutput()
+  recorder.open(configuration: Map<String, String>())
+  recorder.output(event: LogEvent(time: instant(epochSecond: 1, nanosecond: 0), level: LogLevel.Info, source: "shop.orders", message: "accepted"))
+  recorder.flush()
+  recorder.close()
+  expectedOutputLines(["open", "shop.orders", "accepted", "flush", "close"])
+}

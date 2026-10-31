@@ -33,6 +33,7 @@ Module module() {
       "io.streams",
       "io.system",
       "json.json",
+      "logging.output",
       "math.integer",
       "process.process",
       "runtime.migration",
