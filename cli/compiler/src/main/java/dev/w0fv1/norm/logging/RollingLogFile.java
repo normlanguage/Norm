@@ -41,7 +41,7 @@ public final class RollingLogFile implements PlatformByteWriter {
             run.resolve(".active"), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
     try {
       lease.lock();
-      prune();
+      prune(0);
     } catch (IOException | RuntimeException failure) {
       lease.close();
       throw failure;
@@ -59,7 +59,7 @@ public final class RollingLogFile implements PlatformByteWriter {
       if (segment != null && segment.size() > 0 && segment.size() + length > segmentLimit) {
         segment.close();
         segment = null;
-        prune();
+        prune(length);
       }
       if (segment == null)
         segment =
@@ -104,11 +104,11 @@ public final class RollingLogFile implements PlatformByteWriter {
     }
   }
 
-  private void prune() throws IOException {
+  private void prune(int incomingBytes) throws IOException {
     record Segment(Path path, Instant modified, long size) {}
     var candidates = new ArrayList<Segment>();
     var reclaimed = new java.util.HashSet<Path>();
-    long total = 0;
+    long total = incomingBytes;
     try (var runs = Files.newDirectoryStream(root, "norm-run-*")) {
       for (Path session : runs) {
         if (!Files.isDirectory(session, LinkOption.NOFOLLOW_LINKS)) continue;
@@ -135,7 +135,7 @@ public final class RollingLogFile implements PlatformByteWriter {
                       LinkOption.NOFOLLOW_LINKS);
               if (!attrs.isRegularFile()) continue;
               total += attrs.size();
-              if (!active)
+              if (!active || session.equals(run))
                 candidates.add(
                     new Segment(file, attrs.lastModifiedTime().toInstant(), attrs.size()));
             } catch (java.nio.file.NoSuchFileException removed) {
@@ -153,7 +153,7 @@ public final class RollingLogFile implements PlatformByteWriter {
       if (total <= totalLimit && !candidate.modified().isBefore(cutoff)) break;
       Files.deleteIfExists(candidate.path());
       total -= candidate.size();
-      reclaimed.add(candidate.path().getParent());
+      if (!candidate.path().getParent().equals(run)) reclaimed.add(candidate.path().getParent());
     }
     for (Path directory : reclaimed) {
       try (var remaining = Files.newDirectoryStream(directory)) {
