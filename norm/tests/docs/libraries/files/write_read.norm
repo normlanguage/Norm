@@ -2,6 +2,7 @@ import std.filesystem.FileWriteMode
 import std.filesystem.Path
 import std.filesystem.openWrite
 import std.filesystem.readText
+import std.filesystem.writeText
 import std.io.TextEncoding
 import std.io.encodeText
 
@@ -23,5 +24,8 @@ main() {
     maximumBytes: 1024
   )
   printLine(text)
-  printLine(readText(note.value))
+  String nested = "nested/note.txt"
+  writeText(path: nested, text: "first")
+  writeText(path: nested, text: text)
+  printLine(readText(nested))
 }
