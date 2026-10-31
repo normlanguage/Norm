@@ -1,5 +1,6 @@
 package std.logging
 
+import std.system.currentSystem
 import std.annotation.Document
 import std.application.providers
 import std.application.environmentVariable
@@ -64,7 +65,8 @@ public class ConsoleLogOutputer implements LogOutputer {
   public Void open(@Document(description: "Console output options.") Map<String, String> configuration) {}
   @Document(description: "Writes an event to standard error.")
   public Void output(@Document(description: "The event to write.") LogEvent event) {
-    printError(text: event.time.epochSecond().toString() + " [" + logLevelName(level: event.level) + "] " + event.source + " " + event.message + "\n")
+    var timestamp = currentSystem().formatTime(event.time)
+    printError(text: timestamp + " [" + logLevelName(level: event.level) + "] " + event.source + " " + event.message + "\n")
   }
   @Document(description: "Completes pending console writes.")
   public Void flush() {}

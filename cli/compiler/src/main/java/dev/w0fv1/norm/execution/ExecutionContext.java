@@ -4,11 +4,13 @@ import dev.w0fv1.norm.platform.SystemPlatform;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 public final class ExecutionContext {
@@ -18,6 +20,7 @@ public final class ExecutionContext {
   private final boolean debugLogging;
   private final java.nio.file.Path workingDirectory;
   private final AtomicInteger exitCode;
+  private final AtomicReference<ZoneId> timeZone;
   private final PrintWriter output;
   private final PrintWriter expectedOutput;
   private final List<String> arguments;
@@ -37,6 +40,7 @@ public final class ExecutionContext {
     debugLogging = builder.debugLogging;
     workingDirectory = builder.workingDirectory;
     exitCode = builder.exitCode;
+    timeZone = builder.timeZone;
     output = Objects.requireNonNull(builder.output, "output");
     expectedOutput = Objects.requireNonNull(builder.expectedOutput, "expectedOutput");
     arguments = List.copyOf(builder.arguments);
@@ -93,6 +97,15 @@ public final class ExecutionContext {
 
   public java.nio.file.Path workingDirectory() {
     return workingDirectory;
+  }
+
+  public ZoneId timeZone() {
+    var configured = timeZone.get();
+    return configured == null ? ZoneId.systemDefault() : configured;
+  }
+
+  public void setTimeZone(ZoneId zone) {
+    timeZone.set(Objects.requireNonNull(zone));
   }
 
   public int exitCode() {
@@ -190,6 +203,7 @@ public final class ExecutionContext {
     private boolean debugLogging;
     private java.nio.file.Path workingDirectory =
         java.nio.file.Path.of("").toAbsolutePath().normalize();
+    private AtomicReference<ZoneId> timeZone = new AtomicReference<>();
     private AtomicInteger exitCode = new AtomicInteger();
     private PrintWriter output = new PrintWriter(Writer.nullWriter());
     private PrintWriter expectedOutput = new PrintWriter(Writer.nullWriter());
@@ -212,6 +226,7 @@ public final class ExecutionContext {
       debugLogging = context.debugLogging;
       workingDirectory = context.workingDirectory;
       exitCode = context.exitCode;
+      timeZone = context.timeZone;
       output = context.output;
       expectedOutput = context.expectedOutput;
       arguments = context.arguments;

@@ -82,10 +82,13 @@ final class RunLoggingTest {
         app.resolve("main.norm"),
         """
         package shop
+        import std.system.currentSystem
         import std.application.arguments
         import std.logging.logDebug
         import demo.library.emitLibrary
         Void main() {
+          logDebug("local-time")
+          currentSystem().setTimeZone("Asia/Kathmandu")
           logDebug("application-debug")
           emitLibrary()
           externalLogsEmit()
@@ -101,7 +104,26 @@ final class RunLoggingTest {
     assertEquals(0, debug.exitCode(), debug.err());
     assertEquals("payload" + System.lineSeparator(), debug.out());
     assertTrue(debug.err().contains("Checking prepared application"), debug.err());
-    assertTrue(debug.err().contains("[DEBUG] shop application-debug"), debug.err());
+    String appLine =
+        debug
+            .err()
+            .lines()
+            .filter(line -> line.endsWith(" [DEBUG] shop application-debug"))
+            .findFirst()
+            .orElseThrow();
+    var configured = java.time.OffsetDateTime.parse(appLine.split(" ")[0]);
+    assertEquals(java.time.ZoneOffset.ofHoursMinutes(5, 45), configured.getOffset());
+    var local =
+        debug
+            .err()
+            .lines()
+            .filter(line -> line.endsWith(" [DEBUG] shop local-time"))
+            .map(line -> java.time.OffsetDateTime.parse(line.split(" ")[0]))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        java.time.ZoneId.systemDefault().getRules().getOffset(local.toInstant()),
+        local.getOffset());
     assertTrue(debug.err().contains("[DEBUG] demo.library package-debug"), debug.err());
     assertTrue(debug.err().contains("[DEBUG] external.provider java-debug"), debug.err());
     Result normal = run(outputs, "--", "payload");
@@ -150,7 +172,8 @@ final class RunLoggingTest {
           messages.add(event.get("message").getAsString());
         }
       }
-      assertEquals(List.of("application-debug", "package-debug", "java-debug"), messages);
+      assertEquals(
+          List.of("local-time", "application-debug", "package-debug", "java-debug"), messages);
     }
   }
 

@@ -2,9 +2,19 @@ package std.system
 
 import std.annotation.Document
 import std.runtime.Runtime
+import std.time.Instant
 
 @Document(description: "Provides system capabilities for the current execution.")
 public class System {
+  @Document(description: "Returns the configured time zone ID or the machine's local zone ID.")
+  public String timeZone() { __systemTimeZone() }
+
+  @Document(description: "Sets the time zone for the current execution.")
+  public Void setTimeZone(@Document(description: "An IANA time zone ID or UTC offset.") String id) { __systemSetTimeZone(id: id) }
+
+  @Document(description: "Formats an instant to whole seconds with the execution's local date, time and UTC offset.")
+  public String formatTime(@Document(description: "The instant to display.") Instant time) { __systemFormatTime(epochSecond: time.epochSecond()) }
+
   @Document(description: "Returns the current execution's runtime update capability.")
   public Runtime runtime() { __systemRuntime<Runtime>(system: this) }
 }
