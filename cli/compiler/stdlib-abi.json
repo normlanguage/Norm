@@ -1,5 +1,5 @@
 {
-  "version": 53,
+  "version": 54,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1253,6 +1253,21 @@
     },
     {
       "name": "APPLICATION_LOG_DEBUG",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "SYSTEM_TIME_ZONE",
+      "requiresResultRuntimeType": false,
+      "writesState": false
+    },
+    {
+      "name": "SYSTEM_SET_TIME_ZONE",
+      "requiresResultRuntimeType": false,
+      "writesState": true
+    },
+    {
+      "name": "SYSTEM_FORMAT_TIME",
       "requiresResultRuntimeType": false,
       "writesState": false
     }
@@ -9485,6 +9500,51 @@
         "documentation": "Returns the host debug logging override."
       },
       "intrinsic": "APPLICATION_LOG_DEBUG"
+    },
+    {
+      "symbol": {
+        "name": "__systemTimeZone",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Execution time zone operation."
+      },
+      "intrinsic": "SYSTEM_TIME_ZONE"
+    },
+    {
+      "symbol": {
+        "name": "__systemSetTimeZone",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "id",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Execution time zone operation."
+      },
+      "intrinsic": "SYSTEM_SET_TIME_ZONE"
+    },
+    {
+      "symbol": {
+        "name": "__systemFormatTime",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "epochSecond",
+            "type": "std.core.Long",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Execution time zone operation."
+      },
+      "intrinsic": "SYSTEM_FORMAT_TIME"
     }
   ]
 }

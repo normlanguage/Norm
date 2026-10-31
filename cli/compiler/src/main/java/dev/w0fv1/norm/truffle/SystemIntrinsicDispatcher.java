@@ -20,6 +20,21 @@ final class SystemIntrinsicDispatcher {
       case TIME_CLOCK_NOW ->
           (receiver, arguments, type, context, location, annotations, execution) ->
               clockNow(arguments[0], type, execution, location);
+      case SYSTEM_TIME_ZONE ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              context.timeZone().getId();
+      case SYSTEM_SET_TIME_ZONE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            try {
+              context.setTimeZone(java.time.ZoneId.of((String) arguments[0]));
+            } catch (java.time.DateTimeException failure) {
+              throw execution.values().javaException(failure, execution, location);
+            }
+            return null;
+          };
+      case SYSTEM_FORMAT_TIME ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              formatTime((Long) arguments[0], context);
       case SYSTEM_CURRENT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             if (type == null || execution == null) {
@@ -36,6 +51,12 @@ final class SystemIntrinsicDispatcher {
           };
       default -> throw new IllegalStateException("unsupported system intrinsic " + intrinsic);
     };
+  }
+
+  @TruffleBoundary
+  private static String formatTime(long epochSecond, ExecutionContext context) {
+    return java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+        java.time.Instant.ofEpochSecond(epochSecond).atZone(context.timeZone()));
   }
 
   private static RuntimeValues.OpaqueValue systemClock(

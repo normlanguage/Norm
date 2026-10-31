@@ -17,7 +17,12 @@ public final class IntrinsicDispatcher {
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
-      case SYSTEM_CURRENT, SYSTEM_RUNTIME -> SystemIntrinsicDispatcher.resolve(intrinsic);
+      case SYSTEM_CURRENT,
+          SYSTEM_RUNTIME,
+          SYSTEM_TIME_ZONE,
+          SYSTEM_SET_TIME_ZONE,
+          SYSTEM_FORMAT_TIME ->
+          SystemIntrinsicDispatcher.resolve(intrinsic);
       case RUNTIME_STATUS,
           RUNTIME_LATEST,
           RUNTIME_BEGIN,

@@ -2,7 +2,7 @@
 
 从 `std.logging` 导入日志函数。宿主通过 `NORM_LOG_LEVEL` 设置默认最低级别，可选 `debug`、`info`、`warn`、`error` 和 `off`。默认级别为 `info`。
 
-控制台时间使用 ISO 8601 格式，末尾的 `Z` 表示 UTC，例如 `2026-10-31T11:34:52Z`。
+控制台时间默认使用机器本地时区。从 `std.system` 导入 `currentSystem` 后，可用 `currentSystem().setTimeZone("Asia/Singapore")` 设置本次运行的时区。例如，新加坡时区显示为 `2026-10-31T19:34:52+08:00`。
 
 `NORM_LOG_OUTPUTS` 接受 JSON 数组。每项的 `name` 使用输出实现的完整类型名，`level` 覆盖默认级别，`source` 匹配指定包及其子包，`options` 将字符串配置传给该实现。
 

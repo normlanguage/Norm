@@ -2,7 +2,7 @@
 
 Import the log functions from `std.logging`. The host sets the default minimum severity with `NORM_LOG_LEVEL`, accepting `debug`, `info`, `warn`, `error` or `off`. The default is `info`.
 
-Console timestamps use ISO 8601 in UTC, for example `2026-10-31T11:34:52Z`.
+Console timestamps use the machine’s local time zone by default. Use `currentSystem().setTimeZone("Asia/Singapore")` from `std.system` to set the zone for the current execution. For example, a console timestamp in Singapore reads `2026-10-31T19:34:52+08:00`.
 
 `NORM_LOG_OUTPUTS` accepts a JSON array. Each entry names the fully qualified implementation in `name`. Optional `level` overrides the default threshold, `source` selects a package and its descendants, and `options` supplies string configuration to the implementation.
 

@@ -23,7 +23,6 @@ Module module() {
       "net.URL",
       "security.Principal",
       "time.Duration",
-      "time.Instant",
       "io.InputStream",
       "io.OutputStream",
       "util.concurrent.Future",
@@ -107,9 +106,6 @@ Module module() {
         jarType(name: "java.net.URI", alias: "net.URI", members: ["create", "toString", "toURL"]),
         jarType(name: "java.net.URL", alias: "net.URL", members: ["toString"]),
         jarType(name: "java.security.Principal", alias: "security.Principal", members: ["getName"]),
-        jarType(name: "java.time.Instant", alias: "time.Instant", members: ["toString"], overloads: [
-          jarOverload(name: "ofEpochSecond", parameterTypes: ["long"])
-        ]),
         jarType(name: "java.time.Duration", alias: "time.Duration", members: ["ofSeconds", "ofMillis", "ofNanos", "toString"]),
         jarType(name: "java.io.InputStream", alias: "io.InputStream", members: ["close"], overloads: [jarOverload(name: "read", parameterTypes: [])]),
         jarType(name: "java.io.OutputStream", alias: "io.OutputStream", members: ["flush", "close"], overloads: [jarOverload(name: "write", parameterTypes: ["int"])]),
