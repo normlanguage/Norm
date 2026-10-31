@@ -713,6 +713,19 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void dispatchesTheSubclassDefaultThroughAnInheritedInterface() throws Exception {
+    assertOutput(
+        """
+        interface RootDefault<T> { String label() { return "parent" } }
+        interface ChildDefault<T> extends RootDefault<T> { String label() { return "child" } }
+        class Parent implements RootDefault<String> {}
+        class Child extends Parent implements ChildDefault<String> {}
+        Void main() { RootDefault<String> value = Child() printLine(value.label()) }
+        """,
+        "child" + System.lineSeparator());
+  }
+
+  @Test
   void safelyDispatchesNullableInterfaceCalls() throws Exception {
     assertOutput(
         "interface Named { String name() } "

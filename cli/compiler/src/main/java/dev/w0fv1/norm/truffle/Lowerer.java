@@ -307,6 +307,7 @@ final class Lowerer {
           java.util.stream.IntStream.range(0, entry.getValue().typeParameters().size())
               .mapToObj(index -> (CoreType) new CoreType.Parameter(index, CoreNullability.NON_NULL))
               .toList();
+      Map<DefinitionId, DefinitionId> defaultOwners = new HashMap<>();
       for (RuntimeConformance inherited :
           aggregateConformances(occurrence.representative(), entry.getValue(), rootArguments)) {
         CoreConformance conformance = inherited.conformance();
@@ -332,13 +333,16 @@ final class Lowerer {
           }
           DefinitionId slot = identity.slot(requirement);
           RuntimeValues.DispatchTarget previous = dispatch.putIfAbsent(slot, target);
+          boolean targetDefault = defaultReceiverArguments != null;
+          if (previous == null && targetDefault) defaultOwners.put(slot, inherited.owner());
           if (previous != null && !previous.equals(target)) {
-            boolean previousDefault = isDefaultDispatch(previous);
-            boolean targetDefault = isDefaultDispatch(target);
-            if (previousDefault != targetDefault) {
-              if (previousDefault) dispatch.put(slot, target);
+            DefinitionId defaultOwner = defaultOwners.get(slot);
+            if (defaultOwner != null && !targetDefault) {
+              dispatch.put(slot, target);
+              defaultOwners.remove(slot);
               continue;
             }
+            if (targetDefault && !inherited.owner().equals(defaultOwner)) continue;
             throw new IllegalStateException(
                 "verified aggregate dispatch is conflicting: occurrence="
                     + occurrence
@@ -656,15 +660,6 @@ final class Lowerer {
               parentId, (CoreDefinition.Aggregate) parentDefinition, declared.arguments()));
     }
     return List.copyOf(result);
-  }
-
-  private static String dispatchKey(RuntimeValues.DispatchTarget target) {
-    if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) return "<none>";
-    return LiveBindings.callableKey(callable.target());
-  }
-
-  private static boolean isDefaultDispatch(RuntimeValues.DispatchTarget target) {
-    return dispatchKey(target).endsWith("/default");
   }
 
   private record RuntimeConformance(
