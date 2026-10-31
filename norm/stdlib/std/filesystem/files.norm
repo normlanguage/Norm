@@ -126,6 +126,13 @@ public FileWriter openWrite(
   return __fileOpenWrite<FileWriterValue>(path: path.value, mode: modeName)
 }
 
+@Document(description: "Reads a UTF-8 file of up to 16 MiB.")
+public String readText(
+  @Document(description: "The path of the text file to read.") String path
+) {
+  return readText(path: Path(value: path), encoding: TextEncoding.Utf8, maximumBytes: 16777216)
+}
+
 @Document(description: "Reads, bounds, decodes, and closes a text file in one operation.")
 public String readText(
   @Document(description: "The path of the text file to read.") Path path,
