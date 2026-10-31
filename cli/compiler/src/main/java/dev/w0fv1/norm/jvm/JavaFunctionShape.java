@@ -45,24 +45,33 @@ public enum JavaFunctionShape {
     return java.lang.reflect.Proxy.newProxyInstance(
         dev.w0fv1.norm.bridge.JavaApplicationObject.class.getClassLoader(),
         new Class<?>[] {type, dev.w0fv1.norm.bridge.JavaApplicationObject.class},
-        (proxy, method, arguments) -> {
-          if (method.getDeclaringClass() == dev.w0fv1.norm.bridge.JavaApplicationObject.class) {
-            if (arguments == null || arguments.length == 0) return sidecar.get();
-            sidecar.set(arguments[0]);
-            return null;
+        new dev.w0fv1.norm.bridge.JavaApplicationObject.StateHandler() {
+          @Override
+          public Object state() {
+            return sidecar.get();
           }
-          if (method.getDeclaringClass() == Object.class) {
-            return switch (method.getName()) {
-              case "equals" -> proxy == arguments[0];
-              case "hashCode" -> System.identityHashCode(proxy);
-              case "toString" ->
-                  type.getName() + "@" + Integer.toHexString(System.identityHashCode(proxy));
-              default -> throw new IllegalStateException("Unsupported function object method");
-            };
+
+          @Override
+          public void state(Object value) {
+            sidecar.set(value);
           }
-          if (method.isDefault())
-            return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, arguments);
-          return invocation.apply(arguments == null ? new Object[0] : arguments);
+
+          @Override
+          public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] arguments)
+              throws Throwable {
+            if (method.getDeclaringClass() == Object.class) {
+              return switch (method.getName()) {
+                case "equals" -> proxy == arguments[0];
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "toString" ->
+                    type.getName() + "@" + Integer.toHexString(System.identityHashCode(proxy));
+                default -> throw new IllegalStateException("Unsupported function object method");
+              };
+            }
+            if (method.isDefault())
+              return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, arguments);
+            return invocation.apply(arguments == null ? new Object[0] : arguments);
+          }
         });
   }
 

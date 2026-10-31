@@ -45,7 +45,7 @@ final class JavaFacadeIdentityExecutionTest {
         packageName
             + " public class "
             + name
-            + " implements dev.w0fv1.norm.bridge.JavaApplicationObject { public int value = 7; private Object state; public Object $normState() { return state; } public void $normState(Object value) { state = value; } %s public static class Child extends "
+            + " implements dev.w0fv1.norm.bridge.JavaApplicationObject { public int value = 7; private transient Object $normState; %s public static class Child extends "
             + name
             + " {} }";
     Path javaSource = directory.resolve(name + ".java");

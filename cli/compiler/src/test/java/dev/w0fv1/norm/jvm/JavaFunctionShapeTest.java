@@ -12,7 +12,7 @@ class JavaFunctionShapeTest {
     Object state = new Object();
     Object adapter = JavaFunctionShape.FUNCTION.adapt(state, arguments -> arguments[0] + "!");
     var sidecar = assertInstanceOf(JavaApplicationObject.class, adapter);
-    assertSame(state, sidecar.$normState());
+    assertSame(state, JavaApplicationObject.state(sidecar));
     assertEquals("hello!", JavaFunctionShape.FUNCTION.invoke(adapter, new Object[] {"hello"}));
     @SuppressWarnings("unchecked")
     var function = (Function<Object, Object>) adapter;
@@ -21,7 +21,7 @@ class JavaFunctionShapeTest {
     assertEquals(adapter, adapter);
     assertNotEquals(adapter, new Object());
     Object replacement = new Object();
-    sidecar.$normState(replacement);
-    assertSame(replacement, sidecar.$normState());
+    JavaApplicationObject.state(sidecar, replacement);
+    assertSame(replacement, JavaApplicationObject.state(sidecar));
   }
 }
