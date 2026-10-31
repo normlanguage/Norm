@@ -5,7 +5,7 @@ description: Norm CLI, language service, and editor integration
 
 # Tooling
 
-Norm's formatter, diagnostics, and editor features read the same semantic snapshot as the compiler. Type checking, name resolution, and project boundaries are implemented once.
+Formatting uses the current editor text. Diagnostics and semantic editor features use the compiler snapshot. Type checking, name resolution, and project boundaries are implemented once.
 
 ## Current capabilities
 

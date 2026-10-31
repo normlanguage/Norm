@@ -105,6 +105,12 @@ public final class Workspace implements AutoCloseable {
     }
   }
 
+  public Optional<SourceFile> openSource(String uri) {
+    synchronized (gate) {
+      return Optional.ofNullable(open.get(uri)).map(OpenDocument::source);
+    }
+  }
+
   public void closeDocument(String uri) {
     synchronized (gate) {
       OpenDocument previous =

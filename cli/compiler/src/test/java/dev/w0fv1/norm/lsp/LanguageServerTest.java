@@ -197,6 +197,29 @@ final class LanguageServerTest {
   }
 
   @Test
+  void formatsTheOpenBufferIncludingItsEmbeddedModule() throws Exception {
+    try (LanguageServer server = server()) {
+      server.connect(new RecordingClient());
+      Path path = temporaryDirectory.resolve("main.norm");
+      Files.writeString(path, "Void main() {}");
+      String uri = path.toUri().toString();
+      String text =
+          "package sample\nModule module(){return module(name: \"sample\",version: 1)}\nVoid main(){}";
+      var documents = server.getTextDocumentService();
+      documents.didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+      var params =
+          new DocumentFormattingParams(
+              new TextDocumentIdentifier(uri), new FormattingOptions(2, true));
+      var edits = documents.formatting(params).get();
+      assertEquals(1, edits.size());
+      String formatted = edits.getFirst().getNewText();
+      assertTrue(formatted.contains("Module module()"), formatted);
+      assertTrue(formatted.contains("return module(name: \"sample\", version: 1)"), formatted);
+      assertTrue(formatted.contains("Void main()"), formatted);
+    }
+  }
+
+  @Test
   void advertisesAndServesWholeDocumentFormatting() throws Exception {
     LanguageServer server = server();
     server.connect(new RecordingClient());
