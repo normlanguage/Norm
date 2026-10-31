@@ -786,5 +786,10 @@
   "Options for this destination.": "此输出目标的配置项。",
   "Initializes the destination with its instance configuration.": "使用实例配置初始化输出目标。",
   "The event to deliver.": "要投递的事件。",
-  "Receives one matching event.": "接收一个匹配的日志事件。"
+  "Receives one matching event.": "接收一个匹配的日志事件。",
+  "Returns the configured time zone ID or the machine's local zone ID.": "返回配置的时区 ID，未配置时返回本机时区 ID。",
+  "An IANA time zone ID or UTC offset.": "IANA 时区 ID 或 UTC 偏移量。",
+  "Sets the time zone for the current execution.": "设置当前执行使用的时区。",
+  "The instant to display.": "要显示的时间点。",
+  "Formats an instant to whole seconds with the execution's local date, time and UTC offset.": "按当前执行的本地日期、时间和 UTC 偏移量格式化时间点，精确到秒。"
 }
