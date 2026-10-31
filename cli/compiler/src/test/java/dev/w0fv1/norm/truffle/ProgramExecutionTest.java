@@ -701,6 +701,18 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void dispatchesGenericDefaultsFromAnotherImplementedInterface() throws Exception {
+    assertOutput(
+        """
+        interface Required<T> { T echo(T item) }
+        interface Defaults<T> { T echo(T item) { return item } }
+        class Child implements Required<String>, Defaults<String> {}
+        Void main() { Required<String> child = Child() printLine(child.echo(item: "verified")) }
+        """,
+        "verified" + System.lineSeparator());
+  }
+
+  @Test
   void safelyDispatchesNullableInterfaceCalls() throws Exception {
     assertOutput(
         "interface Named { String name() } "
