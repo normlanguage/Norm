@@ -1,5 +1,5 @@
 {
-  "version": 52,
+  "version": 53,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -1250,6 +1250,11 @@
       "name": "LOG_OPEN_FILE",
       "requiresResultRuntimeType": true,
       "writesState": true
+    },
+    {
+      "name": "APPLICATION_LOG_DEBUG",
+      "requiresResultRuntimeType": false,
+      "writesState": false
     }
   ],
   "opaqueValues": [
@@ -9469,6 +9474,17 @@
         "documentation": "Opens an application log file."
       },
       "intrinsic": "LOG_OPEN_FILE"
+    },
+    {
+      "symbol": {
+        "name": "__applicationLogDebug",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Returns the host debug logging override."
+      },
+      "intrinsic": "APPLICATION_LOG_DEBUG"
     }
   ]
 }

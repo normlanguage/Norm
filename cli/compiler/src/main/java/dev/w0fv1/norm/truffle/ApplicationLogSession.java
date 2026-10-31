@@ -31,7 +31,11 @@ final class ApplicationLogSession {
       public boolean enabled(org.slf4j.event.Level level) {
         return output != null
             ? level != org.slf4j.event.Level.TRACE
-            : level.toInt() >= org.slf4j.event.Level.INFO.toInt();
+            : level.toInt()
+                >= (state.context().debugLogging()
+                        ? org.slf4j.event.Level.DEBUG
+                        : org.slf4j.event.Level.INFO)
+                    .toInt();
       }
 
       public void write(

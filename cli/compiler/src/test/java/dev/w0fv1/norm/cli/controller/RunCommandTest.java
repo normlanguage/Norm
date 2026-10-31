@@ -28,10 +28,13 @@ final class RunCommandTest {
         "package sample import std.application.arguments Void main() { printLine(arguments()[0]) }");
     var output = new StringWriter();
     var error = new StringWriter();
+    var router = new CommandRouter();
+    router.register(new RunCommand(module));
     int result =
-        new RunCommand(module)
-            .execute(
-                List.of("--debug", "--", "hello"), new PrintWriter(output), new PrintWriter(error));
+        router.route(
+            new String[] {"run", "--debug", "--", "hello"},
+            new PrintWriter(output),
+            new PrintWriter(error));
     assertEquals(ExitCode.SUCCESS, result, error.toString());
     assertEquals("hello" + System.lineSeparator(), output.toString());
     assertTrue(error.toString().contains("Starting application"), error.toString());

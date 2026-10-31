@@ -88,7 +88,10 @@ final class JavaIntrinsicDispatcher {
             .start(
                 () -> {
                   try {
-                    result.complete(context.jarBindingRuntime().invoke(call, arguments));
+                    result.complete(
+                        dev.w0fv1.norm.logging.DependencyLogs.within(
+                            execution.logs().dependencies(execution),
+                            () -> context.jarBindingRuntime().invoke(call, arguments)));
                   } catch (RuntimeException | Error failure) {
                     result.completeExceptionally(failure);
                   }

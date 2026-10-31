@@ -10,6 +10,7 @@ interface Command {
         .output(out)
         .error(err)
         .environment(System.getenv())
+        .debugLogging(CommandInvocation.current().debug())
         .platform(dev.w0fv1.norm.platform.jdk.JdkSystemPlatform.standard());
   }
 
@@ -25,7 +26,7 @@ interface Command {
     out.println("Usage: " + usage());
     out.println(summary());
     out.println("  --diagnostics   Retain structured command diagnostics");
-    out.println("  --debug         Show dependency debug messages");
+    out.println("  --debug         Enable command and application debug logs");
     out.println("  -h, --help    Show help without running the command");
     return 0;
   }

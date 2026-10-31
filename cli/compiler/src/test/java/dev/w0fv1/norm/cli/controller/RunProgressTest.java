@@ -65,9 +65,9 @@ class RunProgressTest {
     var output = new StringWriter();
     var diagnostics = new StringWriter();
     int result =
-        new RunCommand()
-            .execute(
-                List.of("--debug", entry.toString()),
+        new CliController()
+            .run(
+                new String[] {"run", "--debug", entry.toString()},
                 new PrintWriter(output),
                 new PrintWriter(diagnostics));
     assertEquals(0, result);
@@ -81,9 +81,9 @@ class RunProgressTest {
     var repeatedProgress = new StringWriter();
     assertEquals(
         0,
-        new RunCommand()
-            .execute(
-                List.of(entry.toString(), "--debug"),
+        new CliController()
+            .run(
+                new String[] {"run", entry.toString(), "--debug"},
                 new PrintWriter(repeatedOutput),
                 new PrintWriter(repeatedProgress)));
     assertEquals(output.toString(), repeatedOutput.toString());
@@ -98,9 +98,9 @@ class RunProgressTest {
     Files.writeString(entry, "Void main() { nonexistent() }");
     var diagnostics = new StringWriter();
     int result =
-        new RunCommand()
-            .execute(
-                List.of("--debug", entry.toString()),
+        new CliController()
+            .run(
+                new String[] {"run", "--debug", entry.toString()},
                 new PrintWriter(new StringWriter()),
                 new PrintWriter(diagnostics));
     assertNotEquals(0, result);

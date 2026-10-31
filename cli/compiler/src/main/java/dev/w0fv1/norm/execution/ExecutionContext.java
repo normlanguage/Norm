@@ -15,6 +15,7 @@ public final class ExecutionContext {
   private final InputStream input;
   private final PrintWriter error;
   private final Map<String, String> environment;
+  private final boolean debugLogging;
   private final java.nio.file.Path workingDirectory;
   private final AtomicInteger exitCode;
   private final PrintWriter output;
@@ -33,6 +34,7 @@ public final class ExecutionContext {
     input = Objects.requireNonNull(builder.input, "input");
     error = Objects.requireNonNull(builder.error, "error");
     environment = Map.copyOf(builder.environment);
+    debugLogging = builder.debugLogging;
     workingDirectory = builder.workingDirectory;
     exitCode = builder.exitCode;
     output = Objects.requireNonNull(builder.output, "output");
@@ -79,6 +81,10 @@ public final class ExecutionContext {
 
   public PrintWriter error() {
     return error;
+  }
+
+  public boolean debugLogging() {
+    return debugLogging;
   }
 
   public Map<String, String> environment() {
@@ -181,6 +187,7 @@ public final class ExecutionContext {
     private InputStream input = InputStream.nullInputStream();
     private PrintWriter error = new PrintWriter(Writer.nullWriter());
     private Map<String, String> environment = Map.of();
+    private boolean debugLogging;
     private java.nio.file.Path workingDirectory =
         java.nio.file.Path.of("").toAbsolutePath().normalize();
     private AtomicInteger exitCode = new AtomicInteger();
@@ -202,6 +209,7 @@ public final class ExecutionContext {
       input = context.input;
       error = context.error;
       environment = context.environment;
+      debugLogging = context.debugLogging;
       workingDirectory = context.workingDirectory;
       exitCode = context.exitCode;
       output = context.output;
@@ -224,6 +232,11 @@ public final class ExecutionContext {
 
     public Builder error(PrintWriter value) {
       error = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder debugLogging(boolean value) {
+      debugLogging = value;
       return this;
     }
 
