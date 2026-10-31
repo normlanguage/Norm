@@ -205,9 +205,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               || value instanceof RuntimeValues.EnumValue
               || value instanceof RuntimeValues.Closure) return value;
           if (value instanceof JavaApplicationObject sidecar
-              && (sidecar.$normState() instanceof RuntimeValues.Closure
-                  || sidecar.$normState() instanceof RuntimeValues.EnumValue))
-            return sidecar.$normState();
+              && (JavaApplicationObject.state(sidecar) instanceof RuntimeValues.Closure
+                  || JavaApplicationObject.state(sidecar) instanceof RuntimeValues.EnumValue))
+            return JavaApplicationObject.state(sidecar);
           Object transported = transportedGuests.get(value);
           if (transported != null) return transported;
           if (value instanceof Enum<?> enumeration) {
@@ -222,13 +222,14 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
                       annotations,
                       execution,
                       null);
-              ((JavaApplicationObject) value).$normState(restored);
+              JavaApplicationObject.state((JavaApplicationObject) value, restored);
               return restored;
             }
           }
           RuntimeValues.ObjectValue guest =
               value instanceof JavaApplicationObject state
-                      && state.$normState() instanceof RuntimeValues.ObjectValue object
+                      && JavaApplicationObject.state(state)
+                          instanceof RuntimeValues.ObjectValue object
                   ? object
                   : null;
           if (guest != null) {
@@ -244,7 +245,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         () -> {
           RuntimeValues.ObjectValue guest =
               receiver instanceof JavaApplicationObject state
-                      && state.$normState() instanceof RuntimeValues.ObjectValue object
+                      && JavaApplicationObject.state(state)
+                          instanceof RuntimeValues.ObjectValue object
                   ? object
                   : null;
           if (guest == null)
@@ -330,7 +332,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
             .anyMatch(
                 parameter ->
                     parameter instanceof JavaApplicationObject object
-                        && object.$normState() instanceof RuntimeValues.ObjectValue);
+                        && JavaApplicationObject.state(object)
+                            instanceof RuntimeValues.ObjectValue);
     try (var lease =
         managed && execution.liveBindings() != null
             ? execution.liveBindings().stateWrite()
@@ -352,7 +355,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     if (declaration.hasReceiver()) {
       guest =
           receiver instanceof JavaApplicationObject state
-                  && state.$normState() instanceof RuntimeValues.ObjectValue object
+                  && JavaApplicationObject.state(state) instanceof RuntimeValues.ObjectValue object
               ? object
               : null;
       if (guest == null) {
@@ -479,7 +482,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
           throw new IllegalStateException("Projected enum type is not a Java enum");
         for (Object constant : constants) {
           if (((Enum<?>) constant).name().equals(item.variantKey())) {
-            ((JavaApplicationObject) constant).$normState(item);
+            JavaApplicationObject.state((JavaApplicationObject) constant, item);
             return constant;
           }
         }
@@ -529,7 +532,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private void attach(Object receiver, RuntimeValues.ObjectValue guest) {
     if (!(receiver instanceof JavaApplicationObject sidecar))
       throw new IllegalStateException("Generated Java application object has no runtime state");
-    sidecar.$normState(guest);
+    JavaApplicationObject.state(sidecar, guest);
     if (guest.hostValue == null) {
       guest.attachHost(receiver);
       guest.dispatchToHost = hostDispatchRequired(guest, receiver);
@@ -580,7 +583,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     }
     Object opaque =
         value instanceof JavaApplicationObject sidecar
-            ? sidecar.$normState()
+            ? JavaApplicationObject.state(sidecar)
             : transportedGuests.get(value);
     if (opaque != null
         && !(opaque instanceof RuntimeValues.ObjectValue)
@@ -607,7 +610,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)));
     }
     if (value instanceof JavaApplicationObject sidecar
-        && sidecar.$normState() instanceof RuntimeValues.Closure function) return function;
+        && JavaApplicationObject.state(sidecar) instanceof RuntimeValues.Closure function)
+      return function;
     if (expected instanceof CoreType.Function signature) {
       boolean returnsVoid = signature.returnType().equals(CoreType.VOID);
       var shape =
@@ -653,7 +657,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     }
     RuntimeValues.ObjectValue guest =
         value instanceof JavaApplicationObject state
-                && state.$normState() instanceof RuntimeValues.ObjectValue object
+                && JavaApplicationObject.state(state) instanceof RuntimeValues.ObjectValue object
             ? object
             : null;
     if (guest != null) {

@@ -46,7 +46,7 @@ final class JavaFacadeStateMigrationExecutionTest {
         packageName
             + " public class "
             + name
-            + " implements dev.w0fv1.norm.bridge.JavaApplicationObject { public int value = 7; public int shared = 1; private Object state; public Object $normState() { return state; } public void $normState(Object value) { state = value; } }");
+            + " implements dev.w0fv1.norm.bridge.JavaApplicationObject { public int value = 7; public int shared = 1; private transient Object $normState; }");
     Path classes = Files.createDirectories(directory.resolve("classes"));
     String classpath =
         Path.of(

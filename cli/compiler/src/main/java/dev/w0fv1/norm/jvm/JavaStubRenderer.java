@@ -47,9 +47,9 @@ final class JavaStubRenderer {
     }
     if (ownsState)
       source
-          .append("  private transient Object $normState;\n")
-          .append("  public Object $normState() { return $normState; }\n")
-          .append("  public void $normState(Object state) { $normState = state; }\n");
+          .append("  private transient Object ")
+          .append(dev.w0fv1.norm.bridge.JavaApplicationObject.STATE_FIELD)
+          .append(";\n");
     for (var field : type.fields()) {
       appendAnnotations(source, field.annotations(), "  ");
       source.append("  public ").append(field.type()).append(' ').append(field.name());

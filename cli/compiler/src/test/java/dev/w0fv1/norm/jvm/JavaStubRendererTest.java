@@ -19,7 +19,7 @@ class JavaStubRendererTest {
   @TempDir Path directory;
 
   @Test
-  void generatedObjectOwnsHiddenStateWithoutRetainingUnreachableCycles() throws Exception {
+  void generatedHierarchyOwnsPrivateStateWithoutExposingInterceptableMethods() throws Exception {
     var type =
         new JavaStubPlan.Type(
             "fixture.Generated",
@@ -37,9 +37,28 @@ class JavaStubRendererTest {
             false,
             false,
             Optional.empty());
-    var source = new JavaStubRenderer().render(new JavaStubPlan(List.of(type))).getFirst();
+    var child =
+        new JavaStubPlan.Type(
+            "fixture.Child",
+            "fixture",
+            "Child",
+            JavaStubPlan.TypeKind.CLASS,
+            false,
+            List.of(),
+            Optional.of("fixture.Generated"),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            false,
+            true,
+            Optional.empty());
+    var sources = new JavaStubRenderer().render(new JavaStubPlan(List.of(type, child)));
     Path file = directory.resolve("Generated.java");
-    Files.writeString(file, source.source());
+    Files.writeString(file, sources.getFirst().source());
+    Path childFile = directory.resolve("Child.java");
+    Files.writeString(childFile, sources.getLast().source());
     Path classes = Files.createDirectories(directory.resolve("classes"));
     assertEquals(
         0,
@@ -52,7 +71,8 @@ class JavaStubRendererTest {
                 System.getProperty("norm.test.compilerJar"),
                 "-d",
                 classes.toString(),
-                file.toString()));
+                file.toString(),
+                childFile.toString()));
     var valueReference = new AtomicReference<WeakReference<Object>>();
     var stateReference = new AtomicReference<WeakReference<Object>>();
     var failure = new AtomicReference<Throwable>();
@@ -64,18 +84,26 @@ class JavaStubRendererTest {
                       new URLClassLoader(
                           new URL[] {classes.toUri().toURL()}, getClass().getClassLoader())) {
                     Object host =
-                        loader
-                            .loadClass("fixture.Generated")
-                            .getDeclaredConstructor()
-                            .newInstance();
+                        loader.loadClass("fixture.Child").getDeclaredConstructor().newInstance();
                     var generated = assertInstanceOf(JavaApplicationObject.class, host);
+                    assertThrows(
+                        NoSuchMethodException.class, () -> host.getClass().getMethod("$normState"));
+                    assertThrows(
+                        NoSuchMethodException.class,
+                        () -> host.getClass().getMethod("$normState", Object.class));
+                    assertThrows(
+                        NoSuchFieldException.class,
+                        () -> host.getClass().getDeclaredField("$normState"));
                     Object state = new AtomicReference<>(host);
-                    generated.$normState(state);
+                    JavaApplicationObject.state(generated, state);
                     System.gc();
-                    assertSame(state, generated.$normState());
+                    assertSame(state, JavaApplicationObject.state(generated));
                     assertTrue(
                         java.lang.reflect.Modifier.isTransient(
-                            host.getClass().getDeclaredField("$normState").getModifiers()));
+                            host.getClass()
+                                .getSuperclass()
+                                .getDeclaredField("$normState")
+                                .getModifiers()));
                     valueReference.set(new WeakReference<>(host));
                     stateReference.set(new WeakReference<>(state));
                   } catch (Throwable exception) {
