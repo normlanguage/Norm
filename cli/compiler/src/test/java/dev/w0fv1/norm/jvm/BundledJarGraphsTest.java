@@ -164,6 +164,28 @@ final class BundledJarGraphsTest {
         BundledJarGraphs.readArchive(archive, temporaryDirectory.resolve("cache")).orElseThrow();
     assertEquals(
         "original", Files.readString(restored.get(binding.graph().contentId()).root().file()));
+    Path cachedJar = restored.get(binding.graph().contentId()).root().file();
+    var fixedTime = java.nio.file.attribute.FileTime.fromMillis(946684800000L);
+    Files.setLastModifiedTime(cachedJar, fixedTime);
+    try (var held = java.nio.channels.FileChannel.open(cachedJar);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(4)) {
+      var readers =
+          java.util.stream.IntStream.range(0, 4)
+              .mapToObj(
+                  index ->
+                      executor.submit(
+                          () ->
+                              BundledJarGraphs.readArchive(
+                                      archive, temporaryDirectory.resolve("cache"))
+                                  .orElseThrow()))
+              .toList();
+      for (var reader : readers)
+        assertEquals(cachedJar, reader.get().get(binding.graph().contentId()).root().file());
+      assertEquals(fixedTime, Files.getLastModifiedTime(cachedJar));
+    }
+    Files.writeString(cachedJar, "corrupt");
+    BundledJarGraphs.readArchive(archive, temporaryDirectory.resolve("cache")).orElseThrow();
+    assertEquals("original", Files.readString(cachedJar));
     Path tampered = temporaryDirectory.resolve("tampered.nar");
     try (var input = new java.util.zip.ZipFile(archive.toFile());
         var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(tampered))) {

@@ -3,6 +3,7 @@ package dev.w0fv1.norm.jvm;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.core.store.FileLockCoordinator;
 import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -74,27 +75,58 @@ public final class BundledJarGraphs {
       Path archive, Path cache) throws IOException {
     try (var zip = new java.util.zip.ZipFile(archive.toFile())) {
       if (zip.getEntry("java/" + MANIFEST) == null) return java.util.Optional.empty();
-      Path root = normalize(cache).resolve(Sha256Digest.compute(archive).value());
-      var entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        var entry = entries.nextElement();
-        if (entry.isDirectory() || !entry.getName().startsWith("java/")) continue;
-        Path target = root.resolve(entry.getName().substring(5)).normalize();
-        if (!target.startsWith(root) || target.equals(root))
-          throw new IOException("invalid bundled JAR entry");
-        Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), ".norm-", ".part");
-        try {
-          try (var input = zip.getInputStream(entry)) {
-            Files.copy(input, temporary, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      Sha256Digest key = Sha256Digest.compute(archive);
+      Files.createDirectories(cache);
+      Path directory = cache.toRealPath();
+      return java.util.Optional.of(
+          FileLockCoordinator.shared()
+              .withKeyLock(
+                  directory.resolve("materialize.lock"),
+                  key,
+                  () -> restore(zip, directory.resolve(key.value()))));
+    }
+  }
+
+  private static Map<Sha256Digest, ResolvedJarGraph> restore(java.util.zip.ZipFile zip, Path root)
+      throws IOException {
+    var files = new LinkedHashMap<Path, java.util.zip.ZipEntry>();
+    var entries = zip.entries();
+    while (entries.hasMoreElements()) {
+      var entry = entries.nextElement();
+      if (entry.isDirectory() || !entry.getName().startsWith("java/")) continue;
+      Path target = root.resolve(entry.getName().substring(5)).normalize();
+      if (!target.startsWith(root)
+          || target.equals(root)
+          || files.putIfAbsent(target, entry) != null)
+        throw new IOException("invalid bundled JAR entry: " + entry.getName());
+    }
+    Path manifest = root.resolve(MANIFEST);
+    if (Files.isRegularFile(manifest)) {
+      try (var input = zip.getInputStream(zip.getEntry("java/" + MANIFEST))) {
+        if (java.util.Arrays.equals(input.readAllBytes(), Files.readAllBytes(manifest))) {
+          try {
+            return read(root);
+          } catch (IOException damagedCache) {
+            Files.delete(manifest);
           }
-          new FileSnapshot(temporary, Sha256Digest.compute(temporary)).copyTo(target);
-        } finally {
-          Files.deleteIfExists(temporary);
         }
       }
-      return java.util.Optional.of(read(root));
     }
+    for (var file : files.entrySet()) {
+      Path target = file.getKey();
+      Files.createDirectories(target.getParent());
+      Path temporary = Files.createTempFile(target.getParent(), ".norm-", ".part");
+      try {
+        try (var input = zip.getInputStream(file.getValue())) {
+          Files.copy(input, temporary, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        if (!Files.isRegularFile(target) || Files.mismatch(temporary, target) != -1)
+          new FileSnapshot(temporary, Sha256Digest.compute(temporary)).copyTo(target);
+      } finally {
+        Files.deleteIfExists(temporary);
+      }
+    }
+    return read(root);
   }
 
   public static Map<Sha256Digest, ResolvedJarGraph> read(Path directory) throws IOException {

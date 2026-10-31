@@ -9,13 +9,15 @@ import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-final class FileLockCoordinator {
+public final class FileLockCoordinator {
+  private FileLockCoordinator() {}
+
   private static final FileLockCoordinator SHARED = new FileLockCoordinator();
 
   private final ConcurrentHashMap<LockKey, Gate> gates = new ConcurrentHashMap<>();
   private final java.util.Map<Path, SharedChannel> channels = new java.util.HashMap<>();
 
-  static FileLockCoordinator shared() {
+  public static FileLockCoordinator shared() {
     return SHARED;
   }
 
@@ -23,7 +25,8 @@ final class FileLockCoordinator {
     return withLock(new LockKey(lockFile.toAbsolutePath().normalize(), 0), operation);
   }
 
-  <T> T withKeyLock(Path lockFile, dev.w0fv1.norm.value.Sha256Digest key, IoOperation<T> operation)
+  public <T> T withKeyLock(
+      Path lockFile, dev.w0fv1.norm.value.Sha256Digest key, IoOperation<T> operation)
       throws IOException {
     return withLock(
         new LockKey(
@@ -78,7 +81,7 @@ final class FileLockCoordinator {
   }
 
   @FunctionalInterface
-  interface IoOperation<T> {
+  public interface IoOperation<T> {
     T run() throws IOException;
   }
 
