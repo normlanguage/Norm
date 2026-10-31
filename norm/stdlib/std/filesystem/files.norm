@@ -148,6 +148,14 @@ public String readText(
   })
 }
 
+@Document(description: "Creates parent directories and atomically replaces a file with UTF-8 text.")
+public Void writeText(
+  @Document(description: "The destination file path.") String path,
+  @Document(description: "The complete text to publish.") String text
+) {
+  writeTextAtomic(path: Path(value: path), text: text, encoding: TextEncoding.Utf8)
+}
+
 @Document(description: "Creates parent directories and atomically replaces a text file after writing and syncing a sibling temporary file; unsupported atomic moves fail without replacing the target.")
 public Void writeTextAtomic(
   @Document(description: "The destination file path.") Path path,
