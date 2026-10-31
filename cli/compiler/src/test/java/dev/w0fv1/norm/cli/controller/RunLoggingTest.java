@@ -101,7 +101,14 @@ final class RunLoggingTest {
     assertEquals(0, debug.exitCode(), debug.err());
     assertEquals("payload" + System.lineSeparator(), debug.out());
     assertTrue(debug.err().contains("Checking prepared application"), debug.err());
-    assertTrue(debug.err().contains("[DEBUG] shop application-debug"), debug.err());
+    String appLine =
+        debug
+            .err()
+            .lines()
+            .filter(line -> line.endsWith(" [DEBUG] shop application-debug"))
+            .findFirst()
+            .orElseThrow();
+    assertDoesNotThrow(() -> java.time.Instant.parse(appLine.substring(0, appLine.indexOf(' '))));
     assertTrue(debug.err().contains("[DEBUG] demo.library package-debug"), debug.err());
     assertTrue(debug.err().contains("[DEBUG] external.provider java-debug"), debug.err());
     Result normal = run(outputs, "--", "payload");
