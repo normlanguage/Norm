@@ -2,6 +2,7 @@
 package std.http
 
 import std.annotation.Document
+import std.core.Exception
 import std.io.ByteReader
 import std.io.Bytes
 import std.io.IOException
@@ -31,6 +32,67 @@ public value HttpHeader {
 public value HeaderMap {
   @Document(description: "The headers in transport order.")
   Array<HttpHeader> values
+
+  @Document(description: "Constructs headers from ordered typed entries.")
+  HeaderMap(@Document(description: "The ordered header entries.") Array<HttpHeader> values) {
+    this.values = values
+  }
+
+  @Document(description: "Constructs headers from field lines or alternating names and values.")
+  HeaderMap(@Document(description: "The ordered field lines or alternating names and values.") Array<String> entries) {
+    this.values = parseHeaders(entries)
+  }
+
+  @Document(description: "Constructs a single header.")
+  HeaderMap(@Document(description: "The header name.") String k1, @Document(description: "The header value.") String v1) {
+    this.values = parseHeaderPairs([k1, v1])
+  }
+
+  @Document(description: "Constructs two ordered headers.")
+  HeaderMap(@Document(description: "The first header name.") String k1, @Document(description: "The first header value.") String v1,
+    @Document(description: "The second header name.") String k2, @Document(description: "The second header value.") String v2) {
+    this.values = parseHeaderPairs([k1, v1, k2, v2])
+  }
+}
+
+private Array<HttpHeader> parseHeaders(Array<String> entries) {
+  if entries.size() == 0 || !entries[0].contains(value: ":") { return parseHeaderPairs(entries) }
+  Array<HttpHeader> result = Array.filled(size: entries.size(), value: HttpHeader(name: "", value: ""))
+  for String line,index : entries {
+    Array<CodePoint> points = line.codePoints()
+    Integer separator = 0
+    Integer end = points.size()
+    for separator < end && points[separator] != ':' { separator = separator + 1 }
+    if separator == end { throw Exception(message: "Missing colon in header at index " + index.toString()) }
+    Integer start = separator + 1
+    for start < end && (points[start] == ' ' || points[start] == '\t') { start = start + 1 }
+    for end > start && (points[end - 1] == ' ' || points[end - 1] == '\t') { end = end - 1 }
+    result[index] = checkedHeader(name: line.sliceCodePoints(start: 0, end: separator),
+      value: line.sliceCodePoints(start: start, end: end), index: index)
+  }
+  return result
+}
+
+private Array<HttpHeader> parseHeaderPairs(Array<String> entries) {
+  if entries.size() % 2 != 0 { throw Exception(message: "Missing header value at index " + entries.size().toString()) }
+  Array<HttpHeader> result = Array.filled(size: entries.size() / 2, value: HttpHeader(name: "", value: ""))
+  for index : range(start: 0, end: result.size()) {
+    Integer offset = index * 2
+    result[index] = checkedHeader(name: entries[offset], value: entries[offset + 1], index: offset)
+  }
+  return result
+}
+
+private HttpHeader checkedHeader(String name, String value, Integer index) {
+  if name.isEmpty() { throw Exception(message: "Empty header name at index " + index.toString()) }
+  for CodePoint point : name.codePoints() {
+    Integer c = point.scalarValue()
+    if !(c >= 65 && c <= 90 || c >= 97 && c <= 122 || point.isAsciiDigit() || "!#$%&'*+-.^_`|~".contains(value: point.toString())) {
+      throw Exception(message: "Invalid header name at index " + index.toString())
+    }
+  }
+  if value.contains(value: "\r") || value.contains(value: "\n") { throw Exception(message: "Invalid header value for " + name + " at index " + index.toString()) }
+  return HttpHeader(name: name, value: value)
 }
 
 @Document(description: "Represents a numeric HTTP response status code.")
