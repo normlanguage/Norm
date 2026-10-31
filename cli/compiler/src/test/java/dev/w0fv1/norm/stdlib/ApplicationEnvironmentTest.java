@@ -17,6 +17,51 @@ import org.junit.jupiter.api.Test;
 
 final class ApplicationEnvironmentTest {
   @Test
+  void applicationDependenciesUseGuestOutputsInsideDebugCommand() throws Exception {
+    var compilation =
+        compile(
+            """
+        import std.logging.logInfo
+        Void main() { logInfo("guest") }
+        """);
+    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
+    var errors = new StringWriter();
+    var command = new StringWriter();
+    var logger = org.slf4j.LoggerFactory.getLogger("client.transport");
+    try (var runtime =
+        new dev.w0fv1.norm.jvm.JvmJarBindingRuntime(
+            java.util.List.of(),
+            dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(java.util.List.of()),
+            java.util.List.of())) {
+      var context =
+          ExecutionContext.builder()
+              .error(new PrintWriter(errors))
+              .environment(Map.of("NORM_LOG_LEVEL", "warn"))
+              .platform(JdkSystemPlatform.standard())
+              .javaApplicationEntrypoint(
+                  loader -> {
+                    logger.debug("application detail");
+                    logger.warn("connection lost");
+                  })
+              .jarBindingRuntime(runtime)
+              .build();
+      dev.w0fv1.norm.logging.DependencyLogs.command(
+          new PrintWriter(command),
+          true,
+          () -> {
+            logger.debug("compiler detail");
+            new NormRuntime().run(compilation.output().orElseThrow().artifact(), context);
+            return 0;
+          });
+    }
+    assertTrue(command.toString().contains("compiler detail"));
+    assertTrue(!command.toString().contains("connection lost"));
+    assertTrue(
+        errors.toString().contains("[WARN] client.transport connection lost"), errors.toString());
+    assertTrue(!errors.toString().contains("application detail"));
+  }
+
+  @Test
   void routesApplicationLogsThroughDiscoveredOutputBeforeMain() {
     var compilation =
         compile(

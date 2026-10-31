@@ -33,7 +33,19 @@ public record ApplicationProgramPlan(
             .map(stub -> stub.binaryName())
             .collect(java.util.stream.Collectors.toSet());
     var entryPoints = applicationIndex.sourceEntryPoints(original);
-    Set<DefinitionId> hostEntries = new LinkedHashSet<>(entryPoints);
+    var applicationEntries = new LinkedHashSet<>(entryPoints);
+    if (compilation.javaClasspath().artifacts().stream()
+        .anyMatch(
+            artifact ->
+                artifact.identity() instanceof dev.w0fv1.norm.jvm.MavenJarIdentity maven
+                    && maven.coordinate().group().equals("org.slf4j")
+                    && maven.coordinate().artifact().equals("slf4j-api"))) {
+      original
+          .namespace()
+          .definition("std.logging", "startApplicationLogs")
+          .ifPresent(applicationEntries::add);
+    }
+    Set<DefinitionId> hostEntries = new LinkedHashSet<>(applicationEntries);
     for (var definition : original.program().definitions()) {
       var nominal =
           switch (definition.definition()) {
@@ -47,7 +59,7 @@ public record ApplicationProgramPlan(
     }
     var retention = CoreReachability.analyze(original, hostEntries);
     var retained = retention.artifact();
-    var execution = CoreExecutionPlan.forArtifact(retained, entryPoints);
+    var execution = CoreExecutionPlan.forArtifact(retained, applicationEntries);
     var calls = CoreReachability.jarCalls(retained, execution);
     var bindings =
         compilation.javaBindings().stream()

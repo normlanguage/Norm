@@ -48,17 +48,20 @@ record ExecutableProgram(
                   runtime.applicationClassLoaders(),
                   new JavaApplicationDispatch(program, bridgeTargets, values, state, runtime));
       }
-      logStartup.ifPresent(target -> target.call(state));
-      if (context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
-        if (context.javaApplicationEntrypoint().isPresent()) {
-          context
-              .javaApplicationEntrypoint()
-              .orElseThrow()
-              .execute(runtime.applicationClassLoader());
-          return null;
-        }
-      }
-      return entryPoint.call(state);
+      return dev.w0fv1.norm.logging.DependencyLogs.within(
+          state.logs().dependencies(state),
+          () -> {
+            logStartup.ifPresent(target -> target.call(state));
+            if (context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime
+                && context.javaApplicationEntrypoint().isPresent()) {
+              context
+                  .javaApplicationEntrypoint()
+                  .orElseThrow()
+                  .execute(runtime.applicationClassLoader());
+              return null;
+            }
+            return entryPoint.call(state);
+          });
     } catch (RuntimeException | Error exception) {
       failure = exception;
       throw exception;

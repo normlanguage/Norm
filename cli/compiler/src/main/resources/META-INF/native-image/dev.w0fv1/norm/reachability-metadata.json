@@ -2,12 +2,6 @@
   "resources": [
     {
       "glob": "hello/*"
-    },
-    {
-      "condition": {
-        "typeReached": "org.slf4j.simple.SimpleLoggerConfiguration"
-      },
-      "glob": "simplelogger.properties"
     }
   ]
 }

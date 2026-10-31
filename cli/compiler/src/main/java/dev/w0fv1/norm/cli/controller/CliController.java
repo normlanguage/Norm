@@ -28,7 +28,13 @@ public final class CliController {
   public int run(String[] arguments, PrintWriter out, PrintWriter err) {
     Objects.requireNonNull(arguments, "arguments");
     try {
-      return router.route(arguments.clone(), out, err);
+      var invocation = arguments.clone();
+      boolean debug =
+          java.util.Arrays.stream(invocation)
+              .takeWhile(value -> !value.equals("--"))
+              .anyMatch("--debug"::equals);
+      return dev.w0fv1.norm.logging.DependencyLogs.command(
+          err, debug, () -> router.route(invocation, out, err));
     } finally {
       out.flush();
       err.flush();

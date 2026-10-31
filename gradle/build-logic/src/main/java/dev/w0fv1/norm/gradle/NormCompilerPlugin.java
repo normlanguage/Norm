@@ -661,7 +661,7 @@ public final class NormCompilerPlugin implements Plugin<Project> {
     dependencies.add("runtimeOnly", libs.findLibrary("truffle-runtime").orElseThrow().get());
     dependencies.add("runtimeOnly", libs.findLibrary("junit-jupiter-engine").orElseThrow().get());
     dependencies.add(
-        "nativeExecutionRuntime", libs.findLibrary("slf4j-simple").orElseThrow().get());
+        "nativeExecution", libs.findLibrary("slf4j-api").orElseThrow().get());
     dependencies.add(
         "annotationProcessor", libs.findLibrary("truffle-processor").orElseThrow().get());
     List.of("junit-jupiter", "archunit", "websocket")
