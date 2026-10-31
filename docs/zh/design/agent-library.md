@@ -19,4 +19,4 @@ Agent 不持有运行时、热载、状态迁移或源代码发布能力；这�
 - [OpenAI 协议模块](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai)
 
 
-HTTP 请求头配置由 [Client](../../../../norm/libraries/openai/client.norm) 管理，并由 [Agent](../../../../norm/libraries/agent/agent.norm) 暴露，统一使用标准库的 [HeaderMap](../../../../norm/stdlib/std/http/client.norm) 类型。
+HTTP 请求头配置由 [Client](../../../norm/libraries/openai/client.norm) 管理，并由 [Agent](../../../norm/libraries/agent/agent.norm) 暴露，统一使用标准库的 [HeaderMap](../../../norm/stdlib/std/http/client.norm) 类型。
