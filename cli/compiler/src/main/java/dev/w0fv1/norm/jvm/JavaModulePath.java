@@ -17,8 +17,9 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
     names = List.copyOf(names);
   }
 
-  public List<String> nativeImageReadOptions() throws IOException {
+  public List<String> nativeImageAccessOptions() throws IOException {
     var featureModules = new java.util.TreeSet<String>();
+    var substitutionPackages = new java.util.TreeSet<String>();
     for (var module : ModuleFinder.of(paths.toArray(Path[]::new)).findAll()) {
       try (var reader = module.open();
           var resources = reader.list()) {
@@ -28,15 +29,34 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
             if (java.util.Arrays.asList(type.getInterfaces())
                 .contains("org/graalvm/nativeimage/hosted/Feature")) {
               featureModules.add(module.descriptor().name());
-              break;
             }
+            type.accept(
+                new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                  @Override
+                  public org.objectweb.asm.AnnotationVisitor visitAnnotation(
+                      String descriptor, boolean visible) {
+                    if (descriptor.equals("Lcom/oracle/svm/core/annotate/TargetClass;")) {
+                      String name = type.getClassName().replace('/', '.');
+                      int separator = name.lastIndexOf('.');
+                      if (separator > 0)
+                        substitutionPackages.add(
+                            module.descriptor().name() + "/" + name.substring(0, separator));
+                    }
+                    return null;
+                  }
+                },
+                org.objectweb.asm.ClassReader.SKIP_CODE
+                    | org.objectweb.asm.ClassReader.SKIP_DEBUG
+                    | org.objectweb.asm.ClassReader.SKIP_FRAMES);
           }
         }
       }
     }
-    return featureModules.stream()
-        .map(name -> "--add-reads=" + name + "=org.graalvm.nativeimage")
-        .toList();
+    var options = new ArrayList<String>();
+    featureModules.forEach(name -> options.add("--add-reads=" + name + "=org.graalvm.nativeimage"));
+    substitutionPackages.forEach(
+        name -> options.add("--add-opens=" + name + "=org.graalvm.nativeimage.builder"));
+    return List.copyOf(options);
   }
 
   public static JavaModulePath inspect(Collection<Path> entries) throws IOException {
