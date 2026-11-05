@@ -18,6 +18,38 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class NativeBuildPlannerTest {
   @Test
+  void retainedTypedJsonCanRejectMalformedInputAndContinue(@TempDir Path root) throws Exception {
+    var source =
+        Files.writeString(
+            root.resolve("app.norm"),
+            """
+        import std.serialization.Serializable
+        import std.json.fromJson
+        import std.json.JsonException
+        @Serializable() value Header { String name String value }
+        Void main() {
+          var rejected = false
+          try { fromJson<Header>(value: "[]") }
+          catch JsonException error { rejected = true }
+          require(condition: rejected, message: "invalid header")
+          printLine("recovered")
+        }
+        """);
+    var backend = new NormRuntime();
+    try (var runner = ApplicationRunner.open(ProjectEnvironment.bootstrap(backend));
+        var compilation = runner.compileApplication(source)) {
+      assertTrue(compilation.result().isSuccess(), compilation.result().diagnostics().toString());
+      var plan = NativeBuildPlan.from(compilation.application().orElseThrow());
+      var output = new StringWriter();
+      backend.execute(
+          plan.retention().artifact(),
+          plan.execution(),
+          ExecutionContext.of(new PrintWriter(output)));
+      assertEquals("recovered" + System.lineSeparator(), output.toString());
+    }
+  }
+
+  @Test
   void plansAndExecutesTheRetainedArtifactWithoutReplacingTheBasePlan(@TempDir Path root)
       throws Exception {
     Path source =

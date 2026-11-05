@@ -320,7 +320,8 @@ final class GuestValueFactory {
       int column,
       ExecutionState execution,
       Node location) {
-    validateJsonContract();
+    // Typed decoding can retain JsonException without retaining dynamic JsonValue.
+    validateDataExceptionContract(JSON_EXCEPTION);
     return dataException(
         JSON_EXCEPTION, code, message, path, offset, line, column, execution, location);
   }
@@ -674,21 +675,6 @@ final class GuestValueFactory {
         WebSocketExceptionAbi.FIELD_REASON_NAME);
     requireField(
         exception, WebSocketExceptionAbi.FIELD_URI_ORDINAL, WebSocketExceptionAbi.FIELD_URI_NAME);
-  }
-
-  private void validateJsonContract() {
-    validateDataExceptionContract(JSON_EXCEPTION);
-    EnumPlan value =
-        require(
-            enums,
-            JsonAbi.MODULE_NAME,
-            JsonAbi.MODULE_VERSION,
-            JsonAbi.PACKAGE_NAME,
-            JsonAbi.VALUE_TYPE_NAME);
-    if (value.variants().size() != JsonAbi.VALUE_VARIANTS.size()
-        || !value.variants().containsAll(JsonAbi.VALUE_VARIANTS)) {
-      throw new IllegalStateException("runtime JsonValue variants are inconsistent");
-    }
   }
 
   private void validateDataExceptionContract(DataExceptionContract contract) {
