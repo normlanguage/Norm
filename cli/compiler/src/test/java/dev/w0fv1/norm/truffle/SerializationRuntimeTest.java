@@ -10,6 +10,28 @@ import org.junit.jupiter.api.Test;
 
 final class SerializationRuntimeTest {
   @Test
+  void typedJsonErrorsRemainCatchableWithoutTheDynamicJsonValueType() {
+    assertEquals(
+        "recovered" + System.lineSeparator(),
+        dev.w0fv1.norm.testing.NormTestKit.run(
+            """
+            import std.serialization.Serializable
+            import std.json.fromJson
+            import std.json.JsonException
+            @Serializable() value Header { String name String value }
+            Void main() {
+              var rejected = false
+              try { fromJson<Header>(value: "[]") }
+              catch JsonException error { rejected = true }
+              require(condition: rejected, message: "invalid header must be rejected")
+              var header = fromJson<Header>(value: "{\\"name\\":\\"Accept\\",\\"value\\":\\"application/json\\"}")
+              require(condition: header.name == "Accept", message: "decoder must remain usable")
+              printLine("recovered")
+            }
+            """));
+  }
+
+  @Test
   void cachesEachExactGenericShapeAndItsNestedShapesOnce() {
     var checked =
         compile(

@@ -177,7 +177,7 @@ final class NativeApplicationExecutable {
               .map(Path::toString)
               .collect(java.util.stream.Collectors.joining(java.io.File.pathSeparator)));
       arguments.add("--add-modules=" + String.join(",", modules.names()));
-      arguments.addAll(modules.nativeImageReadOptions());
+      arguments.addAll(modules.nativeImageAccessOptions());
     }
     arguments.add("--initialize-at-build-time=dev.w0fv1.norm");
     arguments.add(

@@ -276,7 +276,7 @@ final class JavaModuleLoadingTest {
   }
 
   @Test
-  void identifiesModulesThatImplementNativeImageFeatures() throws Exception {
+  void identifiesNativeFeaturesAndOpensOnlySubstitutionPackages() throws Exception {
     Path jar = directory.resolve("sample.hosted.jar");
     var descriptor = new ClassWriter(0);
     descriptor.visit(Opcodes.V17, Opcodes.ACC_MODULE, "module-info", null, null, null);
@@ -294,6 +294,16 @@ final class JavaModuleLoadingTest {
         "java/lang/Object",
         new String[] {"org/graalvm/nativeimage/hosted/Feature"});
     feature.visitEnd();
+    var substitution = new ClassWriter(0);
+    substitution.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC,
+        "sample/hosted/TargetWidget",
+        null,
+        "java/lang/Object",
+        null);
+    substitution.visitAnnotation("Lcom/oracle/svm/core/annotate/TargetClass;", true).visitEnd();
+    substitution.visitEnd();
     try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
       output.putNextEntry(new JarEntry("module-info.class"));
       output.write(descriptor.toByteArray());
@@ -301,10 +311,15 @@ final class JavaModuleLoadingTest {
       output.putNextEntry(new JarEntry("sample/hosted/ImageFeature.class"));
       output.write(feature.toByteArray());
       output.closeEntry();
+      output.putNextEntry(new JarEntry("sample/hosted/TargetWidget.class"));
+      output.write(substitution.toByteArray());
+      output.closeEntry();
     }
     assertEquals(
-        List.of("--add-reads=sample.hosted=org.graalvm.nativeimage"),
-        JavaModulePath.inspect(List.of(jar)).nativeImageReadOptions());
+        List.of(
+            "--add-reads=sample.hosted=org.graalvm.nativeimage",
+            "--add-opens=sample.hosted/sample.hosted=org.graalvm.nativeimage.builder"),
+        JavaModulePath.inspect(List.of(jar)).nativeImageAccessOptions());
   }
 
   @Test
@@ -333,7 +348,7 @@ final class JavaModuleLoadingTest {
     var modules = JavaModulePath.inspect(List.of(jar, directory.resolve("absent-classes")));
     assertEquals(List.of(jar), modules.paths());
     assertEquals(List.of("sample.widgets"), modules.names());
-    assertTrue(modules.nativeImageReadOptions().isEmpty());
+    assertTrue(modules.nativeImageAccessOptions().isEmpty());
     try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
       Class<?> type =
           Class.forName("sample.widgets.Widget", false, runtime.applicationClassLoader());
