@@ -82,6 +82,7 @@ final class SemanticQueryTest {
           "The requested identifier.",
           snapshot.semanticModel().symbols().stream()
               .filter(symbol -> symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("id"))
+              .filter(symbol -> symbol.declaration().orElseThrow().document().equals(source.id()))
               .findFirst()
               .orElseThrow()
               .documentation());
