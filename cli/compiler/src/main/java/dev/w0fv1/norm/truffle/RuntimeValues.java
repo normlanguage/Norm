@@ -1332,6 +1332,15 @@ final class RuntimeValues {
   }
 
   static final class StateViewLeases {
+    // Scoped to one aggregate revision: rebuilding a value must not traverse and hash the
+    // same transitive type contracts again. Retired revisions remain independently collectible.
+    private final java.util.concurrent.ConcurrentMap<CoreType, RuntimeObjectState.Schema> schemas =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    RuntimeObjectState.Schema schema(AggregateInfo info, CoreType type) {
+      return schemas.computeIfAbsent(type, key -> RuntimeObjectState.Schema.create(info, key));
+    }
+
     private final java.util.Set<RuntimeObjectState.ViewMap> views =
         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
