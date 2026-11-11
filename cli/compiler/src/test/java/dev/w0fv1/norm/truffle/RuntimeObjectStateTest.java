@@ -12,6 +12,16 @@ final class RuntimeObjectStateTest {
   private static final DefinitionOccurrenceId OCCURRENCE = new DefinitionOccurrenceId(OWNER, 0);
 
   @Test
+  void schemasAreReusedWithinARevisionButNeverAcrossRevisions() {
+    var first = info(Map.of("value", CoreType.DYNAMIC));
+    var second = info(Map.of("value", CoreType.DYNAMIC));
+    var schema = RuntimeObjectState.Schema.of(first, CoreType.DYNAMIC);
+    assertSame(schema, RuntimeObjectState.Schema.of(first, CoreType.DYNAMIC));
+    assertNotSame(schema, RuntimeObjectState.Schema.of(second, CoreType.DYNAMIC));
+    assertNotSame(schema, RuntimeObjectState.Schema.of(first, CoreType.STRING));
+  }
+
+  @Test
   void nullableAliasesDoNotChangeTheConcreteObjectTypeInEitherTraversalOrder() {
     var constructor = new CoreTypeConstructor.User(new DefinitionReference.External(OWNER));
     var concrete =
