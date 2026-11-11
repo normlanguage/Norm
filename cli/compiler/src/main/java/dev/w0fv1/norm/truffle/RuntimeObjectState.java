@@ -46,6 +46,10 @@ final class RuntimeObjectState {
     }
 
     static Schema of(RuntimeValues.AggregateInfo info, CoreType type) {
+      return info.stateViews().schema(info, type);
+    }
+
+    static Schema create(RuntimeValues.AggregateInfo info, CoreType type) {
       List<CoreType> arguments =
           type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
       var fields = new LinkedHashMap<RuntimeValues.FieldKey, CoreType>();

@@ -16,6 +16,29 @@ final class JavaDirectCallBundleTest {
   @TempDir Path directory;
 
   @Test
+  void twoBindingsCanRetainTheSameInheritedJavaMethod() throws Throwable {
+    var length =
+        new JavaBindingCallable(
+            "java.lang.String",
+            "length",
+            "()I",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            JavaPrimitiveType.INT);
+    var binding = new LinkedJarBinding(Map.of("length", length), Map.of(), Map.of());
+    new JavaDirectCallBundle()
+        .write(List.of(binding, binding), directory, getClass().getClassLoader());
+    try (var loader =
+        new URLClassLoader(
+            new java.net.URL[] {directory.toUri().toURL()}, getClass().getClassLoader())) {
+      var registry =
+          (JavaDirectCallRegistry)
+              loader.loadClass(JavaDirectCallBundle.REGISTRY_NAME).getConstructor().newInstance();
+      assertEquals(4, registry.calls().get("length").invoke(new Object[] {"Norm"}));
+    }
+  }
+
+  @Test
   void exportsOnlyTheSharedBridgeProtocolToGeneratedClasses() throws Exception {
     Path classes =
         Path.of(JavaDirectCall.class.getProtectionDomain().getCodeSource().getLocation().toURI());
