@@ -16,14 +16,7 @@ public final class JavaDirectCallBundle {
 
   public void write(List<LinkedJarBinding> bindings, Path destination, ClassLoader loader)
       throws IOException {
-    var calls = new TreeMap<String, JavaBindingCallable>();
-    for (var binding : bindings) {
-      for (var entry : binding.calls().entrySet()) {
-        if (calls.putIfAbsent(entry.getKey(), entry.getValue()) != null)
-          throw new IllegalArgumentException("duplicate direct Java call " + entry.getKey());
-      }
-    }
-    write(REGISTRY_NAME, calls, destination, loader);
+    write(REGISTRY_NAME, LinkedJarBinding.linkCalls(bindings), destination, loader);
   }
 
   public void write(
