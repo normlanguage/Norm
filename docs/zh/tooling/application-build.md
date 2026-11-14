@@ -11,6 +11,8 @@ description: 将 Norm 应用构建为自包含可执行文件
 
 ## 单文件
 
+Native Image 参数及平台 API 所需的运行期字符集支持统一由 [NativeApplicationExecutable](../../../cli/compiler/src/main/java/dev/w0fv1/norm/build/NativeApplicationExecutable.java) 管理。
+
 在源文件所在目录执行：
 
 ```text
