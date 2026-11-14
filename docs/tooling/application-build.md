@@ -11,6 +11,8 @@ The first `norm setup` installs the Norm Native Image toolchain under `~/.norm/t
 
 ## Single-file applications
 
+Native Image options, including runtime character-set availability for platform APIs, are maintained in [NativeApplicationExecutable](../../cli/compiler/src/main/java/dev/w0fv1/norm/build/NativeApplicationExecutable.java).
+
 Run from the source file's directory:
 
 ```text

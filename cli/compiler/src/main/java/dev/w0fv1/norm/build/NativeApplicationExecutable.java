@@ -184,6 +184,7 @@ final class NativeApplicationExecutable {
         "--initialize-at-run-time=dev.w0fv1.norm.truffle.JsonRuntime,dev.w0fv1.norm.truffle.YamlRuntime,dev.w0fv1.norm.truffle.JacksonDataRuntime,io.netty");
     arguments.add("--features=dev.w0fv1.norm.runtime.NativeApplicationFeature");
     arguments.add("-H:+UnlockExperimentalVMOptions");
+    arguments.add("-H:+AddAllCharsets");
     arguments.add("-H:+ReportExceptionStackTraces");
     arguments.addAll(reportArguments);
     arguments.add("-H:-UnlockExperimentalVMOptions");
