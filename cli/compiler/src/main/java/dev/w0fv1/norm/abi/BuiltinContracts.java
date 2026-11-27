@@ -144,55 +144,49 @@ public final class BuiltinContracts {
     globals.values().stream()
         .flatMap(List::stream)
         .filter(candidate -> candidate.intrinsic() == intrinsic)
-        .map(
-            candidate ->
-                new IntrinsicCandidate(
-                    Optional.empty(),
-                    candidate.symbol().parameters(),
-                    candidate.symbol().type(),
-                    candidate.intrinsic().requiresResultRuntimeType()))
+        .map(candidate ->
+            new IntrinsicCandidate(
+                Optional.empty(),
+                candidate.symbol().parameters(),
+                candidate.symbol().type(),
+                candidate.intrinsic().requiresResultRuntimeType()))
         .forEach(result::add);
     for (TypeDefinition type : types.values()) {
       AbiType owner = ownerType(type);
       type.constructor()
           .filter(candidate -> candidate.intrinsic() == intrinsic)
-          .map(
-              candidate ->
-                  new IntrinsicCandidate(Optional.empty(), candidate.parameters(), owner, true))
+          .map(candidate ->
+              new IntrinsicCandidate(Optional.empty(), candidate.parameters(), owner, true))
           .ifPresent(result::add);
       type.members().stream()
           .filter(candidate -> candidate.intrinsic() == intrinsic)
-          .map(
-              candidate ->
-                  new IntrinsicCandidate(
-                      Optional.of(owner),
-                      candidate.symbol().parameters(),
-                      candidate.symbol().type(),
-                      candidate.intrinsic().requiresResultRuntimeType()))
+          .map(candidate ->
+              new IntrinsicCandidate(
+                  Optional.of(owner),
+                  candidate.symbol().parameters(),
+                  candidate.symbol().type(),
+                  candidate.intrinsic().requiresResultRuntimeType()))
           .forEach(result::add);
       type.typeMembers().stream()
           .filter(candidate -> candidate.intrinsic() == intrinsic)
-          .map(
-              candidate ->
-                  new IntrinsicCandidate(
-                      Optional.empty(),
-                      candidate.symbol().parameters(),
-                      candidate.symbol().type(),
-                      true))
+          .map(candidate ->
+              new IntrinsicCandidate(
+                  Optional.empty(),
+                  candidate.symbol().parameters(),
+                  candidate.symbol().type(),
+                  true))
           .forEach(result::add);
     }
     protocolConformances().stream()
-        .flatMap(
-            conformance ->
-                conformance.witnesses().values().stream()
-                    .filter(witness -> witness.intrinsic() == intrinsic)
-                    .map(
-                        witness ->
-                            new IntrinsicCandidate(
-                                Optional.of(conformance.concreteType()),
-                                witness.parameters(),
-                                witness.result(),
-                                false)))
+        .flatMap(conformance ->
+            conformance.witnesses().values().stream()
+                .filter(witness -> witness.intrinsic() == intrinsic)
+                .map(witness ->
+                    new IntrinsicCandidate(
+                        Optional.of(conformance.concreteType()),
+                        witness.parameters(),
+                        witness.result(),
+                        false)))
         .forEach(result::add);
     return List.copyOf(result);
   }
@@ -202,16 +196,15 @@ public final class BuiltinContracts {
     return types.values().stream()
         .filter(type -> type.index().isPresent())
         .filter(type -> type.index().orElseThrow().readIntrinsic() == intrinsic)
-        .map(
-            type -> {
-              IndexCapability index = type.index().orElseThrow();
-              return new IndexCandidate(
-                  ownerType(type),
-                  index.keyType(),
-                  index.resultType(),
-                  index.readIntrinsic(),
-                  index.writeIntrinsic());
-            })
+        .map(type -> {
+          IndexCapability index = type.index().orElseThrow();
+          return new IndexCandidate(
+              ownerType(type),
+              index.keyType(),
+              index.resultType(),
+              index.readIntrinsic(),
+              index.writeIntrinsic());
+        })
         .toList();
   }
 
@@ -226,10 +219,8 @@ public final class BuiltinContracts {
           .forEach(result::add);
       type.index()
           .filter(candidate -> candidate.writeIntrinsic().orElse(null) == intrinsic)
-          .map(
-              candidate ->
-                  new WriteCandidate(
-                      owner, Optional.of(candidate.keyType()), candidate.resultType()))
+          .map(candidate ->
+              new WriteCandidate(owner, Optional.of(candidate.keyType()), candidate.resultType()))
           .ifPresent(result::add);
     }
     return List.copyOf(result);
@@ -240,10 +231,8 @@ public final class BuiltinContracts {
     return types.values().stream()
         .filter(type -> type.iterable().isPresent())
         .filter(type -> type.iterable().orElseThrow().intrinsic() == intrinsic)
-        .map(
-            type ->
-                new IterationCandidate(
-                    ownerType(type), type.iterable().orElseThrow().elementType()))
+        .map(type ->
+            new IterationCandidate(ownerType(type), type.iterable().orElseThrow().elementType()))
         .toList();
   }
 
@@ -253,74 +242,71 @@ public final class BuiltinContracts {
       AbiType concrete = ownerType(definition);
       definition
           .iterable()
-          .ifPresent(
-              iterable ->
-                  result.add(
-                      new ProtocolConformance(
-                          definition.symbol().typeParameters().stream()
-                              .map(TypeParameter::type)
-                              .toList(),
-                          concrete,
-                          AbiType.declared(
-                              "std.core.Iterable",
-                              "Iterable",
-                              List.of(iterable.elementType()),
-                              AbiType.Category.POLYMORPHIC),
-                          Map.of(
-                              "iterator",
-                              new ProtocolWitness(
-                                  List.of(),
-                                  AbiType.declared(
-                                      "std.core.Iterator",
-                                      "Iterator",
-                                      List.of(iterable.elementType()),
-                                      AbiType.Category.POLYMORPHIC),
-                                  iterable.intrinsic())))));
+          .ifPresent(iterable ->
+              result.add(
+                  new ProtocolConformance(
+                      definition.symbol().typeParameters().stream()
+                          .map(TypeParameter::type)
+                          .toList(),
+                      concrete,
+                      AbiType.declared(
+                          "std.core.Iterable",
+                          "Iterable",
+                          List.of(iterable.elementType()),
+                          AbiType.Category.POLYMORPHIC),
+                      Map.of(
+                          "iterator",
+                          new ProtocolWitness(
+                              List.of(),
+                              AbiType.declared(
+                                  "std.core.Iterator",
+                                  "Iterator",
+                                  List.of(iterable.elementType()),
+                                  AbiType.Category.POLYMORPHIC),
+                              iterable.intrinsic())))));
       definition.members().stream()
           .filter(member -> member.symbol().name().equals("size"))
           .filter(
               member -> member.symbol().type().equals(BuiltinDeclarations.type("std.core.Integer")))
           .findFirst()
-          .ifPresent(
-              size ->
-                  result.add(
-                      new ProtocolConformance(
-                          definition.symbol().typeParameters().stream()
-                              .map(TypeParameter::type)
-                              .toList(),
-                          concrete,
-                          AbiType.declared(
-                              "std.core.Sized", "Sized", List.of(), AbiType.Category.POLYMORPHIC),
-                          Map.of(
-                              "size",
-                              new ProtocolWitness(
-                                  List.of(),
-                                  BuiltinDeclarations.type("std.core.Integer"),
-                                  size.intrinsic())))));
+          .ifPresent(size ->
+              result.add(
+                  new ProtocolConformance(
+                      definition.symbol().typeParameters().stream()
+                          .map(TypeParameter::type)
+                          .toList(),
+                      concrete,
+                      AbiType.declared(
+                          "std.core.Sized", "Sized", List.of(), AbiType.Category.POLYMORPHIC),
+                      Map.of(
+                          "size",
+                          new ProtocolWitness(
+                              List.of(),
+                              BuiltinDeclarations.type("std.core.Integer"),
+                              size.intrinsic())))));
       definition.members().stream()
           .filter(member -> member.symbol().name().equals("toString"))
           .filter(
               member -> member.symbol().type().equals(BuiltinDeclarations.type("std.core.String")))
           .findFirst()
-          .ifPresent(
-              toString ->
-                  result.add(
-                      new ProtocolConformance(
-                          definition.symbol().typeParameters().stream()
-                              .map(TypeParameter::type)
-                              .toList(),
-                          concrete,
-                          AbiType.declared(
-                              "std.core.Stringable",
-                              "Stringable",
+          .ifPresent(toString ->
+              result.add(
+                  new ProtocolConformance(
+                      definition.symbol().typeParameters().stream()
+                          .map(TypeParameter::type)
+                          .toList(),
+                      concrete,
+                      AbiType.declared(
+                          "std.core.Stringable",
+                          "Stringable",
+                          List.of(),
+                          AbiType.Category.POLYMORPHIC),
+                      Map.of(
+                          "toString",
+                          new ProtocolWitness(
                               List.of(),
-                              AbiType.Category.POLYMORPHIC),
-                          Map.of(
-                              "toString",
-                              new ProtocolWitness(
-                                  List.of(),
-                                  BuiltinDeclarations.type("std.core.String"),
-                                  toString.intrinsic())))));
+                              BuiltinDeclarations.type("std.core.String"),
+                              toString.intrinsic())))));
       definition.members().stream()
           .filter(member -> member.symbol().name().equals("compareTo"))
           .filter(
@@ -328,25 +314,24 @@ public final class BuiltinContracts {
           .filter(member -> member.symbol().parameters().size() == 1)
           .filter(member -> member.symbol().parameters().getFirst().type().equals(concrete))
           .findFirst()
-          .ifPresent(
-              compareTo ->
-                  result.add(
-                      new ProtocolConformance(
-                          definition.symbol().typeParameters().stream()
-                              .map(TypeParameter::type)
-                              .toList(),
-                          concrete,
-                          AbiType.declared(
-                              "std.core.Comparable",
-                              "Comparable",
-                              List.of(concrete),
-                              AbiType.Category.POLYMORPHIC),
-                          Map.of(
-                              "compareTo",
-                              new ProtocolWitness(
-                                  compareTo.symbol().parameters(),
-                                  BuiltinDeclarations.type("std.core.Integer"),
-                                  compareTo.intrinsic())))));
+          .ifPresent(compareTo ->
+              result.add(
+                  new ProtocolConformance(
+                      definition.symbol().typeParameters().stream()
+                          .map(TypeParameter::type)
+                          .toList(),
+                      concrete,
+                      AbiType.declared(
+                          "std.core.Comparable",
+                          "Comparable",
+                          List.of(concrete),
+                          AbiType.Category.POLYMORPHIC),
+                      Map.of(
+                          "compareTo",
+                          new ProtocolWitness(
+                              compareTo.symbol().parameters(),
+                              BuiltinDeclarations.type("std.core.Integer"),
+                              compareTo.intrinsic())))));
     }
     TypeDefinition nativeIterator = type("NativeIterator").orElseThrow();
     AbiType iteratorElement = nativeIterator.symbol().typeParameters().getFirst().type();

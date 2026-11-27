@@ -107,12 +107,11 @@ public record CoreExecutionPlan(
         binding.shape().parameters().stream()
             .flatMap(parameter -> parameter.defaultValue().stream())
             .map(value -> ((CoreDefaultArgument.Resolved) value).occurrence().representative())
-            .forEach(
-                target ->
-                    defaults
-                        .computeIfAbsent(
-                            binding.occurrence().representative(), ignored -> new HashSet<>())
-                        .add(target));
+            .forEach(target ->
+                defaults
+                    .computeIfAbsent(
+                        binding.occurrence().representative(), ignored -> new HashSet<>())
+                    .add(target));
       }
       for (var occurrence : artifact.authoring().occurrences()) {
         for (var definition : occurrence.representedDefinitions()) {
@@ -197,24 +196,21 @@ public record CoreExecutionPlan(
       if (annotationLifecycle) return;
       annotationLifecycle = true;
       CoreFunctionInterceptorProtocol.resolve(program)
-          .ifPresent(
-              protocol -> {
-                activate(protocol.before());
-                activate(protocol.around());
-                activate(protocol.after());
-              });
+          .ifPresent(protocol -> {
+            activate(protocol.before());
+            activate(protocol.around());
+            activate(protocol.after());
+          });
       CoreParameterInterceptorProtocol.resolve(program)
-          .ifPresent(
-              protocol -> {
-                activate(protocol.before());
-                activate(protocol.after());
-              });
+          .ifPresent(protocol -> {
+            activate(protocol.before());
+            activate(protocol.after());
+          });
       CoreFieldInterceptorProtocol.resolve(program)
-          .ifPresent(
-              protocol -> {
-                activate(protocol.before());
-                activate(protocol.after());
-              });
+          .ifPresent(protocol -> {
+            activate(protocol.before());
+            activate(protocol.after());
+          });
     }
 
     private void require(DefinitionId definition) {
@@ -257,11 +253,10 @@ public record CoreExecutionPlan(
         var factories =
             aggregate.constructors().stream()
                 .map(link -> resolve(record.id(), link))
-                .filter(
-                    id ->
-                        CoreConstructorParameters.forCallable(
-                                (CoreDefinition.Callable) program.definition(id).orElseThrow())
-                            .acceptsEmpty())
+                .filter(id ->
+                    CoreConstructorParameters.forCallable(
+                            (CoreDefinition.Callable) program.definition(id).orElseThrow())
+                        .acceptsEmpty())
                 .toList();
         if (factories.size() != 1)
           throw new IllegalArgumentException(

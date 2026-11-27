@@ -27,48 +27,46 @@ public final class RuntimeChangeAnalyzer {
     Map<String, Entry> previous = entries(before);
     Map<String, Entry> current = entries(after);
     List<RuntimeDeclarationChange> changes = new ArrayList<>();
-    previous.forEach(
-        (identity, oldEntry) -> {
-          Entry newEntry = current.get(identity);
-          if (newEntry == null) {
-            changes.add(
-                new RuntimeDeclarationChange(
-                    RuntimeChangeKind.REMOVED,
-                    oldEntry.shape().kind(),
-                    identity,
-                    Optional.of(oldEntry.shape()),
-                    Optional.empty(),
-                    oldEntry.source(),
-                    oldEntry.startOffset(),
-                    oldEntry.endOffset()));
-          } else if (!oldEntry.shape().equals(newEntry.shape())) {
-            changes.add(
-                new RuntimeDeclarationChange(
-                    RuntimeChangeKind.MODIFIED,
-                    newEntry.shape().kind(),
-                    identity,
-                    Optional.of(oldEntry.shape()),
-                    Optional.of(newEntry.shape()),
-                    newEntry.source(),
-                    newEntry.startOffset(),
-                    newEntry.endOffset()));
-          }
-        });
-    current.forEach(
-        (identity, entry) -> {
-          if (!previous.containsKey(identity)) {
-            changes.add(
-                new RuntimeDeclarationChange(
-                    RuntimeChangeKind.ADDED,
-                    entry.shape().kind(),
-                    identity,
-                    Optional.empty(),
-                    Optional.of(entry.shape()),
-                    entry.source(),
-                    entry.startOffset(),
-                    entry.endOffset()));
-          }
-        });
+    previous.forEach((identity, oldEntry) -> {
+      Entry newEntry = current.get(identity);
+      if (newEntry == null) {
+        changes.add(
+            new RuntimeDeclarationChange(
+                RuntimeChangeKind.REMOVED,
+                oldEntry.shape().kind(),
+                identity,
+                Optional.of(oldEntry.shape()),
+                Optional.empty(),
+                oldEntry.source(),
+                oldEntry.startOffset(),
+                oldEntry.endOffset()));
+      } else if (!oldEntry.shape().equals(newEntry.shape())) {
+        changes.add(
+            new RuntimeDeclarationChange(
+                RuntimeChangeKind.MODIFIED,
+                newEntry.shape().kind(),
+                identity,
+                Optional.of(oldEntry.shape()),
+                Optional.of(newEntry.shape()),
+                newEntry.source(),
+                newEntry.startOffset(),
+                newEntry.endOffset()));
+      }
+    });
+    current.forEach((identity, entry) -> {
+      if (!previous.containsKey(identity)) {
+        changes.add(
+            new RuntimeDeclarationChange(
+                RuntimeChangeKind.ADDED,
+                entry.shape().kind(),
+                identity,
+                Optional.empty(),
+                Optional.of(entry.shape()),
+                entry.source(),
+                entry.startOffset(),
+                entry.endOffset()));
+      }
+    });
     changes.sort(
         Comparator.comparing(RuntimeDeclarationChange::source)
             .thenComparingInt(RuntimeDeclarationChange::startOffset)
@@ -162,10 +160,9 @@ public final class RuntimeChangeAnalyzer {
 
   private List<String> annotations(CoreArtifact artifact, CoreDefinitionOccurrence occurrence) {
     return artifact.metadata().annotations().stream()
-        .filter(
-            annotation ->
-                annotation.target() instanceof CoreAnnotationTarget.Definition definition
-                    && definition.occurrence().equals(occurrence.id()))
+        .filter(annotation ->
+            annotation.target() instanceof CoreAnnotationTarget.Definition definition
+                && definition.occurrence().equals(occurrence.id()))
         .map(annotation -> annotation.annotation().toString())
         .sorted()
         .toList();

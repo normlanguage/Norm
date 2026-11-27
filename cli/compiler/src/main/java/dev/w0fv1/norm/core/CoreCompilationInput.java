@@ -46,9 +46,8 @@ public record CoreCompilationInput(List<Declaration> declarations, CoreProgram d
       CoreTree.links(definition).stream()
           .filter(PendingDefinitionReference.class::isInstance)
           .map(PendingDefinitionReference.class::cast)
-          .forEach(
-              pending ->
-                  slots.computeIfAbsent(pending.declarationIndex(), ignored -> slots.size()));
+          .forEach(pending ->
+              slots.computeIfAbsent(pending.declarationIndex(), ignored -> slots.size()));
       var normalized =
           CoreRewriter.resolve(
               definition,

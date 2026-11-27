@@ -21,11 +21,10 @@ public record CoreDefinitionOrigin(
     nodeSpans = Map.copyOf(nodeSpans);
     declarationIdentity = Objects.requireNonNull(declarationIdentity, "declarationIdentity");
     localNames = Map.copyOf(localNames);
-    localNames.forEach(
-        (slot, name) -> {
-          if (slot < 0 || name.isBlank())
-            throw new IllegalArgumentException("invalid named local slot");
-        });
+    localNames.forEach((slot, name) -> {
+      if (slot < 0 || name.isBlank())
+        throw new IllegalArgumentException("invalid named local slot");
+    });
   }
 
   public CoreDefinitionOrigin(

@@ -30,12 +30,11 @@ public record LinkedJarBinding(
     for (var binding : bindings) {
       binding
           .calls()
-          .forEach(
-              (name, callable) -> {
-                var previous = calls.putIfAbsent(name, callable);
-                if (previous != null && !previous.equals(callable))
-                  throw new JarBindingRuntimeException("conflicting JAR binding call " + name);
-              });
+          .forEach((name, callable) -> {
+            var previous = calls.putIfAbsent(name, callable);
+            if (previous != null && !previous.equals(callable))
+              throw new JarBindingRuntimeException("conflicting JAR binding call " + name);
+          });
     }
     return Map.copyOf(calls);
   }

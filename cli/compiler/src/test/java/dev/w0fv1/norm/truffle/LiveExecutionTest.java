@@ -37,10 +37,9 @@ final class LiveExecutionTest {
     var execution = prepare(compile(source));
     var updated = compile(source.replace("old:", "hellonorm:"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 3) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 3) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(
         List.of("init", "old:0", "old:1", "hellonorm:2", "hellonorm:3", "hellonorm:4"),
@@ -68,10 +67,9 @@ final class LiveExecutionTest {
     var execution = prepare(compile(source));
     var updated = compile(source.replace("old:", "new:").replace("total + 1", "total + 10"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 2) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 2) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(
         List.of("old:0:0:1", "old:0:1:2", "new:0:2:12", "new:1:0:22", "new:1:1:32", "new:1:2:42"),
@@ -92,10 +90,9 @@ final class LiveExecutionTest {
     var execution = prepare(compile(source));
     var updated = compile(source.replace("old:", "new:"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 3) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 3) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(
         List.of("factory", "old:0:10", "old:1:20", "new:2:30", "new:3:40"), output.lines());
@@ -118,10 +115,9 @@ final class LiveExecutionTest {
     var execution = prepare(compile(source));
     var updated = compile(source.replace("second() { 1 }", "second() { 27 }"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 2) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 2) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(List.of("1:1", "1:1", "1:27", "1:27"), output.lines());
   }
@@ -145,11 +141,10 @@ final class LiveExecutionTest {
             source.replace("preserved = 7", "preserved = \"wrong\"").replace("old:", "middle:"));
     var updated = compile(source.replace("old:", "new:"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 2) execution.update(changed);
-              if (line == 3) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 2) execution.update(changed);
+          if (line == 3) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(List.of("old:0", "old:1", "middle:2", "new:3", "new:4"), output.lines());
   }
@@ -172,10 +167,9 @@ final class LiveExecutionTest {
     var execution = prepare(compile(source));
     var updated = compile(source.replace("old:", "new:"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 1) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 1) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(List.of("old:1", "new:3", "new:4", "finished"), output.lines());
   }
@@ -199,10 +193,9 @@ final class LiveExecutionTest {
     var updated =
         compile("Integer unrelated() { 100 }\n" + source.replace("old:", "much-longer-new:"));
     var output =
-        new UpdatingWriter(
-            line -> {
-              if (line == 2) execution.update(updated);
-            });
+        new UpdatingWriter(line -> {
+          if (line == 2) execution.update(updated);
+        });
     execution.execute(ExecutionContext.of(new PrintWriter(output)));
     assertEquals(
         List.of("old:19", "old:19", "much-longer-new:19", "much-longer-new:19"), output.lines());

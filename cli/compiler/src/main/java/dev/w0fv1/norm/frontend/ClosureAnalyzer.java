@@ -79,12 +79,11 @@ final class ClosureAnalyzer {
       SemanticType explicit =
           parameter
               .type()
-              .map(
-                  type -> {
-                    typeResolver.validateType(type, false);
-                    SemanticType resolved = typeResolver.resolveType(type, resolution.parameters());
-                    return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
-                  })
+              .map(type -> {
+                typeResolver.validateType(type, false);
+                SemanticType resolved = typeResolver.resolveType(type, resolution.parameters());
+                return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
+              })
               .orElse(null);
       if (explicit != null && contextual != null)
         typeResolver.requireType(contextual, explicit, parameter.span());
@@ -98,12 +97,11 @@ final class ClosureAnalyzer {
     SemanticType declaredContextualReturn =
         lambda
             .returnType()
-            .map(
-                type -> {
-                  typeResolver.validateType(type, true);
-                  SemanticType resolved = typeResolver.resolveType(type, resolution.parameters());
-                  return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
-                })
+            .map(type -> {
+              typeResolver.validateType(type, true);
+              SemanticType resolved = typeResolver.resolveType(type, resolution.parameters());
+              return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
+            })
             .orElse(expectedFunction == null ? null : expectedFunction.functionReturnType());
     SemanticType contextualReturn =
         declaredContextualReturn != null
@@ -198,10 +196,9 @@ final class ClosureAnalyzer {
       Syntax.Lambda lambda, SemanticType expected, SemanticType builder) {
     var protocol =
         typeResolver.nominalViews(builder).stream()
-            .filter(
-                type ->
-                    type.identity().equals(dev.w0fv1.norm.value.AnnotationAbi.RESULT_BUILDER)
-                        && type.arguments().size() == 2)
+            .filter(type ->
+                type.identity().equals(dev.w0fv1.norm.value.AnnotationAbi.RESULT_BUILDER)
+                    && type.arguments().size() == 2)
             .findFirst();
     if (expected == null
         || !expected.isFunction()

@@ -46,9 +46,8 @@ final class JarArtifactOwnershipTest {
             new MavenJarIdentity(embedded, "tests"),
             Path.of("tests.jar"),
             Sha256Digest.compute(new byte[] {1}));
-    assertDoesNotThrow(
-        () ->
-            new JarArtifactOwnership(owner, Set.of(embedded)).validate(List.of(owner, attachment)));
+    assertDoesNotThrow(() ->
+        new JarArtifactOwnership(owner, Set.of(embedded)).validate(List.of(owner, attachment)));
   }
 
   private static ResolvedJarArtifact artifact(String name, String version, String file) {

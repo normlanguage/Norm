@@ -365,14 +365,12 @@ final class ExpectedTypeResolver {
                 expectedType,
                 offset,
                 incompleteBreak);
-        yield nested.or(
-            () ->
-                conditional
-                    .elseElement()
-                    .flatMap(
-                        value ->
-                            inCollectionElement(
-                                model, value, returnType, expectedType, offset, incompleteBreak)));
+        yield nested.or(() ->
+            conditional
+                .elseElement()
+                .flatMap(value ->
+                    inCollectionElement(
+                        model, value, returnType, expectedType, offset, incompleteBreak)));
       }
       case CollectionElement.Repeated repeated -> {
         if (contains(repeated.iterable().span(), offset)) {

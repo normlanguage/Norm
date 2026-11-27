@@ -191,18 +191,17 @@ final class BindingNames {
     Map<String, String> variants = new LinkedHashMap<>();
     owner.fields().stream()
         .filter(field -> (field.modifiers() & org.objectweb.asm.Opcodes.ACC_ENUM) != 0)
-        .forEach(
-            field -> {
-              String name = enumVariantName(field.name());
-              if (variants.containsKey(name)) {
-                name +=
-                    "_"
-                        + Sha256Digest.compute(field.name().getBytes(StandardCharsets.UTF_8))
-                            .value()
-                            .substring(0, 8);
-              }
-              variants.put(name, field.name());
-            });
+        .forEach(field -> {
+          String name = enumVariantName(field.name());
+          if (variants.containsKey(name)) {
+            name +=
+                "_"
+                    + Sha256Digest.compute(field.name().getBytes(StandardCharsets.UTF_8))
+                        .value()
+                        .substring(0, 8);
+          }
+          variants.put(name, field.name());
+        });
     if (variants.isEmpty()) {
       throw new IllegalArgumentException(
           "Java enum has no public constants: " + owner.binaryName());
@@ -261,10 +260,9 @@ final class BindingNames {
   static String callId(Sha256Digest graphId, JavaBindingCallable callable) {
     String exposedSignature =
         callable.typeParameters().stream()
-                .map(
-                    parameter ->
-                        parameter.name()
-                            + parameter.bound().map(bound -> ":" + bound.displayName()).orElse(""))
+                .map(parameter ->
+                    parameter.name()
+                        + parameter.bound().map(bound -> ":" + bound.displayName()).orElse(""))
                 .collect(java.util.stream.Collectors.joining(",", "<", ">"))
             + callable.parameters().stream()
                 .map(JavaBindingType::displayName)

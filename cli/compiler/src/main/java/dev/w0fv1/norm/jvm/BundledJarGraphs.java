@@ -170,13 +170,12 @@ public final class BundledJarGraphs {
       }
       List<JarDependencyEdge> edges =
           entry.getAsJsonArray("edges").asList().stream()
-              .map(
-                  edgeValue -> {
-                    JsonObject edge = edgeValue.getAsJsonObject();
-                    return new JarDependencyEdge(
-                        required(artifacts, edge.get("from").getAsString()).identity(),
-                        required(artifacts, edge.get("to").getAsString()).identity());
-                  })
+              .map(edgeValue -> {
+                JsonObject edge = edgeValue.getAsJsonObject();
+                return new JarDependencyEdge(
+                    required(artifacts, edge.get("from").getAsString()).identity(),
+                    required(artifacts, edge.get("to").getAsString()).identity());
+              })
               .toList();
       ResolvedJarGraph graph =
           new ResolvedJarGraph(

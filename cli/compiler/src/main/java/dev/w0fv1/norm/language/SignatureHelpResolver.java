@@ -26,10 +26,9 @@ final class SignatureHelpResolver {
         SymbolPresentation.signature(symbol),
         symbol.documentation(),
         symbol.parameters().stream()
-            .map(
-                parameter ->
-                    new ParameterInformation(
-                        parameter.type().displayName() + " " + parameter.name(), ""))
+            .map(parameter ->
+                new ParameterInformation(
+                    parameter.type().displayName() + " " + parameter.name(), ""))
             .toList());
   }
 }

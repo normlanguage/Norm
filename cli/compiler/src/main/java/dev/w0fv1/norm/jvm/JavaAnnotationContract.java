@@ -83,10 +83,9 @@ public record JavaAnnotationContract(
       if (!targets.contains(target)) continue;
       target
           .normInterface()
-          .ifPresent(
-              value -> {
-                if (!result.contains(value)) result.add(value);
-              });
+          .ifPresent(value -> {
+            if (!result.contains(value)) result.add(value);
+          });
     }
     return List.copyOf(result);
   }

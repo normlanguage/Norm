@@ -28,10 +28,9 @@ public record CompilationScope(
     Map<DocumentId, ModuleSourceCoordinate> stable = new LinkedHashMap<>();
     Objects.requireNonNull(coordinates, "coordinates").entrySet().stream()
         .sorted(java.util.Comparator.comparing(entry -> entry.getKey().uri().toString()))
-        .forEach(
-            entry ->
-                stable.put(
-                    entry.getKey(), Objects.requireNonNull(entry.getValue(), "source coordinate")));
+        .forEach(entry ->
+            stable.put(
+                entry.getKey(), Objects.requireNonNull(entry.getValue(), "source coordinate")));
     Map<ModuleCoordinate, Set<String>> pathsByModule = new LinkedHashMap<>();
     for (ModuleSourceCoordinate coordinate : stable.values()) {
       if (!pathsByModule
@@ -61,9 +60,8 @@ public record CompilationScope(
     Objects.requireNonNull(module, "module");
     Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>();
     Objects.requireNonNull(sourcePaths, "sourcePaths")
-        .forEach(
-            (document, relativePath) ->
-                coordinates.put(document, new ModuleSourceCoordinate(module, relativePath)));
+        .forEach((document, relativePath) ->
+            coordinates.put(document, new ModuleSourceCoordinate(module, relativePath)));
     return new CompilationScope(coordinates, ModuleGraph.isolated(List.of(module)));
   }
 

@@ -12,20 +12,19 @@ final class CoreDependencyTest {
     var result =
         NormTestKit.compile(
             """
-        Integer first() { return 1 }
-        Integer second() { return 1 }
-        Integer callFirst() { return first() }
-        Integer callSecond() { return second() }
-        Void main() { printLine(callFirst()) printLine(callSecond()) }
-        """);
+            Integer first() { return 1 }
+            Integer second() { return 1 }
+            Integer callFirst() { return first() }
+            Integer callSecond() { return second() }
+            Void main() { printLine(callFirst()) printLine(callSecond()) }
+            """);
     assertTrue(result.isSuccess(), result.diagnostics().toString());
     var artifact = result.output().orElseThrow().artifact();
     var bindings =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    Set.of("first", "second", "callFirst", "callSecond", "main")
-                        .contains(binding.name()))
+            .filter(binding ->
+                Set.of("first", "second", "callFirst", "callSecond", "main")
+                    .contains(binding.name()))
             .collect(java.util.stream.Collectors.toMap(CoreBinding::name, CoreBinding::occurrence));
     assertEquals(bindings.get("first").representative(), bindings.get("second").representative());
     assertEquals(
@@ -45,8 +44,8 @@ final class CoreDependencyTest {
     var compiled =
         NormTestKit.compile(
             """
-        Void main() { List<Integer> items = [1] printLine(items[0]) }
-        """);
+            Void main() { List<Integer> items = [1] printLine(items[0]) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
@@ -69,10 +68,10 @@ final class CoreDependencyTest {
     var compiled =
         NormTestKit.compile(
             """
-        class Item { String name() { return "item" } }
-        String helper() { return "hello" }
-        Void main() { Item item = Item() printLine(item.name()) printLine(helper()) }
-        """);
+            class Item { String name() { return "item" } }
+            String helper() { return "hello" }
+            Void main() { Item item = Item() printLine(item.name()) printLine(helper()) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
@@ -89,13 +88,12 @@ final class CoreDependencyTest {
     for (var call : calls) {
       assertTrue(
           dependencies.stream()
-              .anyMatch(
-                  dependency ->
-                      dependency.target().equals(call.target())
-                          && dependency.kind()
-                              == (call.virtual()
-                                  ? CoreDependency.Kind.VIRTUAL_CALL
-                                  : CoreDependency.Kind.CALL)));
+              .anyMatch(dependency ->
+                  dependency.target().equals(call.target())
+                      && dependency.kind()
+                          == (call.virtual()
+                              ? CoreDependency.Kind.VIRTUAL_CALL
+                              : CoreDependency.Kind.CALL)));
     }
   }
 
@@ -104,13 +102,13 @@ final class CoreDependencyTest {
     var compiled =
         NormTestKit.compile(
             """
-        Void main() {
-          List<Integer> items = [1, 2]
-          items[0] = 3
-          printLine(items[0])
-          for Integer item : items { printLine(item) }
-        }
-        """);
+            Void main() {
+              List<Integer> items = [1, 2]
+              items[0] = 3
+              printLine(items[0])
+              for Integer item : items { printLine(item) }
+            }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var entry =
@@ -183,16 +181,16 @@ final class CoreDependencyTest {
     var compiled =
         NormTestKit.compile(
             """
-        interface Named { String name() }
-        class Item implements Named { String name() { return "item" } }
-        String helper() { return "hello" }
-        Void main() {
-          Named? absent = null
-          Named present = Item()
-          printLine(present.name())
-          printLine(helper())
-        }
-        """);
+            interface Named { String name() }
+            class Item implements Named { String name() { return "item" } }
+            String helper() { return "hello" }
+            Void main() {
+              Named? absent = null
+              Named present = Item()
+              printLine(present.name())
+              printLine(helper())
+            }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
@@ -200,11 +198,10 @@ final class CoreDependencyTest {
     var execution = CoreTree.executionDependencies(entry);
     assertFalse(
         declaration.stream()
-            .anyMatch(
-                dependency ->
-                    dependency.kind() == CoreDependency.Kind.CONSTRUCTION
-                        || dependency.kind() == CoreDependency.Kind.CALL
-                        || dependency.kind() == CoreDependency.Kind.INTERFACE_CALL));
+            .anyMatch(dependency ->
+                dependency.kind() == CoreDependency.Kind.CONSTRUCTION
+                    || dependency.kind() == CoreDependency.Kind.CALL
+                    || dependency.kind() == CoreDependency.Kind.INTERFACE_CALL));
     assertTrue(
         execution.stream().anyMatch(dependency -> dependency.kind() == CoreDependency.Kind.CALL));
     var combined = new java.util.ArrayList<>(declaration);
@@ -243,10 +240,9 @@ final class CoreDependencyTest {
     assertThrows(UnsupportedOperationException.class, dependencies::clear);
     var item =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    record.definition() instanceof CoreDefinition.Aggregate aggregate
-                        && aggregate.nominalType().name().equals("Item"))
+            .filter(record ->
+                record.definition() instanceof CoreDefinition.Aggregate aggregate
+                    && aggregate.nominalType().name().equals("Item"))
             .findFirst()
             .orElseThrow();
     var declarations = CoreTree.dependencies(item.definition());

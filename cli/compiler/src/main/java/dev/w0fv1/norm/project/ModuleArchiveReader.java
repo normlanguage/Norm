@@ -165,16 +165,15 @@ final class ModuleArchiveReader {
     List<ModuleRequirement> dependencies = new ArrayList<>();
     module
         .getAsJsonArray("dependencies")
-        .forEach(
-            value -> {
-              JsonObject dependency = value.getAsJsonObject();
-              dependencies.add(
-                  new ModuleRequirement(
-                      dependency.get("repository").getAsString(),
-                      dependency.get("name").getAsString(),
-                      dependency.get("version").getAsInt(),
-                      dependency.has("exported") && dependency.get("exported").getAsBoolean()));
-            });
+        .forEach(value -> {
+          JsonObject dependency = value.getAsJsonObject();
+          dependencies.add(
+              new ModuleRequirement(
+                  dependency.get("repository").getAsString(),
+                  dependency.get("name").getAsString(),
+                  dependency.get("version").getAsInt(),
+                  dependency.has("exported") && dependency.get("exported").getAsBoolean()));
+        });
     Optional<JarBinding> binding = Optional.empty();
     if (manifest.has("jar")) {
       JsonObject jar = manifest.getAsJsonObject("jar");
@@ -195,38 +194,34 @@ final class ModuleArchiveReader {
           };
       List<JarBindingType> api = new ArrayList<>();
       jar.getAsJsonArray("api")
-          .forEach(
-              value -> {
-                JsonObject type = value.getAsJsonObject();
-                List<String> members = new ArrayList<>();
-                type.getAsJsonArray("members").forEach(member -> members.add(member.getAsString()));
-                List<JarBindingOverload> overloads = new ArrayList<>();
-                type.getAsJsonArray("overloads")
-                    .forEach(
-                        overloadValue -> {
-                          JsonObject overload = overloadValue.getAsJsonObject();
-                          List<String> parameterTypes = new ArrayList<>();
-                          overload
-                              .getAsJsonArray("parameterTypes")
-                              .forEach(parameter -> parameterTypes.add(parameter.getAsString()));
-                          overloads.add(
-                              new JarBindingOverload(
-                                  overload.get("name").getAsString(), parameterTypes));
-                        });
-                List<String> borrowed = new ArrayList<>();
-                if (type.has("borrowed"))
-                  type.getAsJsonArray("borrowed")
-                      .forEach(member -> borrowed.add(member.getAsString()));
-                api.add(
-                    new JarBindingType(
-                        type.get("name").getAsString(),
-                        members,
-                        overloads,
-                        borrowed,
-                        type.has("alias")
-                            ? Optional.of(type.get("alias").getAsString())
-                            : Optional.empty()));
-              });
+          .forEach(value -> {
+            JsonObject type = value.getAsJsonObject();
+            List<String> members = new ArrayList<>();
+            type.getAsJsonArray("members").forEach(member -> members.add(member.getAsString()));
+            List<JarBindingOverload> overloads = new ArrayList<>();
+            type.getAsJsonArray("overloads")
+                .forEach(overloadValue -> {
+                  JsonObject overload = overloadValue.getAsJsonObject();
+                  List<String> parameterTypes = new ArrayList<>();
+                  overload
+                      .getAsJsonArray("parameterTypes")
+                      .forEach(parameter -> parameterTypes.add(parameter.getAsString()));
+                  overloads.add(
+                      new JarBindingOverload(overload.get("name").getAsString(), parameterTypes));
+                });
+            List<String> borrowed = new ArrayList<>();
+            if (type.has("borrowed"))
+              type.getAsJsonArray("borrowed").forEach(member -> borrowed.add(member.getAsString()));
+            api.add(
+                new JarBindingType(
+                    type.get("name").getAsString(),
+                    members,
+                    overloads,
+                    borrowed,
+                    type.has("alias")
+                        ? Optional.of(type.get("alias").getAsString())
+                        : Optional.empty()));
+          });
       binding = Optional.of(new JarBinding(target, api));
     }
     int version = module.get("version").getAsInt();

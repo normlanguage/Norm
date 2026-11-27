@@ -83,33 +83,29 @@ final class ManagedMethodLoweringTest {
                                   + snapshot.documentIds().stream().sorted().toList().indexOf(id)
                                   + ".norm")));
       var core = new BoundCoreConverter(bound, coordinates).convert();
-      assertDoesNotThrow(
-          () ->
-              new CoreProgram(
-                  new CoreCanonicalizer()
-                      .canonicalize(
-                          new dev.w0fv1.norm.core.CoreCompilationInput(
-                              core.declarations().stream()
-                                  .map(BoundCoreConverter.Declaration::input)
-                                  .toList(),
-                              new CoreProgram(java.util.List.of())))
-                      .groups()));
+      assertDoesNotThrow(() ->
+          new CoreProgram(
+              new CoreCanonicalizer()
+                  .canonicalize(
+                      new dev.w0fv1.norm.core.CoreCompilationInput(
+                          core.declarations().stream()
+                              .map(BoundCoreConverter.Declaration::input)
+                              .toList(),
+                          new CoreProgram(java.util.List.of())))
+                  .groups()));
       var signatures =
           core.declarations().stream()
               .filter(value -> value.role() == CoreDefinitionRole.METHOD_SIGNATURE)
-              .map(
-                  value ->
+              .map(value ->
+                  assertInstanceOf(
+                      CoreDefinition.MethodSignature.class,
                       assertInstanceOf(
-                          CoreDefinition.MethodSignature.class,
-                          assertInstanceOf(
-                                  dev.w0fv1.norm.core.CoreCompilationInput.Source.class,
-                                  value.input())
-                              .definition()))
-              .filter(
-                  value ->
-                      value.name().equals("find")
-                          || value.name().equals("convert")
-                          || value.name().equals("clear"))
+                              dev.w0fv1.norm.core.CoreCompilationInput.Source.class, value.input())
+                          .definition()))
+              .filter(value ->
+                  value.name().equals("find")
+                      || value.name().equals("convert")
+                      || value.name().equals("clear"))
               .collect(
                   Collectors.toMap(
                       CoreDefinition.MethodSignature::name,

@@ -28,10 +28,9 @@ final class JavaFacadeStateMigrationExecutionTest {
             .artifact();
     var record =
         old.program().definitions().stream()
-            .filter(
-                item ->
-                    item.definition() instanceof CoreDefinition.Aggregate declaration
-                        && declaration.nominalType().name().equals("Counter"))
+            .filter(item ->
+                item.definition() instanceof CoreDefinition.Aggregate declaration
+                    && declaration.nominalType().name().equals("Counter"))
             .findFirst()
             .orElseThrow();
     String binary =

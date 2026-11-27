@@ -78,38 +78,37 @@ class JavaStubRendererTest {
     var failure = new AtomicReference<Throwable>();
     var creator =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try (var loader =
-                      new URLClassLoader(
-                          new URL[] {classes.toUri().toURL()}, getClass().getClassLoader())) {
-                    Object host =
-                        loader.loadClass("fixture.Child").getDeclaredConstructor().newInstance();
-                    var generated = assertInstanceOf(JavaApplicationObject.class, host);
-                    assertThrows(
-                        NoSuchMethodException.class, () -> host.getClass().getMethod("$normState"));
-                    assertThrows(
-                        NoSuchMethodException.class,
-                        () -> host.getClass().getMethod("$normState", Object.class));
-                    assertThrows(
-                        NoSuchFieldException.class,
-                        () -> host.getClass().getDeclaredField("$normState"));
-                    Object state = new AtomicReference<>(host);
-                    JavaApplicationObject.state(generated, state);
-                    System.gc();
-                    assertSame(state, JavaApplicationObject.state(generated));
-                    assertTrue(
-                        java.lang.reflect.Modifier.isTransient(
-                            host.getClass()
-                                .getSuperclass()
-                                .getDeclaredField("$normState")
-                                .getModifiers()));
-                    valueReference.set(new WeakReference<>(host));
-                    stateReference.set(new WeakReference<>(state));
-                  } catch (Throwable exception) {
-                    failure.set(exception);
-                  }
-                });
+            .start(() -> {
+              try (var loader =
+                  new URLClassLoader(
+                      new URL[] {classes.toUri().toURL()}, getClass().getClassLoader())) {
+                Object host =
+                    loader.loadClass("fixture.Child").getDeclaredConstructor().newInstance();
+                var generated = assertInstanceOf(JavaApplicationObject.class, host);
+                assertThrows(
+                    NoSuchMethodException.class, () -> host.getClass().getMethod("$normState"));
+                assertThrows(
+                    NoSuchMethodException.class,
+                    () -> host.getClass().getMethod("$normState", Object.class));
+                assertThrows(
+                    NoSuchFieldException.class,
+                    () -> host.getClass().getDeclaredField("$normState"));
+                Object state = new AtomicReference<>(host);
+                JavaApplicationObject.state(generated, state);
+                System.gc();
+                assertSame(state, JavaApplicationObject.state(generated));
+                assertTrue(
+                    java.lang.reflect.Modifier.isTransient(
+                        host.getClass()
+                            .getSuperclass()
+                            .getDeclaredField("$normState")
+                            .getModifiers()));
+                valueReference.set(new WeakReference<>(host));
+                stateReference.set(new WeakReference<>(state));
+              } catch (Throwable exception) {
+                failure.set(exception);
+              }
+            });
     creator.join();
     if (failure.get() != null) throw new AssertionError(failure.get());
     assertTimeoutPreemptively(

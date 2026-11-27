@@ -119,13 +119,12 @@ public final class CompilationPrelude {
     var current = scope.orElseThrow();
     var retained = new LinkedHashMap<DocumentId, ParsedDocument>();
     var coordinates = new LinkedHashMap<DocumentId, dev.w0fv1.norm.value.ModuleSourceCoordinate>();
-    documents.forEach(
-        (id, document) -> {
-          if (!modules.contains(current.coordinate(id).module())) {
-            retained.put(id, document);
-            coordinates.put(id, current.coordinate(id));
-          }
-        });
+    documents.forEach((id, document) -> {
+      if (!modules.contains(current.coordinate(id).module())) {
+        retained.put(id, document);
+        coordinates.put(id, current.coordinate(id));
+      }
+    });
     if (retained.size() == documents.size()) return this;
     if (retained.isEmpty()) return empty();
     var exports = new LinkedHashSet<>(exportedSources);
@@ -140,14 +139,13 @@ public final class CompilationPrelude {
     current
         .modules()
         .dependencies()
-        .forEach(
-            (module, targets) -> {
-              if (!modules.contains(module)) {
-                var reads = new LinkedHashSet<>(targets);
-                reads.removeAll(modules);
-                dependencies.put(module, Set.copyOf(reads));
-              }
-            });
+        .forEach((module, targets) -> {
+          if (!modules.contains(module)) {
+            var reads = new LinkedHashSet<>(targets);
+            reads.removeAll(modules);
+            dependencies.put(module, Set.copyOf(reads));
+          }
+        });
     return new CompilationPrelude(
         retained,
         exports,

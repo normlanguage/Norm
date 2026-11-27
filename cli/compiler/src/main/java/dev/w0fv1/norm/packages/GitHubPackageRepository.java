@@ -91,10 +91,8 @@ final class GitHubPackageRepository implements NormPackageRepository {
             .map(path -> stableVersion(path.getFileName().toString()))
             .flatMapToInt(java.util.OptionalInt::stream)
             .max()
-            .orElseThrow(
-                () ->
-                    new IOException(
-                        "Norm module '" + moduleName + "' has no stable GitHub release"));
+            .orElseThrow(() ->
+                new IOException("Norm module '" + moduleName + "' has no stable GitHub release"));
       }
     }
     int latest = 0;
@@ -157,18 +155,17 @@ final class GitHubPackageRepository implements NormPackageRepository {
       }
       Map<String, GitHubRepository> result = new LinkedHashMap<>();
       root.getAsJsonArray("packages")
-          .forEach(
-              value -> {
-                JsonObject entry = value.getAsJsonObject();
-                String name = entry.get("name").getAsString();
-                new ModuleCoordinate(name, 1);
-                GitHubRepository repository =
-                    new GitHubRepository(
-                        entry.get("owner").getAsString(), entry.get("repository").getAsString());
-                if (result.putIfAbsent(name, repository) != null) {
-                  throw new IllegalArgumentException("duplicate registered module '" + name + "'");
-                }
-              });
+          .forEach(value -> {
+            JsonObject entry = value.getAsJsonObject();
+            String name = entry.get("name").getAsString();
+            new ModuleCoordinate(name, 1);
+            GitHubRepository repository =
+                new GitHubRepository(
+                    entry.get("owner").getAsString(), entry.get("repository").getAsString());
+            if (result.putIfAbsent(name, repository) != null) {
+              throw new IllegalArgumentException("duplicate registered module '" + name + "'");
+            }
+          });
       return Map.copyOf(result);
     } catch (RuntimeException exception) {
       throw new IOException("invalid GitHub package registry " + registryUri, exception);

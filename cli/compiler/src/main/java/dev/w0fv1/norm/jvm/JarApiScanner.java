@@ -56,24 +56,21 @@ public final class JarApiScanner {
       supportClasses.forEach(classes::putIfAbsent);
     }
     Map<String, JavaReferenceKind> bindingTypes = new LinkedHashMap<>();
-    classes.forEach(
-        (name, type) ->
-            bindingTypes.put(
-                name,
-                kind(type.access()) == JavaApiTypeKind.ENUM
-                    ? JavaReferenceKind.ENUM
-                    : JavaReferenceKind.OPAQUE));
+    classes.forEach((name, type) ->
+        bindingTypes.put(
+            name,
+            kind(type.access()) == JavaApiTypeKind.ENUM
+                ? JavaReferenceKind.ENUM
+                : JavaReferenceKind.OPAQUE));
     JavaTypeProjector projector = new JavaTypeProjector(bindingTypes, samTypes(classes));
     List<JavaApiType> types =
         rootClasses.values().stream()
             .filter(owner -> publiclyAccessible(owner, graphClasses))
             .filter(owner -> !isSynthetic(owner.access()))
-            .filter(
-                owner ->
-                    !selectedRootsOnly
-                        || selectedTypes.stream()
-                            .anyMatch(
-                                selected -> JavaTypeNames.matches(owner.binaryName(), selected)))
+            .filter(owner ->
+                !selectedRootsOnly
+                    || selectedTypes.stream()
+                        .anyMatch(selected -> JavaTypeNames.matches(owner.binaryName(), selected)))
             .map(owner -> apiType(owner, graphClasses, projector))
             .toList();
     List<JavaApiType> supportingTypes =
@@ -102,9 +99,8 @@ public final class JarApiScanner {
     roots.forEach(type -> collectReferences(type, pending::addLast));
     classes.keySet().stream()
         .filter(name -> !rootNames.contains(name))
-        .filter(
-            name ->
-                selectedTypes.stream().anyMatch(selected -> JavaTypeNames.matches(name, selected)))
+        .filter(name ->
+            selectedTypes.stream().anyMatch(selected -> JavaTypeNames.matches(name, selected)))
         .forEach(pending::addLast);
     Map<String, JavaApiType> result = new LinkedHashMap<>();
     while (!pending.isEmpty()) {
@@ -154,15 +150,12 @@ public final class JarApiScanner {
         .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
     owner
         .recordComponents()
-        .forEach(
-            component -> {
-              component
-                  .annotations()
-                  .forEach(annotation -> collectReferences(annotation, consumer));
-              component
-                  .typeAnnotations()
-                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
-            });
+        .forEach(component -> {
+          component.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+          component
+              .typeAnnotations()
+              .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+        });
     owner.signature().typeParameters().forEach(parameter -> collectReferences(parameter, consumer));
     owner.signature().superclass().ifPresent(type -> collectReferences(type, consumer));
     owner.signature().interfaces().forEach(type -> collectReferences(type, consumer));
@@ -171,33 +164,30 @@ public final class JarApiScanner {
         .forEach(callable -> collectReferences(callable, consumer));
     owner
         .fields()
-        .forEach(
-            field -> {
-              field.annotations().forEach(annotation -> collectReferences(annotation, consumer));
-              field
-                  .typeAnnotations()
-                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
-            });
+        .forEach(field -> {
+          field.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+          field
+              .typeAnnotations()
+              .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+        });
     owner.effectiveMethods().stream()
         .flatMap(method -> method.binding().stream())
         .forEach(callable -> collectReferences(callable, consumer));
     owner
         .effectiveMethods()
-        .forEach(
-            method -> {
-              method.annotations().forEach(annotation -> collectReferences(annotation, consumer));
-              method
-                  .typeAnnotations()
-                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
-              method
-                  .parameters()
-                  .forEach(
-                      parameter ->
-                          parameter
-                              .annotations()
-                              .forEach(annotation -> collectReferences(annotation, consumer)));
-              method.annotationDefault().ifPresent(value -> collectReferences(value, consumer));
-            });
+        .forEach(method -> {
+          method.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+          method
+              .typeAnnotations()
+              .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+          method
+              .parameters()
+              .forEach(parameter ->
+                  parameter
+                      .annotations()
+                      .forEach(annotation -> collectReferences(annotation, consumer)));
+          method.annotationDefault().ifPresent(value -> collectReferences(value, consumer));
+        });
   }
 
   private static void collectReferences(JavaApiAnnotation annotation, Consumer<String> consumer) {
@@ -244,11 +234,10 @@ public final class JarApiScanner {
         consumer.accept(reference.binaryName());
         reference
             .arguments()
-            .forEach(
-                argument ->
-                    argument
-                        .type()
-                        .ifPresent(argumentType -> collectReferences(argumentType, consumer)));
+            .forEach(argument ->
+                argument
+                    .type()
+                    .ifPresent(argumentType -> collectReferences(argumentType, consumer)));
       }
     }
   }
@@ -265,17 +254,13 @@ public final class JarApiScanner {
         consumer.accept(classType.binaryName());
         classType
             .segments()
-            .forEach(
-                segment ->
-                    segment
-                        .arguments()
-                        .forEach(
-                            argument ->
-                                argument
-                                    .type()
-                                    .ifPresent(
-                                        argumentType ->
-                                            collectReferences(argumentType, consumer))));
+            .forEach(segment ->
+                segment
+                    .arguments()
+                    .forEach(argument ->
+                        argument
+                            .type()
+                            .ifPresent(argumentType -> collectReferences(argumentType, consumer))));
       }
       case JavaPrimitiveTypeSignature ignored -> {}
       case JavaTypeVariableSignature ignored -> {}
@@ -312,18 +297,17 @@ public final class JarApiScanner {
             .toList();
     List<JavaApiRecordComponent> recordComponents =
         owner.recordComponents().stream()
-            .map(
-                component ->
-                    new JavaApiRecordComponent(
-                        owner.binaryName(),
-                        component.name(),
-                        component.descriptor(),
-                        SIGNATURES.parseType(
-                            component.signature() == null
-                                ? component.descriptor()
-                                : component.signature()),
-                        component.annotations(),
-                        component.typeAnnotations()))
+            .map(component ->
+                new JavaApiRecordComponent(
+                    owner.binaryName(),
+                    component.name(),
+                    component.descriptor(),
+                    SIGNATURES.parseType(
+                        component.signature() == null
+                            ? component.descriptor()
+                            : component.signature()),
+                    component.annotations(),
+                    component.typeAnnotations()))
             .toList();
     return new JavaApiType(
         owner.binaryName(),
@@ -348,24 +332,17 @@ public final class JarApiScanner {
     Map<String, JavaTypeSignature> variables = new LinkedHashMap<>();
     declared
         .typeParameters()
-        .forEach(
-            parameter ->
-                variables.put(parameter.name(), new JavaTypeVariableSignature(parameter.name())));
+        .forEach(parameter ->
+            variables.put(parameter.name(), new JavaTypeVariableSignature(parameter.name())));
     for (JavaClassTypeSignature relation : declared.interfaces()) {
       collectPublicInterface(
           relation, variables, classes, rootTypes, new java.util.HashSet<>(), interfaces);
     }
     declared
         .superclass()
-        .ifPresent(
-            relation ->
-                collectInheritedInterfaces(
-                    relation,
-                    variables,
-                    classes,
-                    rootTypes,
-                    new java.util.HashSet<>(),
-                    interfaces));
+        .ifPresent(relation ->
+            collectInheritedInterfaces(
+                relation, variables, classes, rootTypes, new java.util.HashSet<>(), interfaces));
     Optional<JavaClassTypeSignature> superclass = declared.superclass();
     Set<String> visited = new java.util.HashSet<>();
     while (superclass.isPresent()) {
@@ -390,34 +367,30 @@ public final class JarApiScanner {
         .filter(method -> isPublic(method.access()))
         .filter(method -> !isSynthetic(method.access()))
         .filter(method -> !method.name().equals("<clinit>"))
-        .forEach(
-            method ->
-                methods.put(
-                    methodKey(method),
-                    new EffectiveMethod(method, methodSignature(method), owner.binaryName())));
+        .forEach(method ->
+            methods.put(
+                methodKey(method),
+                new EffectiveMethod(method, methodSignature(method), owner.binaryName())));
     owner.methods().stream()
         .filter(method -> isPublic(method.access()))
         .filter(method -> isSynthetic(method.access()))
         .filter(method -> !method.name().equals("<clinit>"))
-        .forEach(
-            method ->
-                methods.putIfAbsent(
-                    methodKey(method),
-                    new EffectiveMethod(method, methodSignature(method), owner.binaryName())));
+        .forEach(method ->
+            methods.putIfAbsent(
+                methodKey(method),
+                new EffectiveMethod(method, methodSignature(method), owner.binaryName())));
     JavaClassSignature signature = classSignature(owner);
     Map<String, JavaTypeSignature> variables = new LinkedHashMap<>();
     signature
         .typeParameters()
-        .forEach(
-            parameter ->
-                variables.put(parameter.name(), new JavaTypeVariableSignature(parameter.name())));
+        .forEach(parameter ->
+            variables.put(parameter.name(), new JavaTypeVariableSignature(parameter.name())));
     Set<String> visited = new java.util.HashSet<>();
     signature
         .superclass()
-        .ifPresent(
-            relation ->
-                collectInheritedMethods(
-                    owner.binaryName(), relation, variables, classes, visited, methods));
+        .ifPresent(relation ->
+            collectInheritedMethods(
+                owner.binaryName(), relation, variables, classes, visited, methods));
     for (JavaClassTypeSignature relation : signature.interfaces()) {
       collectInheritedMethods(owner.binaryName(), relation, variables, classes, visited, methods);
     }
@@ -443,20 +416,18 @@ public final class JarApiScanner {
         .filter(method -> (method.access() & Opcodes.ACC_STATIC) == 0)
         .filter(method -> !isSynthetic(method.access()))
         .filter(method -> !method.name().startsWith("<"))
-        .forEach(
-            method ->
-                methods.putIfAbsent(
-                    methodKey(method),
-                    new EffectiveMethod(
-                        method,
-                        substitute(methodSignature(method), parentVariables),
-                        invocationOwner)));
+        .forEach(method ->
+            methods.putIfAbsent(
+                methodKey(method),
+                new EffectiveMethod(
+                    method,
+                    substitute(methodSignature(method), parentVariables),
+                    invocationOwner)));
     signature
         .superclass()
-        .ifPresent(
-            candidate ->
-                collectInheritedMethods(
-                    surfaceOwner, candidate, parentVariables, classes, visited, methods));
+        .ifPresent(candidate ->
+            collectInheritedMethods(
+                surfaceOwner, candidate, parentVariables, classes, visited, methods));
     for (JavaClassTypeSignature candidate : signature.interfaces()) {
       collectInheritedMethods(surfaceOwner, candidate, parentVariables, classes, visited, methods);
     }
@@ -473,14 +444,13 @@ public final class JarApiScanner {
     signature.typeParameters().forEach(parameter -> visible.remove(parameter.name()));
     List<JavaTypeParameter> typeParameters =
         signature.typeParameters().stream()
-            .map(
-                parameter ->
-                    new JavaTypeParameter(
-                        parameter.name(),
-                        parameter.classBound().map(bound -> substitute(bound, visible)),
-                        parameter.interfaceBounds().stream()
-                            .map(bound -> substitute(bound, visible))
-                            .toList()))
+            .map(parameter ->
+                new JavaTypeParameter(
+                    parameter.name(),
+                    parameter.classBound().map(bound -> substitute(bound, visible)),
+                    parameter.interfaceBounds().stream()
+                        .map(bound -> substitute(bound, visible))
+                        .toList()))
             .toList();
     return new JavaMethodSignature(
         typeParameters,
@@ -524,10 +494,9 @@ public final class JarApiScanner {
     }
     signature
         .superclass()
-        .ifPresent(
-            candidate ->
-                collectInheritedInterfaces(
-                    candidate, parentVariables, classes, rootTypes, visited, interfaces));
+        .ifPresent(candidate ->
+            collectInheritedInterfaces(
+                candidate, parentVariables, classes, rootTypes, visited, interfaces));
   }
 
   private static Map<String, JavaTypeSignature> relationVariables(
@@ -557,20 +526,17 @@ public final class JarApiScanner {
       case JavaClassTypeSignature classType ->
           new JavaClassTypeSignature(
               classType.segments().stream()
-                  .map(
-                      segment ->
-                          new JavaClassTypeSegment(
-                              segment.name(),
-                              segment.arguments().stream()
-                                  .map(
-                                      argument ->
-                                          argument.variance() == JavaTypeVariance.UNBOUNDED
-                                              ? argument
-                                              : JavaTypeArgument.of(
-                                                  argument.variance(),
-                                                  substitute(
-                                                      argument.type().orElseThrow(), variables)))
-                                  .toList()))
+                  .map(segment ->
+                      new JavaClassTypeSegment(
+                          segment.name(),
+                          segment.arguments().stream()
+                              .map(argument ->
+                                  argument.variance() == JavaTypeVariance.UNBOUNDED
+                                      ? argument
+                                      : JavaTypeArgument.of(
+                                          argument.variance(),
+                                          substitute(argument.type().orElseThrow(), variables)))
+                              .toList()))
                   .toList());
       case JavaPrimitiveTypeSignature primitive -> primitive;
       case JavaTypeVariableSignature variable -> variables.getOrDefault(variable.name(), variable);
@@ -605,14 +571,13 @@ public final class JarApiScanner {
             addVariables(variables, classSignature(owner).typeParameters(), projector);
         type =
             projection
-                .map(
-                    value ->
-                        projector
-                            .project(
-                                declaredType,
-                                new LinkedHashMap<>(value.variables()),
-                                JavaTypeProjector.Position.VALUE)
-                            .orElse(null))
+                .map(value ->
+                    projector
+                        .project(
+                            declaredType,
+                            new LinkedHashMap<>(value.variables()),
+                            JavaTypeProjector.Position.VALUE)
+                        .orElse(null))
                 .orElse(null);
       }
       if (type == null || !JavaTypeProjector.exposableValue(type)) {
@@ -721,13 +686,12 @@ public final class JarApiScanner {
         declaration.annotations(),
         declaration.typeAnnotations(),
         declaration.parameters().stream()
-            .map(
-                parameter ->
-                    new JavaApiParameter(
-                        parameter.index(),
-                        Optional.ofNullable(parameter.name()),
-                        parameter.access(),
-                        parameter.annotations()))
+            .map(parameter ->
+                new JavaApiParameter(
+                    parameter.index(),
+                    Optional.ofNullable(parameter.name()),
+                    parameter.access(),
+                    parameter.annotations()))
             .toList(),
         declaration.annotationDefaults().stream().findFirst(),
         disposition,
@@ -1308,9 +1272,8 @@ public final class JarApiScanner {
 
     @Override
     public AnnotationVisitor visitArray(String name) {
-      return new AnnotationArrayCollector(
-          values ->
-              elements.add(new JavaAnnotationElement(name, new JavaAnnotationArrayValue(values))));
+      return new AnnotationArrayCollector(values ->
+          elements.add(new JavaAnnotationElement(name, new JavaAnnotationArrayValue(values))));
     }
 
     @Override

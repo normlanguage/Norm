@@ -329,11 +329,11 @@ final class JavaAnnotationBindingIntegrationTest {
             .formatted(
                 processor
                     ? """
-          var proxy = generatedInvokerProxy<Controller>(Controller.class)
-          if proxy == null { throw Exception(message: "proxy missing") }
-          require(condition: proxy.greet("Norm") == "proxy:Hello, Norm", message: "ordinary calls must enter Java proxy overrides")
-          require(condition: proxy.context() == "proxy-context", message: "nested host calls must preserve proxy thread context")
-          """
+                    var proxy = generatedInvokerProxy<Controller>(Controller.class)
+                    if proxy == null { throw Exception(message: "proxy missing") }
+                    require(condition: proxy.greet("Norm") == "proxy:Hello, Norm", message: "ordinary calls must enter Java proxy overrides")
+                    require(condition: proxy.context() == "proxy-context", message: "nested host calls must preserve proxy thread context")
+                    """
                     : ""));
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
@@ -396,13 +396,12 @@ final class JavaAnnotationBindingIntegrationTest {
               && aggregate.nominalType().name().equals("Response")) {
             aggregate
                 .constructors()
-                .forEach(
-                    reference ->
-                        constructors.add(
-                            identity.slot(
-                                artifact
-                                    .program()
-                                    .resolve(record.id(), (DefinitionReference) reference))));
+                .forEach(reference ->
+                    constructors.add(
+                        identity.slot(
+                            artifact
+                                .program()
+                                .resolve(record.id(), (DefinitionReference) reference))));
           }
         }
         assertEquals(3, constructors.size());

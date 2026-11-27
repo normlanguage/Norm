@@ -400,33 +400,31 @@ final class DeclarationAnalyzer {
             }
             declaration
                 .extendedClass()
-                .ifPresent(
-                    parentRef -> {
-                      typeResolver.validateType(parentRef, false);
-                      SemanticType parent =
-                          typeResolver.resolveType(parentRef, resolution.parameters());
-                      Syntax.AggregateDecl parentDeclaration =
-                          typeResolver.resolveAggregate(parent);
-                      if (declaration.kind() != Syntax.AggregateKind.CLASS
-                          || parentDeclaration == null
-                          || parentDeclaration.kind() != Syntax.AggregateKind.CLASS) {
-                        diagnostics.error(
-                            TYPE_MISMATCH, "class inheritance requires a class", parentRef.span());
-                        return;
-                      }
-                      model.putAggregateParent(
-                          typeResolver.aggregateSelfType(declaration).identity(), parent);
-                      if (typeResolver.isAssignable(
-                              SemanticType.EXCEPTION, typeResolver.aggregateSelfType(declaration))
-                          && !declaration.typeParameters().isEmpty()) {
-                        diagnostics.error(
-                            TYPE_MISMATCH,
-                            "Exception classes cannot declare type parameters",
-                            declaration.nameSpan());
-                      }
-                      validateInheritedMembers(declaration);
-                      validateOverrides(declaration);
-                    });
+                .ifPresent(parentRef -> {
+                  typeResolver.validateType(parentRef, false);
+                  SemanticType parent =
+                      typeResolver.resolveType(parentRef, resolution.parameters());
+                  Syntax.AggregateDecl parentDeclaration = typeResolver.resolveAggregate(parent);
+                  if (declaration.kind() != Syntax.AggregateKind.CLASS
+                      || parentDeclaration == null
+                      || parentDeclaration.kind() != Syntax.AggregateKind.CLASS) {
+                    diagnostics.error(
+                        TYPE_MISMATCH, "class inheritance requires a class", parentRef.span());
+                    return;
+                  }
+                  model.putAggregateParent(
+                      typeResolver.aggregateSelfType(declaration).identity(), parent);
+                  if (typeResolver.isAssignable(
+                          SemanticType.EXCEPTION, typeResolver.aggregateSelfType(declaration))
+                      && !declaration.typeParameters().isEmpty()) {
+                    diagnostics.error(
+                        TYPE_MISMATCH,
+                        "Exception classes cannot declare type parameters",
+                        declaration.nameSpan());
+                  }
+                  validateInheritedMembers(declaration);
+                  validateOverrides(declaration);
+                });
           }
         }
       }
@@ -467,10 +465,9 @@ final class DeclarationAnalyzer {
     for (AggregateView view : views.subList(Math.min(1, views.size()), views.size())) {
       view.declaration().fields().forEach(field -> inherited.add(field.name()));
       view.declaration().methods().stream()
-          .filter(
-              method ->
-                  method.kind() == Syntax.FunctionKind.GETTER
-                      && method.visibility() == Syntax.Visibility.PUBLIC)
+          .filter(method ->
+              method.kind() == Syntax.FunctionKind.GETTER
+                  && method.visibility() == Syntax.Visibility.PUBLIC)
           .forEach(method -> properties.add(method.name()));
     }
     for (Syntax.FieldDecl field : declaration.fields()) {
@@ -492,11 +489,10 @@ final class DeclarationAnalyzer {
       for (AggregateView view : views.subList(Math.min(1, views.size()), views.size())) {
         var parent =
             view.declaration().methods().stream()
-                .filter(
-                    candidate ->
-                        candidate.kind() == Syntax.FunctionKind.GETTER
-                            && candidate.visibility() == Syntax.Visibility.PUBLIC
-                            && candidate.name().equals(method.name()))
+                .filter(candidate ->
+                    candidate.kind() == Syntax.FunctionKind.GETTER
+                        && candidate.visibility() == Syntax.Visibility.PUBLIC
+                        && candidate.name().equals(method.name()))
                 .findFirst();
         if (parent.isEmpty()) continue;
         if (method.visibility() != Syntax.Visibility.PUBLIC) {
@@ -505,11 +501,10 @@ final class DeclarationAnalyzer {
         }
         boolean writable =
             view.declaration().methods().stream()
-                .anyMatch(
-                    candidate ->
-                        candidate.kind() == Syntax.FunctionKind.SETTER
-                            && candidate.visibility() == Syntax.Visibility.PUBLIC
-                            && candidate.name().equals(method.name()));
+                .anyMatch(candidate ->
+                    candidate.kind() == Syntax.FunctionKind.SETTER
+                        && candidate.visibility() == Syntax.Visibility.PUBLIC
+                        && candidate.name().equals(method.name()));
         if (writable) {
           SemanticType expected =
               typeResolver
@@ -522,11 +517,10 @@ final class DeclarationAnalyzer {
                   method, typeResolver.typeParameters(method, declaration));
           boolean publicSetter =
               declaration.methods().stream()
-                  .anyMatch(
-                      candidate ->
-                          candidate.kind() == Syntax.FunctionKind.SETTER
-                              && candidate.visibility() == Syntax.Visibility.PUBLIC
-                              && candidate.name().equals(method.name()));
+                  .anyMatch(candidate ->
+                      candidate.kind() == Syntax.FunctionKind.SETTER
+                          && candidate.visibility() == Syntax.Visibility.PUBLIC
+                          && candidate.name().equals(method.name()));
           if (!expected.equals(actual) || !publicSetter) {
             diagnostics.error(
                 TYPE_MISMATCH,
@@ -772,9 +766,8 @@ final class DeclarationAnalyzer {
         Map<String, SymbolId> methodSymbols = new LinkedHashMap<>(resolution.parameterSymbols());
         method
             .typeParameters()
-            .forEach(
-                parameter ->
-                    methodSymbols.put(parameter.name(), model.declarationSymbols().get(parameter)));
+            .forEach(parameter ->
+                methodSymbols.put(parameter.name(), model.declarationSymbols().get(parameter)));
         try (var methodScope = resolution.enterParameters(methodTypes, Map.copyOf(methodSymbols))) {
           typeResolver.registerBounds(method.typeParameters(), methodTypes);
           typeResolver.validateTypeParameterDefaults(
@@ -887,9 +880,8 @@ final class DeclarationAnalyzer {
             declaration.methods().stream()
                 .filter(method -> method.name().equals(group.getFirst().method().name()))
                 .filter(method -> method.visibility() == Syntax.Visibility.PUBLIC)
-                .filter(
-                    method ->
-                        group.stream().allMatch(requirement -> witnessMatches(method, requirement)))
+                .filter(method ->
+                    group.stream().allMatch(requirement -> witnessMatches(method, requirement)))
                 .findFirst()
                 .orElse(null);
         SymbolId implementation = witness == null ? null : model.declarationSymbols().get(witness);
@@ -1041,15 +1033,14 @@ final class DeclarationAnalyzer {
   List<TypeParameterInfo> symbolTypeParameters(
       List<Syntax.TypeParameter> parameters, Map<String, SemanticType> types) {
     return parameters.stream()
-        .map(
-            parameter -> {
-              SemanticType type = types.get(parameter.name());
-              Optional<SemanticType> bound =
-                  parameter.upperBound().map(value -> typeResolver.resolveType(value, types));
-              Optional<SemanticType> defaultType =
-                  parameter.defaultType().map(value -> typeResolver.resolveType(value, types));
-              return new TypeParameterInfo(parameter.name(), type, bound, defaultType);
-            })
+        .map(parameter -> {
+          SemanticType type = types.get(parameter.name());
+          Optional<SemanticType> bound =
+              parameter.upperBound().map(value -> typeResolver.resolveType(value, types));
+          Optional<SemanticType> defaultType =
+              parameter.defaultType().map(value -> typeResolver.resolveType(value, types));
+          return new TypeParameterInfo(parameter.name(), type, bound, defaultType);
+        })
         .toList();
   }
 
@@ -1080,21 +1071,20 @@ final class DeclarationAnalyzer {
       Map<String, SemanticType> substitutions,
       Map<String, SemanticType> declarationTypes) {
     return parameters.stream()
-        .map(
-            parameter ->
-                new ParameterInfo(
-                    parameter.name(),
-                    typeResolver
-                        .resolveDeclarationType(parameter.type(), parameter, declarationTypes)
-                        .substitute(substitutions),
-                    parameter.defaultValue().isPresent(),
-                    parameter.callableParameters().orElse(List.of()).stream()
-                        .map(Syntax.Parameter::name)
-                        .toList(),
-                    dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.NAMED,
-                    declarationPolicies
-                        .resultBuilder(parameter, declarationTypes)
-                        .map(type -> type.substitute(substitutions))))
+        .map(parameter ->
+            new ParameterInfo(
+                parameter.name(),
+                typeResolver
+                    .resolveDeclarationType(parameter.type(), parameter, declarationTypes)
+                    .substitute(substitutions),
+                parameter.defaultValue().isPresent(),
+                parameter.callableParameters().orElse(List.of()).stream()
+                    .map(Syntax.Parameter::name)
+                    .toList(),
+                dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.NAMED,
+                declarationPolicies
+                    .resultBuilder(parameter, declarationTypes)
+                    .map(type -> type.substitute(substitutions))))
         .toList();
   }
 
@@ -1115,17 +1105,14 @@ final class DeclarationAnalyzer {
       Syntax.AggregateDecl aggregateDecl, Map<String, SemanticType> substitutions) {
     return aggregateDecl.fields().stream()
         .filter(declarationPolicies::constructorInput)
-        .map(
-            field ->
-                new ParameterInfo(
-                    field.name(),
-                    typeResolver
-                        .resolveDeclarationType(
-                            field.type(),
-                            field,
-                            typeResolver.aggregateTypeParameters(aggregateDecl))
-                        .substitute(substitutions),
-                    field.defaultValue().isPresent()))
+        .map(field ->
+            new ParameterInfo(
+                field.name(),
+                typeResolver
+                    .resolveDeclarationType(
+                        field.type(), field, typeResolver.aggregateTypeParameters(aggregateDecl))
+                    .substitute(substitutions),
+                field.defaultValue().isPresent()))
         .toList();
   }
 
@@ -1135,14 +1122,11 @@ final class DeclarationAnalyzer {
       Map<String, SemanticType> declarationTypes) {
     return fields.stream()
         .filter(declarationPolicies::constructorInput)
-        .map(
-            field ->
-                new ParameterInfo(
-                    field.name(),
-                    typeResolver
-                        .resolveType(field.type(), declarationTypes)
-                        .substitute(substitutions),
-                    field.defaultValue().isPresent()))
+        .map(field ->
+            new ParameterInfo(
+                field.name(),
+                typeResolver.resolveType(field.type(), declarationTypes).substitute(substitutions),
+                field.defaultValue().isPresent()))
         .toList();
   }
 }

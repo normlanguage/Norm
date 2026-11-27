@@ -118,9 +118,8 @@ final class ProjectLoadingBoundaryTest {
     Path module = Files.createDirectories(root.resolve(directory));
     String requirements =
         java.util.Arrays.stream(dependencies)
-            .map(
-                dependency ->
-                    "dependency(repository: \"github\", name: \"" + dependency + "\", version: 1)")
+            .map(dependency ->
+                "dependency(repository: \"github\", name: \"" + dependency + "\", version: 1)")
             .collect(java.util.stream.Collectors.joining(", "));
     Files.writeString(
         module.resolve("module.norm"),

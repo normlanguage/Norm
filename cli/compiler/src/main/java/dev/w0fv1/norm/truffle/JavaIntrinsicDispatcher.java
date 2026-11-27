@@ -85,17 +85,16 @@ final class JavaIntrinsicDispatcher {
     Thread worker =
         Thread.ofVirtual()
             .name("norm-java-binding")
-            .start(
-                () -> {
-                  try {
-                    result.complete(
-                        dev.w0fv1.norm.logging.DependencyLogs.within(
-                            execution.logs().dependencies(execution),
-                            () -> context.jarBindingRuntime().invoke(call, arguments)));
-                  } catch (RuntimeException | Error failure) {
-                    result.completeExceptionally(failure);
-                  }
-                });
+            .start(() -> {
+              try {
+                result.complete(
+                    dev.w0fv1.norm.logging.DependencyLogs.within(
+                        execution.logs().dependencies(execution),
+                        () -> context.jarBindingRuntime().invoke(call, arguments)));
+              } catch (RuntimeException | Error failure) {
+                result.completeExceptionally(failure);
+              }
+            });
     try {
       execution.runCallbacksUntil(result::isDone, location);
       return result.join();

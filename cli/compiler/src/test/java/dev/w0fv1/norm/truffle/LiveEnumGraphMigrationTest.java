@@ -14,40 +14,40 @@ import org.junit.jupiter.api.Timeout;
 final class LiveEnumGraphMigrationTest {
   private static final String SOURCE =
       """
-        import std.runtime.StateMigration
-        import std.runtime.MigrationState
-        @StateMigration(convert: convertKind.function)
-        enum Kind { Count(Integer amount) }
-        Void convertKind(MigrationState state) {
-          state.replace(Kind.Count(amount: state.read<Integer>(index: 0)))
+      import std.runtime.StateMigration
+      import std.runtime.MigrationState
+      @StateMigration(convert: convertKind.function)
+      enum Kind { Count(Integer amount) }
+      Void convertKind(MigrationState state) {
+        state.replace(Kind.Count(amount: state.read<Integer>(index: 0)))
+      }
+      class Node {
+        Kind kind
+        Node? next = null
+        List<Kind> items = []
+        Map<Kind, String> labels = Map<>()
+        String describe() {
+          "old:" + (labels.get(key: Kind.Count(amount: 3)) ?? "missing")
         }
-        class Node {
-          Kind kind
-          Node? next = null
-          List<Kind> items = []
-          Map<Kind, String> labels = Map<>()
-          String describe() {
-            "old:" + (labels.get(key: Kind.Count(amount: 3)) ?? "missing")
-          }
+      }
+      Void main() {
+        var kind = Kind.Count(amount: 3)
+        var node = Node(kind: kind)
+        node.next = node
+        node.items.add(kind)
+        node.labels.put(key: kind, value: "three")
+        var alias = node
+        var count = 0
+        for (count < 3) {
+          require(condition: alias == node && node.next == node, message: "identity and cycle")
+          printLine(node.describe())
+          printLine(node.kind)
+          printLine(node.items[0])
+          printLine(kind)
+          count = count + 1
         }
-        Void main() {
-          var kind = Kind.Count(amount: 3)
-          var node = Node(kind: kind)
-          node.next = node
-          node.items.add(kind)
-          node.labels.put(key: kind, value: "three")
-          var alias = node
-          var count = 0
-          for (count < 3) {
-            require(condition: alias == node && node.next == node, message: "identity and cycle")
-            printLine(node.describe())
-            printLine(node.kind)
-            printLine(node.items[0])
-            printLine(kind)
-            count = count + 1
-          }
-        }
-        """;
+      }
+      """;
 
   @Test
   void replacesRemovedVariantsAcrossLocalsCyclicObjectsAndContainerKeys() {

@@ -107,9 +107,8 @@ public final class ModuleBindingSourceEditor {
       Syntax.Call call, String label, int position) {
     Optional<Syntax.CallArgument> named =
         call.arguments().stream()
-            .filter(
-                value ->
-                    value.label().map(Syntax.ArgumentLabel::name).filter(label::equals).isPresent())
+            .filter(value ->
+                value.label().map(Syntax.ArgumentLabel::name).filter(label::equals).isPresent())
             .findFirst();
     if (named.isPresent() || position < 0 || position >= call.arguments().size()) return named;
     Syntax.CallArgument positional = call.arguments().get(position);

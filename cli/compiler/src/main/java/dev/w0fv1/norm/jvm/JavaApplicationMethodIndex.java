@@ -87,12 +87,11 @@ public final class JavaApplicationMethodIndex {
     }
     var instances = new TreeMap<DefinitionId, Target>();
     var entries = new java.util.TreeSet<DefinitionId>();
-    calls.forEach(
-        (id, method) -> {
-          if ((method.access() & Opcodes.ACC_STATIC) == 0 && !method.name().equals("<init>"))
-            instances.put(id, new Target(method.owner(), method.name(), method.descriptor()));
-          if ((method.access() & Opcodes.ACC_ABSTRACT) == 0) entries.add(implementations.get(id));
-        });
+    calls.forEach((id, method) -> {
+      if ((method.access() & Opcodes.ACC_STATIC) == 0 && !method.name().equals("<init>"))
+        instances.put(id, new Target(method.owner(), method.name(), method.descriptor()));
+      if ((method.access() & Opcodes.ACC_ABSTRACT) == 0) entries.add(implementations.get(id));
+    });
     return new Analysis(instances, entries);
   }
 

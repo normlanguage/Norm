@@ -29,11 +29,10 @@ public final class TypeArguments {
       substitutions.put(identity.apply(parameters.get(index)), provided.get(index));
     }
     return resolve(parameters, substitutions, identity, defaultType, ignored -> Optional.empty())
-        .map(
-            completed ->
-                parameters.stream()
-                    .map(parameter -> completed.get(identity.apply(parameter)))
-                    .toList());
+        .map(completed ->
+            parameters.stream()
+                .map(parameter -> completed.get(identity.apply(parameter)))
+                .toList());
   }
 
   public static Optional<List<SemanticType>> complete(

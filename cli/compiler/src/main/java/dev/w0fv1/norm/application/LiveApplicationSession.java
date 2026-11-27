@@ -320,109 +320,104 @@ final class LiveApplicationSession implements AutoCloseable {
     worker =
         Thread.ofVirtual()
             .name("norm-live-compilation")
-            .start(
-                () -> {
-                  while (!closed.get()) {
-                    Request captured = null;
-                    boolean completed = false;
-                    try {
-                      var current = execution.status();
-                      if (!status.equals(current)) {
-                        boolean wasPending = !status.pendingLocations().isEmpty();
-                        if (!current.pendingLocations().isEmpty())
-                          diagnostics.accept(
-                              "info[NORM-LIVE-0003]: Runtime revision "
-                                  + current.revision()
-                                  + " is pending for active locations: "
-                                  + String.join(", ", current.pendingLocations()));
-                        else if (wasPending)
-                          progress.accept("Completed pending runtime transitions");
-                        status = current;
-                        if (wasPending && current.pendingLocations().isEmpty())
-                          emit(
-                              ExecutionUpdateEventKind.ADOPTED,
-                              Optional.ofNullable(latest),
-                              current);
-                      }
-                      long capturedEpoch;
-                      synchronized (gate) {
-                        var iterator = requests.iterator();
-                        while (iterator.hasNext()) {
-                          var request = iterator.next();
-                          if (request.batchIdentity() != null
-                              && (batch == null || batch.identity != request.batchIdentity())) {
-                            iterator.remove();
-                            request.cancel();
-                          } else if (batch == null || request.batchIdentity() != null) {
-                            iterator.remove();
-                            captured = request;
-                            break;
-                          }
-                        }
-                        if (captured == null && batch == null && automaticPending) {
-                          automaticPending = false;
-                          captured = new Request(null, null, false, null);
-                        }
-                        capturedEpoch = epoch;
-                      }
-                      if (captured == null) {
-                        if (monitor.awaitChange(Duration.ofMillis(100))) {
-                          synchronized (gate) {
-                            automaticPending = true;
-                          }
-                        }
-                        continue;
-                      }
-                      var outcome = reload(capturedEpoch, captured);
-                      if (outcome == null) {
-                        synchronized (gate) {
-                          if (closed.get()) captured.cancel();
-                          else requests.addFirst(captured);
-                        }
-                        continue;
-                      }
-                      completed = true;
-                      complete(captured, outcome);
-                      if (outcome.result() != null
-                          && outcome.result().outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
-                        progress.accept("Published runtime revision");
-                    } catch (InterruptedException exception) {
-                      Thread.currentThread().interrupt();
-                      if (captured != null) captured.cancel();
-                      return;
-                    } catch (java.nio.file.ClosedWatchServiceException exception) {
-                      if (captured != null) captured.cancel();
-                      return;
-                    } catch (IOException | RuntimeException exception) {
-                      if (!completed && captured != null) {
-                        var failure = Optional.ofNullable(exception.getMessage());
-                        complete(
-                            captured,
-                            captured.preview() != null
-                                ? new ReloadOutcome(
-                                    null,
-                                    new ExecutionUpdatePreview(
-                                        ExecutionUpdatePreview.Outcome.FAILED,
-                                        Optional.empty(),
-                                        execution.status(),
-                                        List.of(),
-                                        failure,
-                                        RuntimeChangeSet.empty()))
-                                : new ReloadOutcome(
-                                    new ExecutionUpdateResult(
-                                        ExecutionUpdateResult.Outcome.FAILED,
-                                        Optional.empty(),
-                                        execution.status(),
-                                        List.of(),
-                                        failure,
-                                        RuntimeChangeSet.empty()),
-                                    null));
-                      }
-                      if (!closed.get())
-                        diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
-                    }
+            .start(() -> {
+              while (!closed.get()) {
+                Request captured = null;
+                boolean completed = false;
+                try {
+                  var current = execution.status();
+                  if (!status.equals(current)) {
+                    boolean wasPending = !status.pendingLocations().isEmpty();
+                    if (!current.pendingLocations().isEmpty())
+                      diagnostics.accept(
+                          "info[NORM-LIVE-0003]: Runtime revision "
+                              + current.revision()
+                              + " is pending for active locations: "
+                              + String.join(", ", current.pendingLocations()));
+                    else if (wasPending) progress.accept("Completed pending runtime transitions");
+                    status = current;
+                    if (wasPending && current.pendingLocations().isEmpty())
+                      emit(ExecutionUpdateEventKind.ADOPTED, Optional.ofNullable(latest), current);
                   }
-                });
+                  long capturedEpoch;
+                  synchronized (gate) {
+                    var iterator = requests.iterator();
+                    while (iterator.hasNext()) {
+                      var request = iterator.next();
+                      if (request.batchIdentity() != null
+                          && (batch == null || batch.identity != request.batchIdentity())) {
+                        iterator.remove();
+                        request.cancel();
+                      } else if (batch == null || request.batchIdentity() != null) {
+                        iterator.remove();
+                        captured = request;
+                        break;
+                      }
+                    }
+                    if (captured == null && batch == null && automaticPending) {
+                      automaticPending = false;
+                      captured = new Request(null, null, false, null);
+                    }
+                    capturedEpoch = epoch;
+                  }
+                  if (captured == null) {
+                    if (monitor.awaitChange(Duration.ofMillis(100))) {
+                      synchronized (gate) {
+                        automaticPending = true;
+                      }
+                    }
+                    continue;
+                  }
+                  var outcome = reload(capturedEpoch, captured);
+                  if (outcome == null) {
+                    synchronized (gate) {
+                      if (closed.get()) captured.cancel();
+                      else requests.addFirst(captured);
+                    }
+                    continue;
+                  }
+                  completed = true;
+                  complete(captured, outcome);
+                  if (outcome.result() != null
+                      && outcome.result().outcome() == ExecutionUpdateResult.Outcome.PUBLISHED)
+                    progress.accept("Published runtime revision");
+                } catch (InterruptedException exception) {
+                  Thread.currentThread().interrupt();
+                  if (captured != null) captured.cancel();
+                  return;
+                } catch (java.nio.file.ClosedWatchServiceException exception) {
+                  if (captured != null) captured.cancel();
+                  return;
+                } catch (IOException | RuntimeException exception) {
+                  if (!completed && captured != null) {
+                    var failure = Optional.ofNullable(exception.getMessage());
+                    complete(
+                        captured,
+                        captured.preview() != null
+                            ? new ReloadOutcome(
+                                null,
+                                new ExecutionUpdatePreview(
+                                    ExecutionUpdatePreview.Outcome.FAILED,
+                                    Optional.empty(),
+                                    execution.status(),
+                                    List.of(),
+                                    failure,
+                                    RuntimeChangeSet.empty()))
+                            : new ReloadOutcome(
+                                new ExecutionUpdateResult(
+                                    ExecutionUpdateResult.Outcome.FAILED,
+                                    Optional.empty(),
+                                    execution.status(),
+                                    List.of(),
+                                    failure,
+                                    RuntimeChangeSet.empty()),
+                                null));
+                  }
+                  if (!closed.get())
+                    diagnostics.accept("error[NORM-LIVE-0001]: " + exception.getMessage());
+                }
+              }
+            });
   }
 
   private void complete(Request request, ReloadOutcome outcome) {
@@ -526,9 +521,8 @@ final class LiveApplicationSession implements AutoCloseable {
             revision.map(value -> ArtifactId.forArtifact(value.artifact(), "norm-source-live-v1"));
         var changes =
             revision
-                .map(
-                    value ->
-                        new RuntimeChangeAnalyzer().compare(publishedArtifact, value.artifact()))
+                .map(value ->
+                    new RuntimeChangeAnalyzer().compare(publishedArtifact, value.artifact()))
                 .orElseGet(RuntimeChangeSet::empty);
         var preview =
             new ExecutionUpdatePreview(

@@ -370,10 +370,9 @@ final class LiveBindings implements AutoCloseable {
         frame.getAuxiliarySlot(frame.getFrameDescriptor().findOrAddAuxiliarySlot(ACTIVATION));
     Set<Key> locations = activation == null ? null : pending.get(activation);
     if (locations != null)
-      locations.removeIf(
-          location ->
-              location.declaration().equals(key.declaration())
-                  && location.location().startsWith(key.location()));
+      locations.removeIf(location ->
+          location.declaration().equals(key.declaration())
+              && location.location().startsWith(key.location()));
   }
 
   private final List<WeakReference<Version>> revisions = new ArrayList<>();
@@ -613,11 +612,9 @@ final class LiveBindings implements AutoCloseable {
       migration.include(roots);
       var reified =
           candidate.schema.reifiedLocals(region.declaration()).stream()
-              .map(
-                  identity ->
-                      new FrameBinding(
-                              0, com.oracle.truffle.api.frame.FrameSlotKind.Object, identity)
-                          .read(frame))
+              .map(identity ->
+                  new FrameBinding(0, com.oracle.truffle.api.frame.FrameSlotKind.Object, identity)
+                      .read(frame))
               .map(dev.w0fv1.norm.core.CoreType.class::cast)
               .toList();
       for (var local : locals.entrySet()) {

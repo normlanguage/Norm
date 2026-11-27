@@ -21,10 +21,9 @@ final class AlgebraicDataTypeCompilerTest {
     assertFalse(result.isSuccess());
     assertTrue(
         result.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic.code().value().equals("NORM-FLOW-0001")
-                        && diagnostic.message().equals("switch is not exhaustive")));
+            .anyMatch(diagnostic ->
+                diagnostic.code().value().equals("NORM-FLOW-0001")
+                    && diagnostic.message().equals("switch is not exhaustive")));
   }
 
   @Test

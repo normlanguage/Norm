@@ -61,23 +61,21 @@ final class CompilationResultCache {
     writer.writeInt(conformances.size());
     conformances.entrySet().stream()
         .sorted(java.util.Map.Entry.comparingByKey(Comparator.comparing(id -> id.uri().toString())))
-        .forEach(
-            entry -> {
-              writer.writeString(entry.getKey().uri().toString());
-              var values =
-                  entry.getValue().stream()
-                      .distinct()
-                      .sorted(
-                          Comparator.comparing(
-                              value -> value.concreteType().toString() + value.interfaceType()))
-                      .toList();
-              writer.writeInt(values.size());
-              values.forEach(
-                  value -> {
-                    semanticType(writer, value.concreteType());
-                    semanticType(writer, value.interfaceType());
-                  });
-            });
+        .forEach(entry -> {
+          writer.writeString(entry.getKey().uri().toString());
+          var values =
+              entry.getValue().stream()
+                  .distinct()
+                  .sorted(
+                      Comparator.comparing(
+                          value -> value.concreteType().toString() + value.interfaceType()))
+                  .toList();
+          writer.writeInt(values.size());
+          values.forEach(value -> {
+            semanticType(writer, value.concreteType());
+            semanticType(writer, value.interfaceType());
+          });
+        });
     writer.writeBoolean(profile.prelude().scope().isPresent());
     profile.prelude().scope().ifPresent(value -> scope(writer, value));
     documents(writer, profile.moduleEvaluationDocuments());
@@ -149,27 +147,24 @@ final class CompilationResultCache {
     writer.writeInt(scope.coordinates().size());
     scope
         .coordinates()
-        .forEach(
-            (document, coordinate) ->
-                writer
-                    .writeString(document.uri().toString())
-                    .writeString(coordinate.module().name())
-                    .writeInt(coordinate.module().version())
-                    .writeString(coordinate.relativePath()));
+        .forEach((document, coordinate) ->
+            writer
+                .writeString(document.uri().toString())
+                .writeString(coordinate.module().name())
+                .writeInt(coordinate.module().version())
+                .writeString(coordinate.relativePath()));
     writer.writeInt(scope.modules().dependencies().size());
     scope
         .modules()
         .dependencies()
-        .forEach(
-            (module, dependencies) -> {
-              writer
-                  .writeString(module.name())
-                  .writeInt(module.version())
-                  .writeInt(dependencies.size());
-              dependencies.forEach(
-                  dependency ->
-                      writer.writeString(dependency.name()).writeInt(dependency.version()));
-            });
+        .forEach((module, dependencies) -> {
+          writer
+              .writeString(module.name())
+              .writeInt(module.version())
+              .writeInt(dependencies.size());
+          dependencies.forEach(
+              dependency -> writer.writeString(dependency.name()).writeInt(dependency.version()));
+        });
     documents(writer, scope.testSources());
   }
 }

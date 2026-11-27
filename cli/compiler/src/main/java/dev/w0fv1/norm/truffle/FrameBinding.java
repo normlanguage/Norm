@@ -103,13 +103,12 @@ record FrameBinding(int slot, FrameSlotKind kind, String identity) {
     }
 
     void commit() {
-      values.forEach(
-          (identity, value) -> {
-            int index = frame.getFrameDescriptor().findOrAddAuxiliarySlot(identity);
-            Object retained = frame.getAuxiliarySlot(index);
-            if (retained instanceof Cell cell) cell.value = value;
-            else frame.setAuxiliarySlot(index, new Cell(value));
-          });
+      values.forEach((identity, value) -> {
+        int index = frame.getFrameDescriptor().findOrAddAuxiliarySlot(identity);
+        Object retained = frame.getAuxiliarySlot(index);
+        if (retained instanceof Cell cell) cell.value = value;
+        else frame.setAuxiliarySlot(index, new Cell(value));
+      });
     }
 
     @Override

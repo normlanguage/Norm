@@ -56,13 +56,12 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   }
 
   void connect(LanguageClient client) {
-    workspace.onDiagnostics(
-        update ->
-            client.publishDiagnostics(
-                new PublishDiagnosticsParams(
-                    update.uri(),
-                    update.diagnostics().stream().map(DocumentService::diagnostic).toList(),
-                    update.version())));
+    workspace.onDiagnostics(update ->
+        client.publishDiagnostics(
+            new PublishDiagnosticsParams(
+                update.uri(),
+                update.diagnostics().stream().map(DocumentService::diagnostic).toList(),
+                update.version())));
   }
 
   @Override
@@ -112,24 +111,22 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       org.eclipse.lsp4j.CodeLensParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenApply(
-            state -> {
-              if (state == null || !state.source().id().uri().getScheme().equals("file"))
-                return List.of();
-              return language
-                  .tests(state.snapshot().document(state.source().id()).orElseThrow())
-                  .stream()
-                  .map(
-                      test ->
-                          new org.eclipse.lsp4j.CodeLens(
-                              range(state.snapshot(), test.location()),
-                              new org.eclipse.lsp4j.Command(
-                                  "Run Test",
-                                  "norm.runTest",
-                                  List.of(state.source().id().uri().toString(), test.name())),
-                              null))
-                  .toList();
-            });
+        .thenApply(state -> {
+          if (state == null || !state.source().id().uri().getScheme().equals("file"))
+            return List.of();
+          return language
+              .tests(state.snapshot().document(state.source().id()).orElseThrow())
+              .stream()
+              .map(test ->
+                  new org.eclipse.lsp4j.CodeLens(
+                      range(state.snapshot(), test.location()),
+                      new org.eclipse.lsp4j.Command(
+                          "Run Test",
+                          "norm.runTest",
+                          List.of(state.source().id().uri().toString(), test.name())),
+                      null))
+              .toList();
+        });
   }
 
   @Override
@@ -137,20 +134,18 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       CompletionParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null)
-                return CompletableFuture.completedFuture(Either.forLeft(List.of()));
-              int offset = offset(state.source(), params.getPosition());
-              List<Completion> completions =
-                  language.complete(
-                      state.snapshot().document(state.source().id()).orElseThrow(), offset);
-              List<CompletionItem> items =
-                  java.util.stream.IntStream.range(0, completions.size())
-                      .mapToObj(index -> completion(completions.get(index), index, state.source()))
-                      .toList();
-              return CompletableFuture.completedFuture(Either.forLeft(items));
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
+          int offset = offset(state.source(), params.getPosition());
+          List<Completion> completions =
+              language.complete(
+                  state.snapshot().document(state.source().id()).orElseThrow(), offset);
+          List<CompletionItem> items =
+              java.util.stream.IntStream.range(0, completions.size())
+                  .mapToObj(index -> completion(completions.get(index), index, state.source()))
+                  .toList();
+          return CompletableFuture.completedFuture(Either.forLeft(items));
+        });
   }
 
   @Override
@@ -158,35 +153,31 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       SignatureHelpParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(null);
-              int offset = offset(state.source(), params.getPosition());
-              return CompletableFuture.completedFuture(
-                  language
-                      .signatureHelp(
-                          state.snapshot().document(state.source().id()).orElseThrow(), offset)
-                      .map(DocumentService::signatureHelp)
-                      .orElse(null));
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(null);
+          int offset = offset(state.source(), params.getPosition());
+          return CompletableFuture.completedFuture(
+              language
+                  .signatureHelp(
+                      state.snapshot().document(state.source().id()).orElseThrow(), offset)
+                  .map(DocumentService::signatureHelp)
+                  .orElse(null));
+        });
   }
 
   @Override
   public CompletableFuture<Hover> hover(HoverParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(null);
-              int offset = offset(state.source(), params.getPosition());
-              return CompletableFuture.completedFuture(
-                  language
-                      .hover(state.analysis(), offset)
-                      .map(
-                          info ->
-                              new Hover(new MarkupContent(MarkupKind.MARKDOWN, info.markdown())))
-                      .orElse(null));
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(null);
+          int offset = offset(state.source(), params.getPosition());
+          return CompletableFuture.completedFuture(
+              language
+                  .hover(state.analysis(), offset)
+                  .map(info -> new Hover(new MarkupContent(MarkupKind.MARKDOWN, info.markdown())))
+                  .orElse(null));
+        });
   }
 
   @Override
@@ -195,36 +186,32 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       definition(DefinitionParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null)
-                return CompletableFuture.completedFuture(Either.forLeft(List.of()));
-              int offset = offset(state.source(), params.getPosition());
-              List<Location> locations =
-                  language.definition(state.analysis(), offset).stream()
-                      .map(location -> location(state.snapshot(), location))
-                      .toList();
-              return CompletableFuture.completedFuture(Either.forLeft(locations));
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
+          int offset = offset(state.source(), params.getPosition());
+          List<Location> locations =
+              language.definition(state.analysis(), offset).stream()
+                  .map(location -> location(state.snapshot(), location))
+                  .toList();
+          return CompletableFuture.completedFuture(Either.forLeft(locations));
+        });
   }
 
   @Override
   public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(List.of());
-              int offset = offset(state.source(), params.getPosition());
-              List<Location> locations =
-                  language
-                      .references(
-                          state.analysis(), offset, params.getContext().isIncludeDeclaration())
-                      .stream()
-                      .map(location -> location(state.snapshot(), location))
-                      .toList();
-              return CompletableFuture.completedFuture(locations);
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(List.of());
+          int offset = offset(state.source(), params.getPosition());
+          List<Location> locations =
+              language
+                  .references(state.analysis(), offset, params.getContext().isIncludeDeclaration())
+                  .stream()
+                  .map(location -> location(state.snapshot(), location))
+                  .toList();
+          return CompletableFuture.completedFuture(locations);
+        });
   }
 
   @Override
@@ -233,62 +220,55 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       prepareRename(PrepareRenameParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(null);
-              int offset = offset(state.source(), params.getPosition());
-              return CompletableFuture.completedFuture(
-                  language
-                      .prepareRename(state.analysis(), offset)
-                      .map(
-                          target ->
-                              Either3
-                                  .<Range, PrepareRenameResult,
-                                      org.eclipse.lsp4j.PrepareRenameDefaultBehavior>
-                                      forSecond(
-                                          new PrepareRenameResult(
-                                              range(state.snapshot(), target.location()),
-                                              target.placeholder())))
-                      .orElse(null));
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(null);
+          int offset = offset(state.source(), params.getPosition());
+          return CompletableFuture.completedFuture(
+              language
+                  .prepareRename(state.analysis(), offset)
+                  .map(target ->
+                      Either3
+                          .<Range, PrepareRenameResult,
+                              org.eclipse.lsp4j.PrepareRenameDefaultBehavior>
+                              forSecond(
+                                  new PrepareRenameResult(
+                                      range(state.snapshot(), target.location()),
+                                      target.placeholder())))
+                  .orElse(null));
+        });
   }
 
   @Override
   public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
     return workspace
         .document(params.getTextDocument().getUri())
-        .thenCompose(
-            state -> {
-              if (state == null) return CompletableFuture.completedFuture(null);
-              int offset = offset(state.source(), params.getPosition());
-              try {
-                WorkspaceEdit edit =
-                    language
-                        .rename(state.analysis(), offset, params.getNewName())
-                        .map(
-                            rename -> {
-                              Map<String, List<TextEdit>> changes = new java.util.LinkedHashMap<>();
-                              rename
-                                  .locations()
-                                  .forEach(
-                                      location ->
-                                          changes
-                                              .computeIfAbsent(
-                                                  workspace.clientUri(
-                                                      state.snapshot(), location.document()),
-                                                  ignored -> new java.util.ArrayList<>())
-                                              .add(
-                                                  new TextEdit(
-                                                      range(state.snapshot(), location),
-                                                      rename.newName())));
-                              return new WorkspaceEdit(changes);
-                            })
-                        .orElse(null);
-                return CompletableFuture.completedFuture(edit);
-              } catch (IllegalArgumentException exception) {
-                return CompletableFuture.failedFuture(exception);
-              }
-            });
+        .thenCompose(state -> {
+          if (state == null) return CompletableFuture.completedFuture(null);
+          int offset = offset(state.source(), params.getPosition());
+          try {
+            WorkspaceEdit edit =
+                language
+                    .rename(state.analysis(), offset, params.getNewName())
+                    .map(rename -> {
+                      Map<String, List<TextEdit>> changes = new java.util.LinkedHashMap<>();
+                      rename
+                          .locations()
+                          .forEach(location ->
+                              changes
+                                  .computeIfAbsent(
+                                      workspace.clientUri(state.snapshot(), location.document()),
+                                      ignored -> new java.util.ArrayList<>())
+                                  .add(
+                                      new TextEdit(
+                                          range(state.snapshot(), location), rename.newName())));
+                      return new WorkspaceEdit(changes);
+                    })
+                    .orElse(null);
+            return CompletableFuture.completedFuture(edit);
+          } catch (IllegalArgumentException exception) {
+            return CompletableFuture.failedFuture(exception);
+          }
+        });
   }
 
   @Override
@@ -296,16 +276,14 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
     var edits =
         workspace
             .openSource(params.getTextDocument().getUri())
-            .flatMap(
-                source ->
-                    language
-                        .format(source)
-                        .filter(formatted -> !formatted.equals(source.text()))
-                        .map(
-                            formatted ->
-                                new TextEdit(
-                                    range(source.positionAt(0), source.positionAt(source.length())),
-                                    formatted)))
+            .flatMap(source ->
+                language
+                    .format(source)
+                    .filter(formatted -> !formatted.equals(source.text()))
+                    .map(formatted ->
+                        new TextEdit(
+                            range(source.positionAt(0), source.positionAt(source.length())),
+                            formatted)))
             .stream()
             .toList();
     return CompletableFuture.completedFuture(edits);
@@ -336,25 +314,23 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
     item.setPreselect(index == 0);
     completion
         .textEdit()
-        .ifPresent(
-            edit ->
-                item.setTextEdit(
-                    Either.forLeft(
-                        new TextEdit(
-                            range(
-                                source.positionAt(edit.location().startOffset()),
-                                source.positionAt(edit.location().endOffset())),
-                            edit.newText()))));
+        .ifPresent(edit ->
+            item.setTextEdit(
+                Either.forLeft(
+                    new TextEdit(
+                        range(
+                            source.positionAt(edit.location().startOffset()),
+                            source.positionAt(edit.location().endOffset())),
+                        edit.newText()))));
     if (!completion.additionalTextEdits().isEmpty()) {
       item.setAdditionalTextEdits(
           completion.additionalTextEdits().stream()
-              .map(
-                  edit ->
-                      new TextEdit(
-                          range(
-                              source.positionAt(edit.location().startOffset()),
-                              source.positionAt(edit.location().endOffset())),
-                          edit.newText()))
+              .map(edit ->
+                  new TextEdit(
+                      range(
+                          source.positionAt(edit.location().startOffset()),
+                          source.positionAt(edit.location().endOffset())),
+                      edit.newText()))
               .toList());
     }
     if (!completion.documentation().isBlank()) item.setDocumentation(completion.documentation());
@@ -365,17 +341,15 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   private static org.eclipse.lsp4j.SignatureHelp signatureHelp(SignatureHelp help) {
     return new org.eclipse.lsp4j.SignatureHelp(
         help.signatures().stream()
-            .map(
-                signature ->
-                    new org.eclipse.lsp4j.SignatureInformation(
-                        signature.label(),
-                        signature.documentation(),
-                        signature.parameters().stream()
-                            .map(
-                                parameter ->
-                                    new org.eclipse.lsp4j.ParameterInformation(
-                                        parameter.label(), parameter.documentation()))
-                            .toList()))
+            .map(signature ->
+                new org.eclipse.lsp4j.SignatureInformation(
+                    signature.label(),
+                    signature.documentation(),
+                    signature.parameters().stream()
+                        .map(parameter ->
+                            new org.eclipse.lsp4j.ParameterInformation(
+                                parameter.label(), parameter.documentation()))
+                        .toList()))
             .toList(),
         help.activeSignature(),
         help.activeParameter());

@@ -41,12 +41,11 @@ final class NativeImageConfigurationWriter {
     Map<String, ReflectedClass> classes = new TreeMap<>();
     var materializable =
         compilation.result().output().orElseThrow().artifact().program().aggregates().stream()
-            .filter(
-                aggregate ->
-                    switch (aggregate.kind()) {
-                      case CLASS, VALUE -> true;
-                      case ANNOTATION -> false;
-                    })
+            .filter(aggregate ->
+                switch (aggregate.kind()) {
+                  case CLASS, VALUE -> true;
+                  case ANNOTATION -> false;
+                })
             .map(aggregate -> JavaApplicationTypeName.binaryName(aggregate.nominalType()))
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
     for (LinkedJarBinding binding : bindings) {
@@ -55,16 +54,14 @@ final class NativeImageConfigurationWriter {
           .forEach(name -> reflect(classes, name));
     }
     compilation.annotations().stubs().stream()
-        .forEach(
-            stub -> {
-              String name = stub.binaryName();
-              var reflected = reflect(classes, name);
-              reflected.allDeclaredMembers = true;
-              reflected.unsafeAllocated = materializable.contains(name);
-              int separator = name.lastIndexOf('.');
-              if (separator >= 0)
-                reflect(classes, name.substring(0, separator + 1) + "package-info");
-            });
+        .forEach(stub -> {
+          String name = stub.binaryName();
+          var reflected = reflect(classes, name);
+          reflected.allDeclaredMembers = true;
+          reflected.unsafeAllocated = materializable.contains(name);
+          int separator = name.lastIndexOf('.');
+          if (separator >= 0) reflect(classes, name.substring(0, separator + 1) + "package-info");
+        });
     JsonArray values = new JsonArray();
     classes.values().forEach(value -> values.add(value.json()));
     return values;
@@ -82,12 +79,11 @@ final class NativeImageConfigurationWriter {
     JsonArray resources = new JsonArray();
     sourceSet.resources().keySet().stream()
         .sorted()
-        .forEach(
-            path -> {
-              JsonObject entry = new JsonObject();
-              entry.addProperty("glob", path.replace("*", "\\*"));
-              resources.add(entry);
-            });
+        .forEach(path -> {
+          JsonObject entry = new JsonObject();
+          entry.addProperty("glob", path.replace("*", "\\*"));
+          resources.add(entry);
+        });
     return resources;
   }
 

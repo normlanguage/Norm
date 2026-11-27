@@ -18,16 +18,15 @@ public interface JarBindingTask extends AutoCloseable {
           }
         };
     completion()
-        .whenComplete(
-            (value, failure) -> {
-              if (failure == null) future.complete(null);
-              else {
-                while ((failure instanceof java.util.concurrent.CompletionException
-                        || failure instanceof java.util.concurrent.ExecutionException)
-                    && failure.getCause() != null) failure = failure.getCause();
-                future.completeExceptionally(failure);
-              }
-            });
+        .whenComplete((value, failure) -> {
+          if (failure == null) future.complete(null);
+          else {
+            while ((failure instanceof java.util.concurrent.CompletionException
+                    || failure instanceof java.util.concurrent.ExecutionException)
+                && failure.getCause() != null) failure = failure.getCause();
+            future.completeExceptionally(failure);
+          }
+        });
     return future;
   }
 

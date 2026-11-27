@@ -95,9 +95,8 @@ public record BindingTypeNames(
         }
         reference
             .arguments()
-            .forEach(
-                argument ->
-                    argument.type().ifPresent(value -> collectReferences(value, references)));
+            .forEach(argument ->
+                argument.type().ifPresent(value -> collectReferences(value, references)));
       }
       case JavaBoxedType ignored -> {}
       case JavaPrimitiveType ignored -> {}
@@ -106,29 +105,25 @@ public record BindingTypeNames(
 
   static Map<JavaArrayType, String> allocateArrayNames(Set<JavaArrayType> arrays) {
     Map<String, List<JavaArrayType>> groups = new LinkedHashMap<>();
-    arrays.forEach(
-        array ->
-            groups
-                .computeIfAbsent(
-                    array.component() instanceof JavaBindingTypeVariable
-                        ? genericArrayName((JavaBindingTypeVariable) array.component())
-                        : "Java" + bindingTypeSuffix(array.component()) + "Array",
-                    ignored -> new ArrayList<>())
-                .add(array));
+    arrays.forEach(array ->
+        groups
+            .computeIfAbsent(
+                array.component() instanceof JavaBindingTypeVariable
+                    ? genericArrayName((JavaBindingTypeVariable) array.component())
+                    : "Java" + bindingTypeSuffix(array.component()) + "Array",
+                ignored -> new ArrayList<>())
+            .add(array));
     Map<JavaArrayType, String> names = new LinkedHashMap<>();
-    groups.forEach(
-        (base, values) ->
-            values.forEach(
-                array -> {
-                  String name = base;
-                  if (values.stream().map(JavaBindingType::descriptor).distinct().count() > 1) {
-                    String digest =
-                        Sha256Digest.compute(array.descriptor().getBytes(StandardCharsets.UTF_8))
-                            .value();
-                    name += "X" + digest.substring(0, 8);
-                  }
-                  names.put(array, name);
-                }));
+    groups.forEach((base, values) ->
+        values.forEach(array -> {
+          String name = base;
+          if (values.stream().map(JavaBindingType::descriptor).distinct().count() > 1) {
+            String digest =
+                Sha256Digest.compute(array.descriptor().getBytes(StandardCharsets.UTF_8)).value();
+            name += "X" + digest.substring(0, 8);
+          }
+          names.put(array, name);
+        }));
     return java.util.Collections.unmodifiableMap(names);
   }
 

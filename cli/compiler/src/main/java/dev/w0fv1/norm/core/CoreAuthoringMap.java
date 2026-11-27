@@ -81,37 +81,35 @@ public final class CoreAuthoringMap {
           .computeIfAbsent(definitions.get(index).representative(), ignored -> new ArrayList<>())
           .add(index);
     }
-    declarationsByDefinition.forEach(
-        (definition, declarations) -> {
-          List<Integer> sorted =
-              declarations.stream()
-                  .sorted(java.util.Comparator.comparing(index -> definitions.get(index).origin()))
-                  .toList();
-          for (int ordinal = 0; ordinal < sorted.size(); ordinal++) {
-            if (ordinal > 0
-                && definitions
-                        .get(sorted.get(ordinal - 1))
-                        .origin()
-                        .compareTo(definitions.get(sorted.get(ordinal)).origin())
-                    == 0) {
-              throw new IllegalArgumentException("definition occurrences have duplicate origins");
-            }
-            ids.set(sorted.get(ordinal), new DefinitionOccurrenceId(definition, ordinal));
-          }
-        });
+    declarationsByDefinition.forEach((definition, declarations) -> {
+      List<Integer> sorted =
+          declarations.stream()
+              .sorted(java.util.Comparator.comparing(index -> definitions.get(index).origin()))
+              .toList();
+      for (int ordinal = 0; ordinal < sorted.size(); ordinal++) {
+        if (ordinal > 0
+            && definitions
+                    .get(sorted.get(ordinal - 1))
+                    .origin()
+                    .compareTo(definitions.get(sorted.get(ordinal)).origin())
+                == 0) {
+          throw new IllegalArgumentException("definition occurrences have duplicate origins");
+        }
+        ids.set(sorted.get(ordinal), new DefinitionOccurrenceId(definition, ordinal));
+      }
+    });
     List<CoreDefinitionOccurrence> occurrences = new ArrayList<>();
     for (int index = 0; index < definitions.size(); index++) {
       Seed seed = definitions.get(index);
       Map<Integer, DefinitionOccurrenceId> references = new LinkedHashMap<>();
       seed.referenceTargets()
-          .forEach(
-              (node, target) -> {
-                if (target < 0 || target >= ids.size()) {
-                  throw new IllegalArgumentException(
-                      "reference target is outside the occurrence table");
-                }
-                references.put(node, ids.get(target));
-              });
+          .forEach((node, target) -> {
+            if (target < 0 || target >= ids.size()) {
+              throw new IllegalArgumentException(
+                  "reference target is outside the occurrence table");
+            }
+            references.put(node, ids.get(target));
+          });
       occurrences.add(
           new CoreDefinitionOccurrence(
               ids.get(index),
@@ -190,34 +188,30 @@ public final class CoreAuthoringMap {
 
   private static void validateCanonicalOrdinals(List<CoreDefinitionOccurrence> occurrences) {
     Map<DefinitionId, List<CoreDefinitionOccurrence>> grouped = new java.util.TreeMap<>();
-    occurrences.forEach(
-        occurrence ->
-            grouped
-                .computeIfAbsent(occurrence.id().representative(), ignored -> new ArrayList<>())
-                .add(occurrence));
-    grouped.forEach(
-        (definition, values) -> {
-          List<CoreDefinitionOccurrence> sorted =
-              values.stream()
-                  .sorted(java.util.Comparator.comparing(CoreDefinitionOccurrence::origin))
-                  .toList();
-          Set<DefinitionId> orbit = sorted.getFirst().representedDefinitions();
-          for (int ordinal = 0; ordinal < sorted.size(); ordinal++) {
-            CoreDefinitionOccurrence occurrence = sorted.get(ordinal);
-            if (occurrence.id().ordinal() != ordinal) {
-              throw new IllegalArgumentException(
-                  "definition occurrence ordinals are not canonical");
-            }
-            if (!occurrence.representedDefinitions().equals(orbit)) {
-              throw new IllegalArgumentException(
-                  "definition occurrences for one representative require one orbit");
-            }
-            if (ordinal > 0
-                && sorted.get(ordinal - 1).origin().compareTo(occurrence.origin()) == 0) {
-              throw new IllegalArgumentException("definition occurrences have duplicate origins");
-            }
-          }
-        });
+    occurrences.forEach(occurrence ->
+        grouped
+            .computeIfAbsent(occurrence.id().representative(), ignored -> new ArrayList<>())
+            .add(occurrence));
+    grouped.forEach((definition, values) -> {
+      List<CoreDefinitionOccurrence> sorted =
+          values.stream()
+              .sorted(java.util.Comparator.comparing(CoreDefinitionOccurrence::origin))
+              .toList();
+      Set<DefinitionId> orbit = sorted.getFirst().representedDefinitions();
+      for (int ordinal = 0; ordinal < sorted.size(); ordinal++) {
+        CoreDefinitionOccurrence occurrence = sorted.get(ordinal);
+        if (occurrence.id().ordinal() != ordinal) {
+          throw new IllegalArgumentException("definition occurrence ordinals are not canonical");
+        }
+        if (!occurrence.representedDefinitions().equals(orbit)) {
+          throw new IllegalArgumentException(
+              "definition occurrences for one representative require one orbit");
+        }
+        if (ordinal > 0 && sorted.get(ordinal - 1).origin().compareTo(occurrence.origin()) == 0) {
+          throw new IllegalArgumentException("definition occurrences have duplicate origins");
+        }
+      }
+    });
   }
 
   public record Seed(

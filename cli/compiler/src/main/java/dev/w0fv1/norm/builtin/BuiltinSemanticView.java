@@ -54,13 +54,12 @@ final class BuiltinSemanticView {
         Optional.empty(),
         owner.map(name -> SymbolId.builtin("type/" + name)),
         symbol.typeParameters().stream()
-            .map(
-                parameter ->
-                    new TypeParameterInfo(
-                        parameter.name(),
-                        type(parameter.type()),
-                        parameter.upperBound().map(BuiltinSemanticView::type),
-                        parameter.defaultType().map(BuiltinSemanticView::type)))
+            .map(parameter ->
+                new TypeParameterInfo(
+                    parameter.name(),
+                    type(parameter.type()),
+                    parameter.upperBound().map(BuiltinSemanticView::type),
+                    parameter.defaultType().map(BuiltinSemanticView::type)))
             .toList(),
         parameters,
         symbol.documentation());
@@ -74,46 +73,35 @@ final class BuiltinSemanticView {
         definition.runtimeShape(),
         definition
             .constructor()
-            .map(
-                constructor ->
-                    new BuiltinCatalog.ConstructorCapability(
-                        constructor.parameters().stream()
-                            .map(BuiltinSemanticView::parameter)
-                            .toList(),
-                        constructor.intrinsic())),
+            .map(constructor ->
+                new BuiltinCatalog.ConstructorCapability(
+                    constructor.parameters().stream().map(BuiltinSemanticView::parameter).toList(),
+                    constructor.intrinsic())),
         definition.collectionLiteral(),
         definition.defaultCollectionLiteral(),
         definition
             .iterable()
-            .map(
-                iterable ->
-                    new BuiltinCatalog.IterableCapability(
-                        type(iterable.elementType()), iterable.intrinsic())),
+            .map(iterable ->
+                new BuiltinCatalog.IterableCapability(
+                    type(iterable.elementType()), iterable.intrinsic())),
         definition
             .index()
-            .map(
-                index ->
-                    new BuiltinCatalog.IndexCapability(
-                        IndexKind.valueOf(index.kind().name()),
-                        type(index.keyType()),
-                        type(index.resultType()),
-                        index.readIntrinsic(),
-                        index.writeIntrinsic())),
+            .map(index ->
+                new BuiltinCatalog.IndexCapability(
+                    IndexKind.valueOf(index.kind().name()),
+                    type(index.keyType()),
+                    type(index.resultType()),
+                    index.readIntrinsic(),
+                    index.writeIntrinsic())),
         definition.members().stream()
-            .map(
-                member ->
-                    new BuiltinCatalog.MemberDefinition(
-                        symbol(member.symbol(), owner),
-                        member.intrinsic(),
-                        member.writeIntrinsic()))
+            .map(member ->
+                new BuiltinCatalog.MemberDefinition(
+                    symbol(member.symbol(), owner), member.intrinsic(), member.writeIntrinsic()))
             .toList(),
         definition.typeMembers().stream()
-            .map(
-                member ->
-                    new BuiltinCatalog.MemberDefinition(
-                        symbol(member.symbol(), owner),
-                        member.intrinsic(),
-                        member.writeIntrinsic()))
+            .map(member ->
+                new BuiltinCatalog.MemberDefinition(
+                    symbol(member.symbol(), owner), member.intrinsic(), member.writeIntrinsic()))
             .toList());
   }
 

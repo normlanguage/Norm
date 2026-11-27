@@ -103,11 +103,10 @@ public final class SemanticModel implements SemanticIndex {
     Map<SymbolId, Symbol> documentedSymbols = new LinkedHashMap<>(symbols);
     this.documentAnnotations
         .symbols()
-        .forEach(
-            (id, document) -> {
-              Symbol symbol = Objects.requireNonNull(documentedSymbols.get(id));
-              documentedSymbols.put(id, symbol.withDocumentation(document.description()));
-            });
+        .forEach((id, document) -> {
+          Symbol symbol = Objects.requireNonNull(documentedSymbols.get(id));
+          documentedSymbols.put(id, symbol.withDocumentation(document.description()));
+        });
     this.symbols = Map.copyOf(documentedSymbols);
     var completeBindings = new LinkedHashMap<>(bindings);
     completeBindings.putAll(ReferenceIndex.namedArguments(resolvedCalls, this.symbols));
@@ -151,12 +150,11 @@ public final class SemanticModel implements SemanticIndex {
     this.diagnostics = List.copyOf(diagnostics);
     this.importableSymbols =
         importableSymbols.stream()
-            .map(
-                candidate ->
-                    new ImportableSymbol(
-                        Objects.requireNonNull(this.symbols.get(candidate.symbol().id())),
-                        candidate.qualifiedName(),
-                        candidate.exported()))
+            .map(candidate ->
+                new ImportableSymbol(
+                    Objects.requireNonNull(this.symbols.get(candidate.symbol().id())),
+                    candidate.qualifiedName(),
+                    candidate.exported()))
             .toList();
     this.scope = Objects.requireNonNull(scope, "scope");
     this.builtins = Objects.requireNonNull(builtins, "builtins");
@@ -245,44 +243,39 @@ public final class SemanticModel implements SemanticIndex {
       index
           .at(span.source().id(), span.startOffset())
           .filter(entry -> inside(span, entry.value()))
-          .ifPresent(
-              entry ->
-                  operators
-                      .computeIfAbsent(entry.value(), ignored -> new java.util.LinkedHashSet<>())
-                      .add(span));
+          .ifPresent(entry ->
+              operators
+                  .computeIfAbsent(entry.value(), ignored -> new java.util.LinkedHashSet<>())
+                  .add(span));
     Map<SourceSpan, List<SemanticScope>> selectedScopes = new LinkedHashMap<>();
     for (var scope : scopes)
       index
           .at(scope.span().source().id(), scope.span().startOffset())
           .filter(entry -> inside(scope.span(), entry.value()))
-          .ifPresent(
-              entry ->
-                  selectedScopes
-                      .computeIfAbsent(entry.value(), ignored -> new java.util.ArrayList<>())
-                      .add(scope));
+          .ifPresent(entry ->
+              selectedScopes
+                  .computeIfAbsent(entry.value(), ignored -> new java.util.ArrayList<>())
+                  .add(scope));
     Map<SourceSpan, Set<SymbolId>> declared = new LinkedHashMap<>();
     Map<SymbolId, List<SymbolId>> children = new LinkedHashMap<>();
     for (var symbol : symbols.values()) {
       symbol
           .owner()
-          .ifPresent(
-              owner ->
-                  children
-                      .computeIfAbsent(owner, ignored -> new java.util.ArrayList<>())
-                      .add(symbol.id()));
+          .ifPresent(owner ->
+              children
+                  .computeIfAbsent(owner, ignored -> new java.util.ArrayList<>())
+                  .add(symbol.id()));
       symbol
           .declaration()
-          .ifPresent(
-              location ->
-                  index
-                      .at(location.document(), location.startOffset())
-                      .filter(entry -> inside(location, entry.value()))
-                      .ifPresent(
-                          entry ->
-                              declared
-                                  .computeIfAbsent(
-                                      entry.value(), ignored -> new java.util.LinkedHashSet<>())
-                                  .add(symbol.id())));
+          .ifPresent(location ->
+              index
+                  .at(location.document(), location.startOffset())
+                  .filter(entry -> inside(location, entry.value()))
+                  .ifPresent(entry ->
+                      declared
+                          .computeIfAbsent(
+                              entry.value(), ignored -> new java.util.LinkedHashSet<>())
+                          .add(symbol.id())));
     }
     Map<SourceSpan, SemanticContribution> result = new LinkedHashMap<>();
     for (var root : roots) {
@@ -319,14 +312,12 @@ public final class SemanticModel implements SemanticIndex {
   public Set<SourceLocation> declarationDependencies(SourceSpan root) {
     Objects.requireNonNull(root, "root");
     Set<SymbolId> targets = new java.util.LinkedHashSet<>();
-    bindings.forEach(
-        (span, symbol) -> {
-          if (inside(span, root)) targets.add(resolveAlias(symbol));
-        });
-    resolvedCalls.forEach(
-        (span, call) -> {
-          if (inside(span, root)) targets.add(call.target());
-        });
+    bindings.forEach((span, symbol) -> {
+      if (inside(span, root)) targets.add(resolveAlias(symbol));
+    });
+    resolvedCalls.forEach((span, call) -> {
+      if (inside(span, root)) targets.add(call.target());
+    });
     return declarationLocations(targets);
   }
 
@@ -349,16 +340,14 @@ public final class SemanticModel implements SemanticIndex {
   private static <T> Map<SourceSpan, Map<SourceSpan, T>> partition(
       Map<SourceSpan, T> values, SpanIndex<SourceSpan> index) {
     Map<SourceSpan, Map<SourceSpan, T>> result = new LinkedHashMap<>();
-    values.forEach(
-        (span, value) ->
-            index
-                .at(span.source().id(), span.startOffset())
-                .filter(entry -> inside(span, entry.value()))
-                .ifPresent(
-                    entry ->
-                        result
-                            .computeIfAbsent(entry.value(), ignored -> new LinkedHashMap<>())
-                            .put(span, value)));
+    values.forEach((span, value) ->
+        index
+            .at(span.source().id(), span.startOffset())
+            .filter(entry -> inside(span, entry.value()))
+            .ifPresent(entry ->
+                result
+                    .computeIfAbsent(entry.value(), ignored -> new LinkedHashMap<>())
+                    .put(span, value)));
     return result;
   }
 
@@ -428,15 +417,13 @@ public final class SemanticModel implements SemanticIndex {
   public List<ImportableSymbol> importableSymbols(DocumentId importer) {
     Objects.requireNonNull(importer, "importer");
     return importableSymbols.stream()
-        .filter(
-            candidate ->
-                candidate.symbol().declaration().isPresent()
-                    && (scope.sameModule(
-                            importer, candidate.symbol().declaration().orElseThrow().document())
-                        || candidate.exported()
-                            && scope.canRead(
-                                importer,
-                                candidate.symbol().declaration().orElseThrow().document())))
+        .filter(candidate ->
+            candidate.symbol().declaration().isPresent()
+                && (scope.sameModule(
+                        importer, candidate.symbol().declaration().orElseThrow().document())
+                    || candidate.exported()
+                        && scope.canRead(
+                            importer, candidate.symbol().declaration().orElseThrow().document())))
         .toList();
   }
 
@@ -660,11 +647,9 @@ public final class SemanticModel implements SemanticIndex {
     if (type.kind() == SemanticType.Kind.TYPE_PARAMETER) {
       Optional<SemanticType> upperBound =
           symbols.values().stream()
-              .filter(
-                  symbol ->
-                      symbol.typeParameters().stream()
-                          .anyMatch(
-                              parameter -> parameter.type().identity().equals(type.identity())))
+              .filter(symbol ->
+                  symbol.typeParameters().stream()
+                      .anyMatch(parameter -> parameter.type().identity().equals(type.identity())))
               .flatMap(symbol -> symbol.typeParameters().stream())
               .filter(parameter -> parameter.type().identity().equals(type.identity()))
               .map(TypeParameterInfo::upperBound)
@@ -680,11 +665,10 @@ public final class SemanticModel implements SemanticIndex {
     members.getOrDefault(owner.orElseThrow().id(), List.of()).stream()
         .map(symbols::get)
         .filter(Objects::nonNull)
-        .map(
-            symbol ->
-                symbol.id().value().startsWith("builtin/")
-                    ? builtins.member(type, symbol.id()).orElse(symbol)
-                    : specializeMember(owner.orElseThrow(), type, symbol))
+        .map(symbol ->
+            symbol.id().value().startsWith("builtin/")
+                ? builtins.member(type, symbol.id()).orElse(symbol)
+                : specializeMember(owner.orElseThrow(), type, symbol))
         .forEach(result::add);
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
     if (owner.orElseThrow().typeParameters().size() == type.arguments().size()) {
@@ -702,14 +686,13 @@ public final class SemanticModel implements SemanticIndex {
       }
     }
     aggregateParent(type)
-        .ifPresent(
-            parent -> {
-              for (Symbol inherited : members(parent, visiting)) {
-                if (result.stream().noneMatch(existing -> existing.id().equals(inherited.id()))) {
-                  result.add(inherited);
-                }
-              }
-            });
+        .ifPresent(parent -> {
+          for (Symbol inherited : members(parent, visiting)) {
+            if (result.stream().noneMatch(existing -> existing.id().equals(inherited.id()))) {
+              result.add(inherited);
+            }
+          }
+        });
     Set<SymbolId> overridden =
         result.stream()
             .flatMap(member -> memberRelations.parents(member).stream())
@@ -741,38 +724,29 @@ public final class SemanticModel implements SemanticIndex {
         .filter(scope -> scope.span().source().id().equals(source.id()))
         .filter(scope -> contains(scope.span(), offset))
         .sorted(Comparator.comparingInt(SemanticScope::depth))
-        .forEach(
-            scope ->
-                scope.symbols().stream()
-                    .map(symbols::get)
-                    .filter(Objects::nonNull)
-                    .filter(symbol -> !symbol.name().startsWith("$"))
-                    .filter(
-                        symbol ->
-                            symbol.declaration().isEmpty()
-                                || !symbol
-                                    .declaration()
-                                    .orElseThrow()
-                                    .document()
-                                    .equals(source.id())
-                                || symbol.declaration().orElseThrow().startOffset() <= offset)
-                    .forEach(
-                        symbol -> {
-                          if (callable(symbol)) {
-                            boolean shadowed =
-                                visible.values().stream()
-                                    .anyMatch(
-                                        candidate ->
-                                            candidate.name().equals(symbol.name())
-                                                && !callable(candidate));
-                            if (!shadowed) visible.put(visibleKey(symbol), symbol);
-                          } else {
-                            visible
-                                .entrySet()
-                                .removeIf(entry -> entry.getValue().name().equals(symbol.name()));
-                            visible.put(symbol.name(), symbol);
-                          }
-                        }));
+        .forEach(scope ->
+            scope.symbols().stream()
+                .map(symbols::get)
+                .filter(Objects::nonNull)
+                .filter(symbol -> !symbol.name().startsWith("$"))
+                .filter(symbol ->
+                    symbol.declaration().isEmpty()
+                        || !symbol.declaration().orElseThrow().document().equals(source.id())
+                        || symbol.declaration().orElseThrow().startOffset() <= offset)
+                .forEach(symbol -> {
+                  if (callable(symbol)) {
+                    boolean shadowed =
+                        visible.values().stream()
+                            .anyMatch(candidate ->
+                                candidate.name().equals(symbol.name()) && !callable(candidate));
+                    if (!shadowed) visible.put(visibleKey(symbol), symbol);
+                  } else {
+                    visible
+                        .entrySet()
+                        .removeIf(entry -> entry.getValue().name().equals(symbol.name()));
+                    visible.put(symbol.name(), symbol);
+                  }
+                }));
     return List.copyOf(visible.values());
   }
 

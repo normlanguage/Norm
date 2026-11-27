@@ -73,11 +73,10 @@ final class RuntimeErrorTest {
                 RuntimeErrorCode.INVALID_ARGUMENT),
             failure("printLine(1 / 0)", RuntimeErrorCode.DIVISION_BY_ZERO),
             failure("printLine(1 % 0)", RuntimeErrorCode.DIVISION_BY_ZERO))
-        .map(
-            testCase ->
-                DynamicTest.dynamicTest(
-                    testCase.code() + ": " + testCase.body(),
-                    () -> assertFailure(testCase.body(), testCase.code())));
+        .map(testCase ->
+            DynamicTest.dynamicTest(
+                testCase.code() + ": " + testCase.body(),
+                () -> assertFailure(testCase.body(), testCase.code())));
   }
 
   @Test

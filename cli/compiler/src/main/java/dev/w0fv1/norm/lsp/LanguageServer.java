@@ -97,62 +97,55 @@ final class LanguageServer
     watchChanges =
         watchChanges
             .handle((ignored, failure) -> null)
-            .thenCompose(
-                ignored -> {
-                  if (closed && !next.isEmpty()) return CompletableFuture.completedFuture(null);
-                  if (registeredWatches.equals(next))
-                    return CompletableFuture.completedFuture(null);
-                  var removal =
-                      registeredWatches.isEmpty()
-                          ? CompletableFuture.<Void>completedFuture(null)
-                          : client
-                              .unregisterCapability(
-                                  new org.eclipse.lsp4j.UnregistrationParams(
-                                      List.of(
-                                          new org.eclipse.lsp4j.Unregistration(
-                                              "norm-project-inputs",
-                                              "workspace/didChangeWatchedFiles"))))
-                              .thenRun(() -> registeredWatches = List.of());
-                  return removal.thenCompose(
-                      removed -> {
-                        if (closed || next.isEmpty())
-                          return CompletableFuture.completedFuture(null);
-                        var watchers =
-                            next.stream()
-                                .map(
-                                    watch -> {
-                                      var watcher = new org.eclipse.lsp4j.FileSystemWatcher();
-                                      if (relativeWatches)
-                                        watcher.setGlobPattern(
-                                            new org.eclipse.lsp4j.RelativePattern(
-                                                org.eclipse.lsp4j.jsonrpc.messages.Either.forRight(
-                                                    watch.root().toUri().toString()),
-                                                watch.pattern()));
-                                      else watcher.setGlobPattern(watch.absolutePattern());
-                                      return watcher;
-                                    })
-                                .toList();
-                        return client
-                            .registerCapability(
-                                new org.eclipse.lsp4j.RegistrationParams(
-                                    List.of(
-                                        new org.eclipse.lsp4j.Registration(
-                                            "norm-project-inputs",
-                                            "workspace/didChangeWatchedFiles",
-                                            new org.eclipse.lsp4j
-                                                .DidChangeWatchedFilesRegistrationOptions(
-                                                watchers)))))
-                            .thenRun(() -> registeredWatches = next);
-                      });
-                })
-            .whenComplete(
-                (ignored, failure) -> {
-                  if (failure != null)
-                    client.logMessage(
-                        new org.eclipse.lsp4j.MessageParams(
-                            org.eclipse.lsp4j.MessageType.Error,
-                            "Unable to watch project inputs: " + failure.getMessage()));
-                });
+            .thenCompose(ignored -> {
+              if (closed && !next.isEmpty()) return CompletableFuture.completedFuture(null);
+              if (registeredWatches.equals(next)) return CompletableFuture.completedFuture(null);
+              var removal =
+                  registeredWatches.isEmpty()
+                      ? CompletableFuture.<Void>completedFuture(null)
+                      : client
+                          .unregisterCapability(
+                              new org.eclipse.lsp4j.UnregistrationParams(
+                                  List.of(
+                                      new org.eclipse.lsp4j.Unregistration(
+                                          "norm-project-inputs",
+                                          "workspace/didChangeWatchedFiles"))))
+                          .thenRun(() -> registeredWatches = List.of());
+              return removal.thenCompose(removed -> {
+                if (closed || next.isEmpty()) return CompletableFuture.completedFuture(null);
+                var watchers =
+                    next.stream()
+                        .map(watch -> {
+                          var watcher = new org.eclipse.lsp4j.FileSystemWatcher();
+                          if (relativeWatches)
+                            watcher.setGlobPattern(
+                                new org.eclipse.lsp4j.RelativePattern(
+                                    org.eclipse.lsp4j.jsonrpc.messages.Either.forRight(
+                                        watch.root().toUri().toString()),
+                                    watch.pattern()));
+                          else watcher.setGlobPattern(watch.absolutePattern());
+                          return watcher;
+                        })
+                        .toList();
+                return client
+                    .registerCapability(
+                        new org.eclipse.lsp4j.RegistrationParams(
+                            List.of(
+                                new org.eclipse.lsp4j.Registration(
+                                    "norm-project-inputs",
+                                    "workspace/didChangeWatchedFiles",
+                                    new org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions(
+                                        watchers)))))
+                    .thenRun(() -> registeredWatches = next);
+              });
+            })
+            .whenComplete((ignored, failure) -> {
+              if (failure != null)
+                client.logMessage(
+                    new org.eclipse.lsp4j.MessageParams(
+                        org.eclipse.lsp4j.MessageType.Error,
+                        "Unable to watch project inputs: " + failure.getMessage()));
+            });
   }
 
   @Override

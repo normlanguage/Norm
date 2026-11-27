@@ -227,16 +227,13 @@ public final class CoreReachability {
                 parent -> retain(causes, record.id().group(), RetentionKind.SUBTYPE, parent));
         if (!retained.contains(record.id().group())) continue;
         CoreTree.dependencies(record.definition())
-            .forEach(
-                dependency ->
-                    causes.putIfAbsent(
-                        program
-                            .resolve(record.id(), (DefinitionReference) dependency.target())
-                            .group(),
-                        new RetentionCause(
-                            RetentionKind.DEFINITION_LINK,
-                            Optional.of(record.id().group()),
-                            Optional.of(dependency.kind()))));
+            .forEach(dependency ->
+                causes.putIfAbsent(
+                    program.resolve(record.id(), (DefinitionReference) dependency.target()).group(),
+                    new RetentionCause(
+                        RetentionKind.DEFINITION_LINK,
+                        Optional.of(record.id().group()),
+                        Optional.of(dependency.kind()))));
       }
       for (var occurrence : artifact.authoring().occurrences()) {
         var source =
@@ -247,20 +244,17 @@ public final class CoreReachability {
         if (source.isEmpty()) continue;
         occurrence
             .representedDefinitions()
-            .forEach(
-                id ->
-                    retain(
-                        causes, id.group(), RetentionKind.AUTHORING_GROUP, source.orElseThrow()));
+            .forEach(id ->
+                retain(causes, id.group(), RetentionKind.AUTHORING_GROUP, source.orElseThrow()));
         occurrence
             .references()
             .values()
-            .forEach(
-                id ->
-                    retain(
-                        causes,
-                        id.representative().group(),
-                        RetentionKind.AUTHORING_REFERENCE,
-                        source.orElseThrow()));
+            .forEach(id ->
+                retain(
+                    causes,
+                    id.representative().group(),
+                    RetentionKind.AUTHORING_REFERENCE,
+                    source.orElseThrow()));
       }
       Map<String, DefinitionGroupId> owners = new LinkedHashMap<>();
       for (var binding : artifact.namespace().bindings()) {
@@ -268,13 +262,12 @@ public final class CoreReachability {
           binding.shape().parameters().stream()
               .flatMap(parameter -> parameter.defaultValue().stream())
               .map(value -> ((CoreDefaultArgument.Resolved) value).occurrence())
-              .forEach(
-                  target ->
-                      retain(
-                          causes,
-                          target.representative().group(),
-                          RetentionKind.DEFAULT_ARGUMENT,
-                          binding.definition().group()));
+              .forEach(target ->
+                  retain(
+                      causes,
+                      target.representative().group(),
+                      RetentionKind.DEFAULT_ARGUMENT,
+                      binding.definition().group()));
         }
         if (retained.contains(binding.definition().group()) && binding.ownerName().isEmpty()) {
           owners.putIfAbsent(
@@ -308,30 +301,24 @@ public final class CoreReachability {
                     .toList(),
                 Optional.of(artifact.entryPoint()),
                 artifact.authoring().annotationReferences().entrySet().stream()
-                    .filter(
-                        entry ->
-                            switch (entry.getKey().owner()) {
-                              case CoreAnnotationReferenceSite.Definition definition ->
-                                  retained.contains(
-                                      definition.occurrence().representative().group());
-                              case CoreAnnotationReferenceSite.Metadata metadata ->
-                                  artifact.metadata().annotations().stream()
-                                      .filter(
-                                          application ->
-                                              application.id().equals(metadata.application()))
-                                      .anyMatch(
-                                          application ->
-                                              retainedTarget(
-                                                      application.target(), artifact, retained)
-                                                  .isPresent());
-                            })
+                    .filter(entry ->
+                        switch (entry.getKey().owner()) {
+                          case CoreAnnotationReferenceSite.Definition definition ->
+                              retained.contains(definition.occurrence().representative().group());
+                          case CoreAnnotationReferenceSite.Metadata metadata ->
+                              artifact.metadata().annotations().stream()
+                                  .filter(application ->
+                                      application.id().equals(metadata.application()))
+                                  .anyMatch(application ->
+                                      retainedTarget(application.target(), artifact, retained)
+                                          .isPresent());
+                        })
                     .collect(
                         java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
             new CoreMetadata(
                 artifact.metadata().annotations().stream()
-                    .filter(
-                        annotation ->
-                            retainedTarget(annotation.target(), artifact, retained).isPresent())
+                    .filter(annotation ->
+                        retainedTarget(annotation.target(), artifact, retained).isPresent())
                     .toList())),
         causes);
   }
@@ -341,10 +328,9 @@ public final class CoreReachability {
     return switch (target) {
       case CoreAnnotationTarget.Package targetPackage ->
           artifact.namespace().bindings().stream()
-              .filter(
-                  binding ->
-                      binding.packageName().equals(targetPackage.packageName())
-                          && retained.contains(binding.definition().group()))
+              .filter(binding ->
+                  binding.packageName().equals(targetPackage.packageName())
+                      && retained.contains(binding.definition().group()))
               .map(binding -> binding.definition().group())
               .findFirst();
       case CoreAnnotationTarget.Definition definition ->

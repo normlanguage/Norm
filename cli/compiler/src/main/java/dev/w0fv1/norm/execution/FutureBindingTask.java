@@ -88,14 +88,13 @@ public final class FutureBindingTask implements JarBindingTask {
     Objects.requireNonNull(prerequisite, "prerequisite");
     return create(
         (action, rejected) ->
-            prerequisite.whenComplete(
-                (value, failure) -> {
-                  try {
-                    continuationExecutor.execute(action);
-                  } catch (RuntimeException rejection) {
-                    rejected.accept(rejection);
-                  }
-                }),
+            prerequisite.whenComplete((value, failure) -> {
+              try {
+                continuationExecutor.execute(action);
+              } catch (RuntimeException rejection) {
+                rejected.accept(rejection);
+              }
+            }),
         work,
         conversion,
         continuationExecutor);

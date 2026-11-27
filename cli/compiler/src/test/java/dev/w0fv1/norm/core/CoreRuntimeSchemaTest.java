@@ -66,10 +66,8 @@ final class CoreRuntimeSchemaTest {
     try (var compiler = new CompilerSession()) {
       var initial = compile(compiler, source);
       var candidate = compile(compiler, source.replace("value + 1", "value + 2"));
-      assertDoesNotThrow(
-          () ->
-              CoreRuntimeSchema.create(initial)
-                  .requireCompatible(CoreRuntimeSchema.create(candidate)));
+      assertDoesNotThrow(() ->
+          CoreRuntimeSchema.create(initial).requireCompatible(CoreRuntimeSchema.create(candidate)));
     }
   }
 

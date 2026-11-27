@@ -426,12 +426,11 @@ final class AnnotationChecker {
     SymbolId callableId = model.declarationSymbols().get(declaration);
     List<AnnotationApplication> interceptors =
         model.annotationApplications().stream()
-            .filter(
-                application ->
-                    application.target() instanceof AnnotationSite.Symbol site
-                        && site.kind() == callableTarget
-                        && site.symbol().equals(callableId)
-                        && isInterceptor(application, callableTarget))
+            .filter(application ->
+                application.target() instanceof AnnotationSite.Symbol site
+                    && site.kind() == callableTarget
+                    && site.symbol().equals(callableId)
+                    && isInterceptor(application, callableTarget))
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
@@ -439,27 +438,24 @@ final class AnnotationChecker {
             .collect(java.util.stream.Collectors.toSet());
     List<AnnotationApplication> parameterInterceptors =
         model.annotationApplications().stream()
-            .filter(
-                application ->
-                    application.target() instanceof AnnotationSite.Symbol site
-                        && site.kind() == AnnotationTarget.PARAMETER
-                        && parameterSymbols.contains(site.symbol())
-                        && isInterceptor(application, AnnotationTarget.PARAMETER))
+            .filter(application ->
+                application.target() instanceof AnnotationSite.Symbol site
+                    && site.kind() == AnnotationTarget.PARAMETER
+                    && parameterSymbols.contains(site.symbol())
+                    && isInterceptor(application, AnnotationTarget.PARAMETER))
             .toList();
     if (interceptors.isEmpty() && parameterInterceptors.isEmpty()) return;
     if (declaration instanceof Syntax.InterfaceMethodDecl) {
-      interceptors.forEach(
-          application ->
-              diagnostics.error(
-                  TYPE_MISMATCH,
-                  "FunctionInterceptor annotation requires a concrete function or method",
-                  application.span()));
-      parameterInterceptors.forEach(
-          application ->
-              diagnostics.error(
-                  TYPE_MISMATCH,
-                  "ParameterInterceptor annotation requires a concrete callable parameter",
-                  application.span()));
+      interceptors.forEach(application ->
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "FunctionInterceptor annotation requires a concrete function or method",
+              application.span()));
+      parameterInterceptors.forEach(application ->
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "ParameterInterceptor annotation requires a concrete callable parameter",
+              application.span()));
     }
     Symbol callable = model.symbols().get(callableId);
     boolean containsReference =
@@ -467,23 +463,21 @@ final class AnnotationChecker {
             || callable.parameters().stream()
                 .anyMatch(parameter -> parameter.type().containsReference());
     if (containsReference) {
-      interceptors.forEach(
-          application ->
-              diagnostics.error(
-                  TYPE_MISMATCH,
-                  "FunctionInterceptor annotation cannot intercept a ref signature",
-                  application.span()));
+      interceptors.forEach(application ->
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "FunctionInterceptor annotation cannot intercept a ref signature",
+              application.span()));
     }
-    parameterInterceptors.forEach(
-        application -> {
-          AnnotationSite.Symbol site = (AnnotationSite.Symbol) application.target();
-          if (model.symbols().get(site.symbol()).type().isReference()) {
-            diagnostics.error(
-                TYPE_MISMATCH,
-                "ParameterInterceptor annotation cannot intercept a ref parameter",
-                application.span());
-          }
-        });
+    parameterInterceptors.forEach(application -> {
+      AnnotationSite.Symbol site = (AnnotationSite.Symbol) application.target();
+      if (model.symbols().get(site.symbol()).type().isReference()) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "ParameterInterceptor annotation cannot intercept a ref parameter",
+            application.span());
+      }
+    });
   }
 
   private Optional<AnnotationSite> annotationSite(AnnotationTarget target, Object declaration) {

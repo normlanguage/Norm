@@ -67,28 +67,24 @@ final class CompletionEngine {
     model.importableSymbols(document.source().id()).stream()
         .filter(candidate -> isCandidateForContext(model, context, candidate.symbol()))
         .filter(candidate -> !visibleNames.contains(candidate.symbol().name()))
-        .filter(
-            candidate ->
-                candidate.symbol().declaration().isPresent()
-                    && !candidate
-                        .symbol()
-                        .declaration()
-                        .orElseThrow()
-                        .document()
-                        .equals(document.source().id()))
-        .filter(
-            candidate ->
-                document.syntax().imports().stream()
-                    .noneMatch(
-                        imported -> imported.qualifiedName().equals(candidate.qualifiedName())))
-        .map(
-            candidate ->
-                rankedImport(
-                    candidate.symbol(),
-                    expectedType,
-                    List.of(imports.create(document, candidate.qualifiedName())),
-                    constructors,
-                    candidate.qualifiedName()))
+        .filter(candidate ->
+            candidate.symbol().declaration().isPresent()
+                && !candidate
+                    .symbol()
+                    .declaration()
+                    .orElseThrow()
+                    .document()
+                    .equals(document.source().id()))
+        .filter(candidate ->
+            document.syntax().imports().stream()
+                .noneMatch(imported -> imported.qualifiedName().equals(candidate.qualifiedName())))
+        .map(candidate ->
+            rankedImport(
+                candidate.symbol(),
+                expectedType,
+                List.of(imports.create(document, candidate.qualifiedName())),
+                constructors,
+                candidate.qualifiedName()))
         .forEach(result::add);
     if (context instanceof CompletionContext.TopLevel && !visibleNames.contains("main")) {
       result.add(
@@ -112,15 +108,14 @@ final class CompletionEngine {
                     .thenComparingInt(RankedCompletion::arity))
             .toList();
     Map<String, Completion> unique = new LinkedHashMap<>();
-    ranked.forEach(
-        candidate ->
-            unique.putIfAbsent(
-                candidate.completion().kind()
-                    + "\u0000"
-                    + candidate.completion().label()
-                    + "\u0000"
-                    + candidate.completion().additionalTextEdits(),
-                candidate.completion()));
+    ranked.forEach(candidate ->
+        unique.putIfAbsent(
+            candidate.completion().kind()
+                + "\u0000"
+                + candidate.completion().label()
+                + "\u0000"
+                + candidate.completion().additionalTextEdits(),
+            candidate.completion()));
     return withTextEdits(
         List.copyOf(unique.values()),
         document,
@@ -131,17 +126,16 @@ final class CompletionEngine {
   private static List<Completion> importCompletions(
       SemanticModel model, DocumentSemanticModel document) {
     return model.importableSymbols(document.source().id()).stream()
-        .map(
-            candidate -> {
-              Completion symbol = completion(candidate.symbol());
-              return new Completion(
-                  candidate.qualifiedName(),
-                  symbol.kind(),
-                  symbol.detail(),
-                  symbol.documentation(),
-                  candidate.qualifiedName(),
-                  false);
-            })
+        .map(candidate -> {
+          Completion symbol = completion(candidate.symbol());
+          return new Completion(
+              candidate.qualifiedName(),
+              symbol.kind(),
+              symbol.detail(),
+              symbol.documentation(),
+              candidate.qualifiedName(),
+              false);
+        })
         .sorted(Comparator.comparing(Completion::label))
         .toList();
   }
@@ -150,9 +144,8 @@ final class CompletionEngine {
       List<Completion> completions, DocumentSemanticModel document, int start, int end) {
     var location = new SourceLocation(document.source().id(), start, end);
     return completions.stream()
-        .map(
-            completion ->
-                completion.withTextEdit(new CompletionTextEdit(location, completion.insertText())))
+        .map(completion ->
+            completion.withTextEdit(new CompletionTextEdit(location, completion.insertText())))
         .toList();
   }
 
@@ -253,11 +246,10 @@ final class CompletionEngine {
         LanguageSyntax.isIdentifier(receiverName)
             ? model
                 .symbolOf(site.receiver())
-                .or(
-                    () ->
-                        model.visibleSymbols(scopeOffset).stream()
-                            .filter(symbol -> symbol.name().equals(receiverName))
-                            .findFirst())
+                .or(() ->
+                    model.visibleSymbols(scopeOffset).stream()
+                        .filter(symbol -> symbol.name().equals(receiverName))
+                        .findFirst())
             : Optional.empty();
     boolean typeReceiver =
         receiverSymbol.map(symbol -> symbol.kind() == SymbolKind.TYPE).orElse(false);
@@ -363,9 +355,8 @@ final class CompletionEngine {
         .sorted(
             Comparator.comparing(Symbol::name)
                 .thenComparingInt(symbol -> symbol.parameters().size()))
-        .forEach(
-            symbol ->
-                unique.putIfAbsent(symbol.kind() + "\u0000" + symbol.name(), render.apply(symbol)));
+        .forEach(symbol ->
+            unique.putIfAbsent(symbol.kind() + "\u0000" + symbol.name(), render.apply(symbol)));
     return List.copyOf(unique.values());
   }
 
@@ -424,11 +415,10 @@ final class CompletionEngine {
     if (symbol.kind() == SymbolKind.ENUM_VARIANT && !symbol.parameters().isEmpty()) {
       String arguments =
           java.util.stream.IntStream.range(0, symbol.parameters().size())
-              .mapToObj(
-                  index -> {
-                    String name = symbol.parameters().get(index).name();
-                    return name + ": ${" + (index + 1) + ":" + name + "}";
-                  })
+              .mapToObj(index -> {
+                String name = symbol.parameters().get(index).name();
+                return name + ": ${" + (index + 1) + ":" + name + "}";
+              })
               .collect(java.util.stream.Collectors.joining(", "));
       insertText += "(" + arguments + ")";
       snippet = true;
@@ -439,12 +429,11 @@ final class CompletionEngine {
         || symbol.kind() == SymbolKind.EXTENSION) {
       String arguments =
           java.util.stream.IntStream.range(0, symbol.parameters().size())
-              .mapToObj(
-                  index -> {
-                    String name = symbol.parameters().get(index).name();
-                    String placeholder = "${" + (index + 1) + ":" + name + "}";
-                    return symbol.parameters().size() > 1 ? name + ": " + placeholder : placeholder;
-                  })
+              .mapToObj(index -> {
+                String name = symbol.parameters().get(index).name();
+                String placeholder = "${" + (index + 1) + ":" + name + "}";
+                return symbol.parameters().size() > 1 ? name + ": " + placeholder : placeholder;
+              })
               .collect(java.util.stream.Collectors.joining(", "));
       insertText += "(" + arguments + ")";
       snippet = true;
@@ -465,13 +454,12 @@ final class CompletionEngine {
           typeArguments =
               "<"
                   + java.util.stream.IntStream.range(0, symbol.typeParameters().size())
-                      .mapToObj(
-                          index ->
-                              "${"
-                                  + (index + 1)
-                                  + ":"
-                                  + symbol.typeParameters().get(index).name()
-                                  + "}")
+                      .mapToObj(index ->
+                          "${"
+                              + (index + 1)
+                              + ":"
+                              + symbol.typeParameters().get(index).name()
+                              + "}")
                       .collect(java.util.stream.Collectors.joining(", "))
                   + ">";
           firstParameter += symbol.typeParameters().size();
@@ -480,11 +468,10 @@ final class CompletionEngine {
       int parameterStart = firstParameter;
       String arguments =
           java.util.stream.IntStream.range(0, symbol.parameters().size())
-              .mapToObj(
-                  index -> {
-                    String name = symbol.parameters().get(index).name();
-                    return name + ": ${" + (parameterStart + index) + ":" + name + "}";
-                  })
+              .mapToObj(index -> {
+                String name = symbol.parameters().get(index).name();
+                return name + ": ${" + (parameterStart + index) + ":" + name + "}";
+              })
               .collect(java.util.stream.Collectors.joining(", "));
       insertText += typeArguments + "(" + arguments + ")";
       snippet = true;

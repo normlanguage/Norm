@@ -27,18 +27,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 final class AnnotationReferenceLinkageExecutionTest {
   private static final String SOURCE =
       """
-        import std.annotation.FunctionInterceptor
-        import std.annotation.RuntimeRetention
-        annotation Execute implements FunctionInterceptor, RuntimeRetention {
-          Function<String()> action
-          Void before(FunctionContext context) { printLine(action.name()); printLine(action()) }
-        }
-        String first() { "same" }
-        String second() { "same" }
-        @Execute(action: first.function) Void one() {}
-        @Execute(action: second.function) Void two() {}
-        Void main() { one(); two() }
-        """;
+      import std.annotation.FunctionInterceptor
+      import std.annotation.RuntimeRetention
+      annotation Execute implements FunctionInterceptor, RuntimeRetention {
+        Function<String()> action
+        Void before(FunctionContext context) { printLine(action.name()); printLine(action()) }
+      }
+      String first() { "same" }
+      String second() { "same" }
+      @Execute(action: first.function) Void one() {}
+      @Execute(action: second.function) Void two() {}
+      Void main() { one(); two() }
+      """;
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
@@ -49,16 +49,14 @@ final class AnnotationReferenceLinkageExecutionTest {
     var artifact = result.output().orElseThrow().artifact();
     var first =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("first"))
+            .filter(binding ->
+                binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("first"))
             .findFirst()
             .orElseThrow();
     var second =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("second"))
+            .filter(binding ->
+                binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("second"))
             .findFirst()
             .orElseThrow();
     assertEquals(first.definition(), second.definition());
@@ -107,19 +105,19 @@ final class AnnotationReferenceLinkageExecutionTest {
     var result =
         NormTestKit.compile(
             """
-        import std.annotation.FunctionInterceptor
-        import std.annotation.%s
-        annotation Execute implements FunctionInterceptor, %s {
-          List<List<Function<String()>>> actions = [[first.function, second.function]]
-          Void before(FunctionContext context) {
-            for row : actions { for action : row { printLine(action.name()); printLine(action()) } }
-          }
-        }
-        String first() { "same" }
-        String second() { "same" }
-        @Execute() Void run() {}
-        Void main() { run() }
-        """
+            import std.annotation.FunctionInterceptor
+            import std.annotation.%s
+            annotation Execute implements FunctionInterceptor, %s {
+              List<List<Function<String()>>> actions = [[first.function, second.function]]
+              Void before(FunctionContext context) {
+                for row : actions { for action : row { printLine(action.name()); printLine(action()) } }
+              }
+            }
+            String first() { "same" }
+            String second() { "same" }
+            @Execute() Void run() {}
+            Void main() { run() }
+            """
                 .formatted(retention, retention));
     assertTrue(result.isSuccess(), result.diagnostics().toString());
     var output = new StringWriter();
@@ -155,26 +153,23 @@ final class AnnotationReferenceLinkageExecutionTest {
     var artifact = result.output().orElseThrow().artifact();
     var first =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("first"))
+            .filter(binding ->
+                binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("first"))
             .findFirst()
             .orElseThrow();
     var second =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("second"))
+            .filter(binding ->
+                binding.kind() == CoreBindingKind.FUNCTION && binding.name().equals("second"))
             .findFirst()
             .orElseThrow();
     assertEquals(first.definition(), second.definition());
     var references = new java.util.HashMap<>(artifact.authoring().annotationReferences());
     var site =
         references.entrySet().stream()
-            .filter(
-                entry ->
-                    entry.getKey().owner() instanceof CoreAnnotationReferenceSite.Metadata
-                        && entry.getValue().equals(first.occurrence()))
+            .filter(entry ->
+                entry.getKey().owner() instanceof CoreAnnotationReferenceSite.Metadata
+                    && entry.getValue().equals(first.occurrence()))
             .findFirst()
             .orElseThrow()
             .getKey();
@@ -194,20 +189,20 @@ final class AnnotationReferenceLinkageExecutionTest {
     var result =
         NormTestKit.compile(
             """
-        import std.annotation.FieldInterceptor
-        import std.annotation.SourceRetention
-        annotation Observe implements FieldInterceptor<Integer>, SourceRetention {
-          Function<String()> action
-          Integer before(FieldContext context, Integer value) { printLine(action.name()); value }
-        }
-        String first() { "same" }
-        String second() { "same" }
-        class Box {
-          @Observe(action: first.function) Integer one
-          @Observe(action: second.function) Integer two
-        }
-        Void main() { var box = Box(one: 1, two: 2) box.one = 3 box.two = 4 }
-        """);
+            import std.annotation.FieldInterceptor
+            import std.annotation.SourceRetention
+            annotation Observe implements FieldInterceptor<Integer>, SourceRetention {
+              Function<String()> action
+              Integer before(FieldContext context, Integer value) { printLine(action.name()); value }
+            }
+            String first() { "same" }
+            String second() { "same" }
+            class Box {
+              @Observe(action: first.function) Integer one
+              @Observe(action: second.function) Integer two
+            }
+            Void main() { var box = Box(one: 1, two: 2) box.one = 3 box.two = 4 }
+            """);
     assertTrue(result.isSuccess(), result.diagnostics().toString());
     var output = new StringWriter();
     new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));
@@ -221,27 +216,27 @@ final class AnnotationReferenceLinkageExecutionTest {
     var result =
         NormTestKit.compile(
             """
-        import std.annotation.TypeTarget
-        import std.annotation.RuntimeRetention
-        annotation Link implements TypeTarget, RuntimeRetention {
-          Function<String()> action = first.function
-          Class<?> model = Model.class
-          Field<Model, Integer> property = Model.value.field
-        }
-        String first() { "same" }
-        String second() { "same" }
-        class Model { Integer value = 19 }
-        @Link() class Original {}
-        @Link(action: second.function) class Other {}
-        Void main() {
-          var original = Original.class.annotation<Link>()!!
-          var other = Other.class.annotation<Link>()!!
-          printLine(original.action.name())
-          printLine(other.action.name())
-          printLine(original.model.name())
-          printLine(original.property.name())
-        }
-        """);
+            import std.annotation.TypeTarget
+            import std.annotation.RuntimeRetention
+            annotation Link implements TypeTarget, RuntimeRetention {
+              Function<String()> action = first.function
+              Class<?> model = Model.class
+              Field<Model, Integer> property = Model.value.field
+            }
+            String first() { "same" }
+            String second() { "same" }
+            class Model { Integer value = 19 }
+            @Link() class Original {}
+            @Link(action: second.function) class Other {}
+            Void main() {
+              var original = Original.class.annotation<Link>()!!
+              var other = Other.class.annotation<Link>()!!
+              printLine(original.action.name())
+              printLine(other.action.name())
+              printLine(original.model.name())
+              printLine(original.property.name())
+            }
+            """);
     assertTrue(result.isSuccess(), result.diagnostics().toString());
     var output = new StringWriter();
     new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));

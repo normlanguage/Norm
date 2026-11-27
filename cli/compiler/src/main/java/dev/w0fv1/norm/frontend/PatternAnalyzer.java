@@ -171,12 +171,11 @@ final class PatternAnalyzer implements PatternCoverage.Domain<SemanticType> {
     Map<String, SemanticType> substitutions = typeResolver.enumSubstitutions(enumDecl, expected);
     List<SemanticType> payloadTypes =
         variant.parameters().stream()
-            .map(
-                parameter ->
-                    typeResolver
-                        .resolveDeclarationType(
-                            parameter.type(), parameter, typeResolver.enumTypeParameters(enumDecl))
-                        .substitute(substitutions))
+            .map(parameter ->
+                typeResolver
+                    .resolveDeclarationType(
+                        parameter.type(), parameter, typeResolver.enumTypeParameters(enumDecl))
+                    .substitute(substitutions))
             .toList();
     int requiredPayloads = 0;
     for (int index = 0; index < variant.parameters().size(); index++) {
@@ -225,17 +224,15 @@ final class PatternAnalyzer implements PatternCoverage.Domain<SemanticType> {
     Map<String, SemanticType> substitutions = typeResolver.enumSubstitutions(declaration, type);
     Map<String, SemanticType> parameters = typeResolver.enumTypeParameters(declaration);
     return declaration.variants().stream()
-        .map(
-            variant ->
-                new PatternCoverage.Constructor<>(
-                    "variant:" + variant.name(),
-                    variant.parameters().stream()
-                        .map(
-                            field ->
-                                typeResolver
-                                    .resolveDeclarationType(field.type(), field, parameters)
-                                    .substitute(substitutions))
-                        .toList()))
+        .map(variant ->
+            new PatternCoverage.Constructor<>(
+                "variant:" + variant.name(),
+                variant.parameters().stream()
+                    .map(field ->
+                        typeResolver
+                            .resolveDeclarationType(field.type(), field, parameters)
+                            .substitute(substitutions))
+                    .toList()))
         .toList();
   }
 

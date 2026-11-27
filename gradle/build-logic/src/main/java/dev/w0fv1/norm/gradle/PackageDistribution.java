@@ -57,26 +57,25 @@ public abstract class PackageDistribution extends DefaultTask {
     Path published = work.resolve("publish");
     Path artifacts = getDotnetArtifactsDirectory().get().getAsFile().toPath();
     getExecOperations()
-        .exec(
-            spec -> {
-              spec.executable("dotnet");
-              spec.args(
-                  "publish",
-                  getLauncherProject().get().getAsFile().getAbsolutePath(),
-                  "--configuration",
-                  "Release",
-                  "--runtime",
-                  "win-x64",
-                  "--self-contained",
-                  "true",
-                  "--artifacts-path",
-                  artifacts.toAbsolutePath().toString(),
-                  "--output",
-                  published.toAbsolutePath().toString(),
-                  "-p:NormVersion=" + getNormVersion().get(),
-                  "-p:NormPayloadPath=" + payload.toAbsolutePath(),
-                  "-p:NormPayloadDigestPath=" + digest.toAbsolutePath());
-            })
+        .exec(spec -> {
+          spec.executable("dotnet");
+          spec.args(
+              "publish",
+              getLauncherProject().get().getAsFile().getAbsolutePath(),
+              "--configuration",
+              "Release",
+              "--runtime",
+              "win-x64",
+              "--self-contained",
+              "true",
+              "--artifacts-path",
+              artifacts.toAbsolutePath().toString(),
+              "--output",
+              published.toAbsolutePath().toString(),
+              "-p:NormVersion=" + getNormVersion().get(),
+              "-p:NormPayloadPath=" + payload.toAbsolutePath(),
+              "-p:NormPayloadDigestPath=" + digest.toAbsolutePath());
+        })
         .assertNormalExitValue();
 
     Path executable = published.resolve("norm.exe");

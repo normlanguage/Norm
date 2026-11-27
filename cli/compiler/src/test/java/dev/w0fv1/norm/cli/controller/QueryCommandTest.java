@@ -154,10 +154,9 @@ final class QueryCommandTest {
                 item -> item.getAsJsonObject().get("name").getAsString().equals("java.base")));
     assertTrue(
         data.getAsJsonArray("documents").asList().stream()
-            .anyMatch(
-                item ->
-                    item.getAsJsonObject().get("testSource").getAsBoolean()
-                        && item.getAsJsonObject().get("module").getAsString().equals("queried")));
+            .anyMatch(item ->
+                item.getAsJsonObject().get("testSource").getAsBoolean()
+                    && item.getAsJsonObject().get("module").getAsString().equals("queried")));
     var context = run("query", module.toString(), "queried.answer", "--tests");
     assertEquals(
         1,

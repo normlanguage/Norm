@@ -87,14 +87,13 @@ final class SystemUpdateHost implements UpdateHost {
     var readFailure = new AtomicReference<IOException>();
     Thread reader =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try (var lines = process.inputReader()) {
-                    for (String line; (line = lines.readLine()) != null; ) output.accept(line);
-                  } catch (IOException exception) {
-                    readFailure.set(exception);
-                  }
-                });
+            .start(() -> {
+              try (var lines = process.inputReader()) {
+                for (String line; (line = lines.readLine()) != null; ) output.accept(line);
+              } catch (IOException exception) {
+                readFailure.set(exception);
+              }
+            });
     try {
       if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS))
         throw new IOException("package manager timed out after " + timeout.toSeconds() + "s");

@@ -158,29 +158,17 @@ final class JavaManagedMethodProjectionTest {
         assertTrue(item.getType() instanceof TypeVariable<?>);
         assertTrue(
             java.util.Arrays.stream(item.getAnnotations())
-                .anyMatch(
-                    value ->
-                        value
-                            .annotationType()
-                            .getName()
-                            .equals("org.jspecify.annotations.Nullable")));
+                .anyMatch(value ->
+                    value.annotationType().getName().equals("org.jspecify.annotations.Nullable")));
         var filtered = repository.getDeclaredMethod("findByCompleted", Boolean.class);
         assertTrue(
             java.util.Arrays.stream(filtered.getAnnotatedParameterTypes()[0].getAnnotations())
-                .anyMatch(
-                    value ->
-                        value
-                            .annotationType()
-                            .getName()
-                            .equals("org.jspecify.annotations.Nullable")));
+                .anyMatch(value ->
+                    value.annotationType().getName().equals("org.jspecify.annotations.Nullable")));
         assertTrue(
             java.util.Arrays.stream(find.getAnnotatedReturnType().getAnnotations())
-                .anyMatch(
-                    value ->
-                        value
-                            .annotationType()
-                            .getName()
-                            .equals("org.jspecify.annotations.Nullable")));
+                .anyMatch(value ->
+                    value.annotationType().getName().equals("org.jspecify.annotations.Nullable")));
         assertTrue(Modifier.isAbstract(filtered.getModifiers()));
         var result = (java.lang.reflect.ParameterizedType) filtered.getGenericReturnType();
         assertEquals(List.class, result.getRawType());
@@ -254,87 +242,82 @@ final class JavaManagedMethodProjectionTest {
             dev.w0fv1.norm.execution.ExecutionContext.of(
                     new java.io.PrintWriter(new java.io.StringWriter()))
                 .withJarBindingRuntime(runtime)
-                .withJavaApplicationEntrypoint(
-                    loader -> {
-                      try {
-                        var serviceType = loader.loadClass("todo.ManagedService");
-                        var service =
-                            loader.loadClass("todo.HostService").getConstructor().newInstance();
-                        var clientType = loader.loadClass("todo.Client");
-                        var client = clientType.getConstructor().newInstance();
-                        var repositoryType = loader.loadClass("todo.StringRepository");
-                        var hostConstructor =
-                            loader.loadClass("todo.HostRepository").getDeclaredConstructor();
-                        hostConstructor.setAccessible(true);
-                        var repository = hostConstructor.newInstance();
-                        assertEquals(
-                            List.of("全部"),
-                            clientType
-                                .getMethod("generic", repositoryType)
-                                .invoke(client, repository));
-                        assertEquals(
-                            List.of("未完成"),
-                            clientType
-                                .getMethod("genericReference", repositoryType)
-                                .invoke(client, repository));
-                        org.junit.jupiter.api.Assertions.assertNull(
-                            clientType
-                                .getMethod("genericNullable", repositoryType)
-                                .invoke(client, repository));
-                        assertEquals(
-                            List.of("全部"),
-                            clientType
-                                .getMethod("inheritedBody", repositoryType)
-                                .invoke(client, repository));
-                        assertEquals(
-                            "任务42",
-                            clientType
-                                .getMethod("keyed", repositoryType)
-                                .invoke(client, repository));
-                        var original = new java.util.ArrayList<>(List.of("original"));
-                        clientType.getMethod("start").invoke(client);
-                        assertEquals(42, clientType.getMethod("result").invoke(client));
-                        assertEquals(
-                            List.of("original", "added"),
-                            clientType.getMethod("append", List.class).invoke(client, original));
-                        assertEquals(List.of("original", "added"), original);
-                        var run = clientType.getMethod("run", serviceType, Boolean.class);
-                        assertEquals(List.of("全部"), run.invoke(client, service, null));
-                        assertEquals(List.of("已完成"), run.invoke(client, service, true));
-                        assertEquals(List.of("未完成"), run.invoke(client, service, false));
-                        org.junit.jupiter.api.Assertions.assertNull(
-                            clientType
-                                .getMethod("optional", serviceType)
-                                .invoke(client, new Object[] {null}));
-                        clientType.getMethod("clear", serviceType).invoke(client, service);
-                        assertEquals(1, service.getClass().getField("clears").get(service));
-                        var nullFailure =
-                            org.junit.jupiter.api.Assertions.assertThrows(
-                                java.lang.reflect.InvocationTargetException.class,
-                                () ->
-                                    clientType
-                                        .getMethod("required", serviceType)
-                                        .invoke(client, service));
-                        assertEquals(
-                            "Java application value is unexpectedly null",
-                            nullFailure.getCause().getMessage());
-                        assertEquals(
-                            List.of("全部"),
-                            clientType
-                                .getMethod("reference", serviceType, Boolean.class)
-                                .invoke(client, service, null));
-                        assertEquals(
-                            List.of("已完成"),
-                            clientType
-                                .getMethod("unbound", serviceType, Boolean.class)
-                                .invoke(client, service, true));
-                        assertEquals(
-                            "查询失败",
-                            clientType.getMethod("failure", serviceType).invoke(client, service));
-                      } catch (ReflectiveOperationException failure) {
-                        throw new AssertionError(failure);
-                      }
-                    });
+                .withJavaApplicationEntrypoint(loader -> {
+                  try {
+                    var serviceType = loader.loadClass("todo.ManagedService");
+                    var service =
+                        loader.loadClass("todo.HostService").getConstructor().newInstance();
+                    var clientType = loader.loadClass("todo.Client");
+                    var client = clientType.getConstructor().newInstance();
+                    var repositoryType = loader.loadClass("todo.StringRepository");
+                    var hostConstructor =
+                        loader.loadClass("todo.HostRepository").getDeclaredConstructor();
+                    hostConstructor.setAccessible(true);
+                    var repository = hostConstructor.newInstance();
+                    assertEquals(
+                        List.of("全部"),
+                        clientType.getMethod("generic", repositoryType).invoke(client, repository));
+                    assertEquals(
+                        List.of("未完成"),
+                        clientType
+                            .getMethod("genericReference", repositoryType)
+                            .invoke(client, repository));
+                    org.junit.jupiter.api.Assertions.assertNull(
+                        clientType
+                            .getMethod("genericNullable", repositoryType)
+                            .invoke(client, repository));
+                    assertEquals(
+                        List.of("全部"),
+                        clientType
+                            .getMethod("inheritedBody", repositoryType)
+                            .invoke(client, repository));
+                    assertEquals(
+                        "任务42",
+                        clientType.getMethod("keyed", repositoryType).invoke(client, repository));
+                    var original = new java.util.ArrayList<>(List.of("original"));
+                    clientType.getMethod("start").invoke(client);
+                    assertEquals(42, clientType.getMethod("result").invoke(client));
+                    assertEquals(
+                        List.of("original", "added"),
+                        clientType.getMethod("append", List.class).invoke(client, original));
+                    assertEquals(List.of("original", "added"), original);
+                    var run = clientType.getMethod("run", serviceType, Boolean.class);
+                    assertEquals(List.of("全部"), run.invoke(client, service, null));
+                    assertEquals(List.of("已完成"), run.invoke(client, service, true));
+                    assertEquals(List.of("未完成"), run.invoke(client, service, false));
+                    org.junit.jupiter.api.Assertions.assertNull(
+                        clientType
+                            .getMethod("optional", serviceType)
+                            .invoke(client, new Object[] {null}));
+                    clientType.getMethod("clear", serviceType).invoke(client, service);
+                    assertEquals(1, service.getClass().getField("clears").get(service));
+                    var nullFailure =
+                        org.junit.jupiter.api.Assertions.assertThrows(
+                            java.lang.reflect.InvocationTargetException.class,
+                            () ->
+                                clientType
+                                    .getMethod("required", serviceType)
+                                    .invoke(client, service));
+                    assertEquals(
+                        "Java application value is unexpectedly null",
+                        nullFailure.getCause().getMessage());
+                    assertEquals(
+                        List.of("全部"),
+                        clientType
+                            .getMethod("reference", serviceType, Boolean.class)
+                            .invoke(client, service, null));
+                    assertEquals(
+                        List.of("已完成"),
+                        clientType
+                            .getMethod("unbound", serviceType, Boolean.class)
+                            .invoke(client, service, true));
+                    assertEquals(
+                        "查询失败",
+                        clientType.getMethod("failure", serviceType).invoke(client, service));
+                  } catch (ReflectiveOperationException failure) {
+                    throw new AssertionError(failure);
+                  }
+                });
         var application =
             new dev.w0fv1.norm.runtime.ApplicationProgramData(
                 artifact,

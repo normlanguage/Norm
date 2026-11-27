@@ -133,21 +133,21 @@ final class PlainObjectJavaBridgeTest {
                 separateSource ? "" : declaration,
                 materialized
                     ? """
-          require(condition: hostName(Panel.class) == "java.lang.Class",
-            message: "explicit Class contract materializes the host type")
-          hostName(HomePage.class)
-          var page = HomePage(features: ["世界", "escaped & text"], nested: [[1, null, 3]])
-          require(condition: hostFeatures(page) == "世界|escaped & text", message: "Java reads typed List fields and invokes List methods")
-          require(condition: hostTone(panel) == "Primary", message: "enum field has a Java enum representation")
-          require(condition: hostMute(panel) == panel && panel.tone == Tone.Muted, message: "enum field roundtrips from Java")
-          require(condition: panel.payload == Payload.Text(text: "preserved"), message: "data enum payload survives Java field roundtrip")
-          panel.payload = Payload.None
-          require(condition: hostEcho(panel) == panel && panel.payload == Payload.None, message: "empty variant of a data enum retains its representation")
-        """
+                      require(condition: hostName(Panel.class) == "java.lang.Class",
+                        message: "explicit Class contract materializes the host type")
+                      hostName(HomePage.class)
+                      var page = HomePage(features: ["世界", "escaped & text"], nested: [[1, null, 3]])
+                      require(condition: hostFeatures(page) == "世界|escaped & text", message: "Java reads typed List fields and invokes List methods")
+                      require(condition: hostTone(panel) == "Primary", message: "enum field has a Java enum representation")
+                      require(condition: hostMute(panel) == panel && panel.tone == Tone.Muted, message: "enum field roundtrips from Java")
+                      require(condition: panel.payload == Payload.Text(text: "preserved"), message: "data enum payload survives Java field roundtrip")
+                      panel.payload = Payload.None
+                      require(condition: hostEcho(panel) == panel && panel.payload == Payload.None, message: "empty variant of a data enum retains its representation")
+                    """
                     : """
-          require(condition: hostName(panel) != "example.Panel",
-            message: "opaque transport unexpectedly generated a host facade")
-        """,
+                      require(condition: hostName(panel) != "example.Panel",
+                        message: "opaque transport unexpectedly generated a host facade")
+                    """,
                 materialized ? "printLine(hostName(panel)!!)" : "printLine(\"opaque\")"));
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
     var output = new StringWriter();

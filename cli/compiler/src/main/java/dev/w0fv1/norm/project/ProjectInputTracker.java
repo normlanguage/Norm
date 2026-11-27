@@ -42,9 +42,8 @@ final class ProjectInputTracker {
   void graph(dev.w0fv1.norm.jvm.ResolvedJarGraph graph) {
     graph
         .artifacts()
-        .forEach(
-            artifact ->
-                files.put(artifact.file(), new FileSnapshot(artifact.file(), artifact.content())));
+        .forEach(artifact ->
+            files.put(artifact.file(), new FileSnapshot(artifact.file(), artifact.content())));
   }
 
   ProjectInputSnapshot snapshot() {

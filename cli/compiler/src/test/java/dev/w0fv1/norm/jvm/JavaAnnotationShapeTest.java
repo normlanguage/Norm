@@ -19,26 +19,26 @@ final class JavaAnnotationShapeTest {
         SourceFile.of(
             Path.of("annotation-elements.norm"),
             """
-        package annotation.elements
-        import std.annotation.TypeTarget
-        import std.annotation.RuntimeRetention
-        annotation Stateful implements TypeTarget, RuntimeRetention {
-          private Integer calls
-          Stateful() { calls = 0 }
-        }
-        annotation Renamed implements TypeTarget, RuntimeRetention {
-          Integer value
-          Renamed(Integer input) { value = input }
-        }
-        annotation JavaVisible implements TypeTarget, RuntimeRetention {
-          String text
-        }
-        @Stateful()
-        @Renamed(input: 42)
-        @JavaVisible(text: "visible")
-        class Example {}
-        Void main() {}
-        """);
+            package annotation.elements
+            import std.annotation.TypeTarget
+            import std.annotation.RuntimeRetention
+            annotation Stateful implements TypeTarget, RuntimeRetention {
+              private Integer calls
+              Stateful() { calls = 0 }
+            }
+            annotation Renamed implements TypeTarget, RuntimeRetention {
+              Integer value
+              Renamed(Integer input) { value = input }
+            }
+            annotation JavaVisible implements TypeTarget, RuntimeRetention {
+              String text
+            }
+            @Stateful()
+            @Renamed(input: 42)
+            @JavaVisible(text: "visible")
+            class Example {}
+            Void main() {}
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(source);

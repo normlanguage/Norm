@@ -26,15 +26,14 @@ final class CoreRewriter {
               callable.captureTypes().stream().map(type -> resolve(type, resolver)).toList(),
               callable.captureLocals(),
               callable.parameters().stream()
-                  .map(
-                      parameter ->
-                          new CoreCallableParameter(
-                              parameter.name(),
-                              resolve(parameter.type(), resolver),
-                              parameter.localIndex(),
-                              parameter.interceptors().stream()
-                                  .map(interceptor -> resolve(interceptor, resolver))
-                                  .toList()))
+                  .map(parameter ->
+                      new CoreCallableParameter(
+                          parameter.name(),
+                          resolve(parameter.type(), resolver),
+                          parameter.localIndex(),
+                          parameter.interceptors().stream()
+                              .map(interceptor -> resolve(interceptor, resolver))
+                              .toList()))
                   .toList(),
               callable.reifiedTypeLocals(),
               callable.interceptors().stream()
@@ -42,10 +41,8 @@ final class CoreRewriter {
                   .toList(),
               resolve(callable.returnType(), resolver),
               callable.locals().stream()
-                  .map(
-                      local ->
-                          new CoreLocal(
-                              local.index(), resolve(local.type(), resolver), local.kind()))
+                  .map(local ->
+                      new CoreLocal(local.index(), resolve(local.type(), resolver), local.kind()))
                   .toList(),
               resolve(callable.body(), resolver));
       case CoreDefinition.Aggregate aggregateDefinition ->
@@ -57,31 +54,28 @@ final class CoreRewriter {
               aggregateDefinition.parentType().map(type -> resolve(type, resolver)),
               aggregateDefinition.fieldCount(),
               aggregateDefinition.fields().stream()
-                  .map(
-                      field ->
-                          new CoreField(
-                              field.visibility(),
-                              field.name(),
-                              field.ordinal(),
-                              resolve(field.type(), resolver),
-                              field.interceptors().stream()
-                                  .map(interceptor -> resolve(interceptor, resolver))
-                                  .toList(),
-                              field
-                                  .initializer()
-                                  .map(
-                                      initializer ->
-                                          new CoreFieldInitializer(
-                                              initializer.nodeIndex(),
-                                              resolve(initializer.target(), resolver)))))
+                  .map(field ->
+                      new CoreField(
+                          field.visibility(),
+                          field.name(),
+                          field.ordinal(),
+                          resolve(field.type(), resolver),
+                          field.interceptors().stream()
+                              .map(interceptor -> resolve(interceptor, resolver))
+                              .toList(),
+                          field
+                              .initializer()
+                              .map(initializer ->
+                                  new CoreFieldInitializer(
+                                      initializer.nodeIndex(),
+                                      resolve(initializer.target(), resolver)))))
                   .toList(),
               aggregateDefinition.dispatch().stream()
-                  .map(
-                      dispatch ->
-                          new CoreMethodDispatch(
-                              resolve(dispatch.slot(), resolver),
-                              resolve(dispatch.target(), resolver),
-                              resolve(dispatch.receiverType(), resolver)))
+                  .map(dispatch ->
+                      new CoreMethodDispatch(
+                          resolve(dispatch.slot(), resolver),
+                          resolve(dispatch.target(), resolver),
+                          resolve(dispatch.receiverType(), resolver)))
                   .toList(),
               aggregateDefinition.constructors().stream()
                   .map(constructor -> resolve(constructor, resolver))
@@ -94,32 +88,26 @@ final class CoreRewriter {
               enumDefinition.nominalType(),
               resolveTypeParameters(enumDefinition.typeParameters(), resolver),
               enumDefinition.variants().stream()
-                  .map(
-                      variant ->
-                          new CoreEnumVariant(
-                              variant.key(),
-                              variant.fields().stream()
-                                  .map(
-                                      field ->
-                                          new CoreField(
-                                              field.visibility(),
-                                              field.name(),
-                                              field.ordinal(),
-                                              resolve(field.type(), resolver),
-                                              field.interceptors().stream()
-                                                  .map(
-                                                      interceptor -> resolve(interceptor, resolver))
-                                                  .toList(),
-                                              field
-                                                  .initializer()
-                                                  .map(
-                                                      initializer ->
-                                                          new CoreFieldInitializer(
-                                                              initializer.nodeIndex(),
-                                                              resolve(
-                                                                  initializer.target(),
-                                                                  resolver)))))
-                                  .toList()))
+                  .map(variant ->
+                      new CoreEnumVariant(
+                          variant.key(),
+                          variant.fields().stream()
+                              .map(field ->
+                                  new CoreField(
+                                      field.visibility(),
+                                      field.name(),
+                                      field.ordinal(),
+                                      resolve(field.type(), resolver),
+                                      field.interceptors().stream()
+                                          .map(interceptor -> resolve(interceptor, resolver))
+                                          .toList(),
+                                      field
+                                          .initializer()
+                                          .map(initializer ->
+                                              new CoreFieldInitializer(
+                                                  initializer.nodeIndex(),
+                                                  resolve(initializer.target(), resolver)))))
+                              .toList()))
                   .toList());
       case CoreDefinition.Interface declaration ->
           new CoreDefinition.Interface(
@@ -140,16 +128,15 @@ final class CoreRewriter {
               resolve(conformance.concreteBuiltinType(), resolver),
               resolve(conformance.interfaceType(), resolver),
               conformance.witnesses().stream()
-                  .map(
-                      witness ->
-                          new CoreWitness(
-                              resolve(witness.requirement(), resolver),
-                              switch (witness.implementation()) {
-                                case CoreWitnessTarget.Callable callable ->
-                                    new CoreWitnessTarget.Callable(
-                                        resolve(callable.definition(), resolver));
-                                case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
-                              }))
+                  .map(witness ->
+                      new CoreWitness(
+                          resolve(witness.requirement(), resolver),
+                          switch (witness.implementation()) {
+                            case CoreWitnessTarget.Callable callable ->
+                                new CoreWitnessTarget.Callable(
+                                    resolve(callable.definition(), resolver));
+                            case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
+                          }))
                   .toList());
     };
   }
@@ -265,12 +252,11 @@ final class CoreRewriter {
               tried.nodeIndex(),
               resolve(tried.body(), resolver),
               tried.catches().stream()
-                  .map(
-                      clause ->
-                          new CoreCatchClause(
-                              resolve(clause.type(), resolver),
-                              clause.localIndex(),
-                              resolve(clause.body(), resolver)))
+                  .map(clause ->
+                      new CoreCatchClause(
+                          resolve(clause.type(), resolver),
+                          clause.localIndex(),
+                          resolve(clause.body(), resolver)))
                   .toList(),
               tried.finallyBlock().map(block -> resolve(block, resolver)));
       case CoreStatement.ThrowStatement thrown ->
@@ -359,11 +345,10 @@ final class CoreRewriter {
               switched.nodeIndex(),
               resolve(switched.value(), resolver),
               switched.cases().stream()
-                  .map(
-                      switchCase ->
-                          new CoreSwitchCase(
-                              resolve(switchCase.pattern(), resolver),
-                              resolve(switchCase.body(), resolver)))
+                  .map(switchCase ->
+                      new CoreSwitchCase(
+                          resolve(switchCase.pattern(), resolver),
+                          resolve(switchCase.body(), resolver)))
                   .toList(),
               resolve(switched.type(), resolver));
       case CoreExpression.Index index ->
@@ -496,9 +481,8 @@ final class CoreRewriter {
       List<CoreArgument> arguments,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> resolver) {
     return arguments.stream()
-        .map(
-            argument ->
-                new CoreArgument(resolve(argument.value(), resolver), argument.parameterIndex()))
+        .map(argument ->
+            new CoreArgument(resolve(argument.value(), resolver), argument.parameterIndex()))
         .toList();
   }
 
@@ -520,16 +504,14 @@ final class CoreRewriter {
     return new CoreConformance(
         resolve(conformance.interfaceType(), resolver),
         conformance.witnesses().stream()
-            .map(
-                witness ->
-                    new CoreWitness(
-                        resolve(witness.requirement(), resolver),
-                        switch (witness.implementation()) {
-                          case CoreWitnessTarget.Callable callable ->
-                              new CoreWitnessTarget.Callable(
-                                  resolve(callable.definition(), resolver));
-                          case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
-                        }))
+            .map(witness ->
+                new CoreWitness(
+                    resolve(witness.requirement(), resolver),
+                    switch (witness.implementation()) {
+                      case CoreWitnessTarget.Callable callable ->
+                          new CoreWitnessTarget.Callable(resolve(callable.definition(), resolver));
+                      case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
+                    }))
             .toList());
   }
 
@@ -537,12 +519,11 @@ final class CoreRewriter {
       List<CoreTypeParameter> parameters,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> resolver) {
     return parameters.stream()
-        .map(
-            parameter ->
-                new CoreTypeParameter(
-                    parameter.index(),
-                    parameter.upperBound().map(type -> resolve(type, resolver)),
-                    parameter.defaultType().map(type -> resolve(type, resolver))))
+        .map(parameter ->
+            new CoreTypeParameter(
+                parameter.index(),
+                parameter.upperBound().map(type -> resolve(type, resolver)),
+                parameter.defaultType().map(type -> resolve(type, resolver))))
         .toList();
   }
 

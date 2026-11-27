@@ -91,77 +91,73 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private Object dispatch(java.util.function.Supplier<Object> operation) {
     return execution
         .callbacks()
-        .invoke(
-            () -> {
-              var thread = Thread.currentThread();
-              var previousLoader = thread.getContextClassLoader();
-              thread.setContextClassLoader(applicationLoader);
-              try (var valueScope = RuntimeValueExecution.enter(execution)) {
-                if (owner == null) return operation.get();
-                dev.w0fv1.norm.execution.ExecutionRevision retained;
-                synchronized (execution.liveBindings()) {
-                  var revision = owner.revision();
-                  retained = revision == null ? null : revision.retain();
-                }
-                try (retained;
-                    var scope = execution.liveBindings().pin(owner)) {
-                  return operation.get();
-                }
-              } finally {
-                thread.setContextClassLoader(previousLoader);
-              }
-            });
+        .invoke(() -> {
+          var thread = Thread.currentThread();
+          var previousLoader = thread.getContextClassLoader();
+          thread.setContextClassLoader(applicationLoader);
+          try (var valueScope = RuntimeValueExecution.enter(execution)) {
+            if (owner == null) return operation.get();
+            dev.w0fv1.norm.execution.ExecutionRevision retained;
+            synchronized (execution.liveBindings()) {
+              var revision = owner.revision();
+              retained = revision == null ? null : revision.retain();
+            }
+            try (retained;
+                var scope = execution.liveBindings().pin(owner)) {
+              return operation.get();
+            }
+          } finally {
+            thread.setContextClassLoader(previousLoader);
+          }
+        });
   }
 
   @Override
   public void allocate(String definition, Object receiver) {
-    dispatch(
-        () -> {
-          DefinitionId id = DefinitionId.parse(definition);
-          CoreDefinition declaration = program.structure(id).orElseThrow();
-          if (!(declaration instanceof CoreDefinition.Aggregate aggregate)) {
-            throw new IllegalArgumentException("Java application allocation is not an aggregate");
-          }
-          CoreType owner =
-              new CoreType.Declared(
-                  new CoreTypeConstructor.User(new DefinitionReference.External(id)),
-                  List.of(),
-                  aggregate.valueCategory(),
-                  CoreNullability.NON_NULL);
-          RuntimeValues.ObjectValue guest = values.allocate(program.type(owner));
-          attach(receiver, guest);
-          return null;
-        });
+    dispatch(() -> {
+      DefinitionId id = DefinitionId.parse(definition);
+      CoreDefinition declaration = program.structure(id).orElseThrow();
+      if (!(declaration instanceof CoreDefinition.Aggregate aggregate)) {
+        throw new IllegalArgumentException("Java application allocation is not an aggregate");
+      }
+      CoreType owner =
+          new CoreType.Declared(
+              new CoreTypeConstructor.User(new DefinitionReference.External(id)),
+              List.of(),
+              aggregate.valueCategory(),
+              CoreNullability.NON_NULL);
+      RuntimeValues.ObjectValue guest = values.allocate(program.type(owner));
+      attach(receiver, guest);
+      return null;
+    });
   }
 
   @Override
   public void construct(String callable, Object receiver, Object[] arguments) {
-    dispatch(
-        () -> {
-          DefinitionId id = DefinitionId.parse(callable);
-          RuntimeProgram.Callable constructor = callable(id);
-          if (constructor.receiverType().isEmpty()) {
-            throw new IllegalArgumentException("Java application constructor is not a method");
-          }
-          var parameters = annotations.constructorParameters(id);
-          if (!parameters.acceptsProvidedPrefix(arguments.length)) {
-            throw new IllegalArgumentException("Java application argument count does not match");
-          }
-          if (constructor.captureCount() != 0 || constructor.typeParameterCount() != 0) {
-            throw new IllegalArgumentException(
-                "generic or captured Java application callables are not supported");
-          }
-          if (constructor.receiverTypeParameterCount() != 0) {
-            throw new IllegalArgumentException("Java constructors require concrete receiver types");
-          }
-          CoreType owner =
-              CoreTypes.absolute(constructor.receiverType().orElseThrow(), id, program);
-          RuntimeValues.ObjectValue guest = values.allocate(owner);
-          invokeGuest(id, constructor, guest, arguments, true);
-          attach(receiver, guest);
-          synchronizeToHost(guest, receiver);
-          return null;
-        });
+    dispatch(() -> {
+      DefinitionId id = DefinitionId.parse(callable);
+      RuntimeProgram.Callable constructor = callable(id);
+      if (constructor.receiverType().isEmpty()) {
+        throw new IllegalArgumentException("Java application constructor is not a method");
+      }
+      var parameters = annotations.constructorParameters(id);
+      if (!parameters.acceptsProvidedPrefix(arguments.length)) {
+        throw new IllegalArgumentException("Java application argument count does not match");
+      }
+      if (constructor.captureCount() != 0 || constructor.typeParameterCount() != 0) {
+        throw new IllegalArgumentException(
+            "generic or captured Java application callables are not supported");
+      }
+      if (constructor.receiverTypeParameterCount() != 0) {
+        throw new IllegalArgumentException("Java constructors require concrete receiver types");
+      }
+      CoreType owner = CoreTypes.absolute(constructor.receiverType().orElseThrow(), id, program);
+      RuntimeValues.ObjectValue guest = values.allocate(owner);
+      invokeGuest(id, constructor, guest, arguments, true);
+      attach(receiver, guest);
+      synchronizeToHost(guest, receiver);
+      return null;
+    });
   }
 
   @Override
@@ -182,14 +178,13 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       Object[] arguments,
       Object receiverType,
       Object[] methodTypes) {
-    return dispatch(
-        () ->
-            invokeHostMethod(
-                callable,
-                receiver,
-                arguments,
-                (CoreType) receiverType,
-                java.util.Arrays.stream(methodTypes).map(CoreType.class::cast).toList()));
+    return dispatch(() ->
+        invokeHostMethod(
+            callable,
+            receiver,
+            arguments,
+            (CoreType) receiverType,
+            java.util.Arrays.stream(methodTypes).map(CoreType.class::cast).toList()));
   }
 
   @Override
@@ -199,80 +194,75 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
 
   @Override
   public Object fromJava(Object value) {
-    return dispatch(
-        () -> {
-          if (value instanceof RuntimeValues.ObjectValue
-              || value instanceof RuntimeValues.EnumValue
-              || value instanceof RuntimeValues.Closure) return value;
-          if (value instanceof JavaApplicationObject sidecar
-              && (JavaApplicationObject.state(sidecar) instanceof RuntimeValues.Closure
-                  || JavaApplicationObject.state(sidecar) instanceof RuntimeValues.EnumValue))
-            return JavaApplicationObject.state(sidecar);
-          Object transported = transportedGuests.get(value);
-          if (transported != null) return transported;
-          if (value instanceof Enum<?> enumeration) {
-            var nominal = applicationEnums.get(enumeration.getDeclaringClass().getName());
-            if (nominal != null) {
-              Object restored =
-                  JavaValueAdapter.jarBindingValue(
-                      CoreType.ANY,
-                      new dev.w0fv1.norm.execution.JarBindingResult.EnumReference(
-                          new dev.w0fv1.norm.execution.JarBindingEnumValue(
-                              nominal, enumeration.name())),
-                      annotations,
-                      execution,
-                      null);
-              JavaApplicationObject.state((JavaApplicationObject) value, restored);
-              return restored;
-            }
-          }
-          RuntimeValues.ObjectValue guest =
-              value instanceof JavaApplicationObject state
-                      && JavaApplicationObject.state(state)
-                          instanceof RuntimeValues.ObjectValue object
-                  ? object
-                  : null;
-          if (guest != null) {
-            synchronizeFromHost(value, guest);
-          }
-          return guest;
-        });
+    return dispatch(() -> {
+      if (value instanceof RuntimeValues.ObjectValue
+          || value instanceof RuntimeValues.EnumValue
+          || value instanceof RuntimeValues.Closure) return value;
+      if (value instanceof JavaApplicationObject sidecar
+          && (JavaApplicationObject.state(sidecar) instanceof RuntimeValues.Closure
+              || JavaApplicationObject.state(sidecar) instanceof RuntimeValues.EnumValue))
+        return JavaApplicationObject.state(sidecar);
+      Object transported = transportedGuests.get(value);
+      if (transported != null) return transported;
+      if (value instanceof Enum<?> enumeration) {
+        var nominal = applicationEnums.get(enumeration.getDeclaringClass().getName());
+        if (nominal != null) {
+          Object restored =
+              JavaValueAdapter.jarBindingValue(
+                  CoreType.ANY,
+                  new dev.w0fv1.norm.execution.JarBindingResult.EnumReference(
+                      new dev.w0fv1.norm.execution.JarBindingEnumValue(
+                          nominal, enumeration.name())),
+                  annotations,
+                  execution,
+                  null);
+          JavaApplicationObject.state((JavaApplicationObject) value, restored);
+          return restored;
+        }
+      }
+      RuntimeValues.ObjectValue guest =
+          value instanceof JavaApplicationObject state
+                  && JavaApplicationObject.state(state) instanceof RuntimeValues.ObjectValue object
+              ? object
+              : null;
+      if (guest != null) {
+        synchronizeFromHost(value, guest);
+      }
+      return guest;
+    });
   }
 
   @Override
   public void writeField(Object receiver, String name, Object value) {
-    dispatch(
-        () -> {
-          RuntimeValues.ObjectValue guest =
-              receiver instanceof JavaApplicationObject state
-                      && JavaApplicationObject.state(state)
-                          instanceof RuntimeValues.ObjectValue object
-                  ? object
-                  : null;
-          if (guest == null)
-            throw new IllegalStateException("Java application receiver has no Norm object");
-          var view = guest.hostSchema;
-          var plan =
-              view.fields().stream()
-                  .filter(candidate -> candidate.name().equals(name))
-                  .findFirst()
-                  .orElse(null);
-          if (plan == null
-              || !guest
-                  .state()
-                  .sameLocation(view, guest.state().currentInfo(), guest.type(), plan.key()))
-            return null;
-          Field field = publicField(receiver.getClass(), name);
-          if (field != null) {
-            try {
-              field.set(receiver, javaResult(value));
-            } catch (IllegalAccessException exception) {
-              throw new IllegalStateException(
-                  "Norm application field cannot be written", exception);
-            }
-          }
-          return null;
-        });
+    dispatch(() -> {
+      RuntimeValues.ObjectValue guest =
+          receiver instanceof JavaApplicationObject state
+                  && JavaApplicationObject.state(state) instanceof RuntimeValues.ObjectValue object
+              ? object
+              : null;
+      if (guest == null)
+        throw new IllegalStateException("Java application receiver has no Norm object");
+      var view = guest.hostSchema;
+      var plan =
+          view.fields().stream()
+              .filter(candidate -> candidate.name().equals(name))
+              .findFirst()
+              .orElse(null);
+      if (plan == null
+          || !guest
+              .state()
+              .sameLocation(view, guest.state().currentInfo(), guest.type(), plan.key()))
+        return null;
+      Field field = publicField(receiver.getClass(), name);
+      if (field != null) {
+        try {
+          field.set(receiver, javaResult(value));
+        } catch (IllegalAccessException exception) {
+          throw new IllegalStateException("Norm application field cannot be written", exception);
+        }
+      }
+      return null;
+    });
   }
 
   private Object invokeHostMethod(
@@ -329,11 +319,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     }
     boolean managed =
         java.util.Arrays.stream(parameters)
-            .anyMatch(
-                parameter ->
-                    parameter instanceof JavaApplicationObject object
-                        && JavaApplicationObject.state(object)
-                            instanceof RuntimeValues.ObjectValue);
+            .anyMatch(parameter ->
+                parameter instanceof JavaApplicationObject object
+                    && JavaApplicationObject.state(object) instanceof RuntimeValues.ObjectValue);
     try (var lease =
         managed && execution.liveBindings() != null
             ? execution.liveBindings().stateWrite()
@@ -439,29 +427,27 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               shape.adapt(
                   closure,
                   arguments ->
-                      dispatch(
-                          () -> {
-                            try {
-                              Object[] parameters = new Object[arguments.length];
-                              for (int index = 0; index < arguments.length; index++) {
-                                parameters[index] =
-                                    javaValue(
-                                        function.parameterTypes().get(index), arguments[index]);
-                              }
-                              Object result;
-                              try (var scope =
-                                  execution.liveBindings() == null
-                                      ? null
-                                      : execution.liveBindings().unpin()) {
-                                result = RuntimeInvocation.invoke(execution, closure, parameters);
-                              }
-                              return javaResult(result);
-                            } catch (NormThrownException failure) {
-                              Object materialized = values.javaArgument(failure.value);
-                              if (materialized instanceof RuntimeException runtime) throw runtime;
-                              throw failure;
-                            }
-                          })));
+                      dispatch(() -> {
+                        try {
+                          Object[] parameters = new Object[arguments.length];
+                          for (int index = 0; index < arguments.length; index++) {
+                            parameters[index] =
+                                javaValue(function.parameterTypes().get(index), arguments[index]);
+                          }
+                          Object result;
+                          try (var scope =
+                              execution.liveBindings() == null
+                                  ? null
+                                  : execution.liveBindings().unpin()) {
+                            result = RuntimeInvocation.invoke(execution, closure, parameters);
+                          }
+                          return javaResult(result);
+                        } catch (NormThrownException failure) {
+                          Object materialized = values.javaArgument(failure.value);
+                          if (materialized instanceof RuntimeException runtime) throw runtime;
+                          throw failure;
+                        }
+                      })));
     }
     if (value instanceof RuntimeValues.EnumValue item) {
       CoreDefinition definition = program.structure(item.definition()).orElseThrow();

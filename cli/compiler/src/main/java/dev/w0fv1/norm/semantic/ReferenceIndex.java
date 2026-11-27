@@ -32,30 +32,26 @@ public final class ReferenceIndex {
     Map<SymbolId, Map<String, SymbolId>> parameters = new LinkedHashMap<>();
     symbols.values().stream()
         .filter(symbol -> symbol.kind() == SymbolKind.PARAMETER)
-        .forEach(
-            symbol ->
-                symbol
-                    .owner()
-                    .ifPresent(
-                        owner ->
-                            parameters
-                                .computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
-                                .put(symbol.name(), symbol.id())));
+        .forEach(symbol ->
+            symbol
+                .owner()
+                .ifPresent(owner ->
+                    parameters
+                        .computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
+                        .put(symbol.name(), symbol.id())));
     Map<SourceSpan, SymbolId> result = new LinkedHashMap<>();
     calls
         .values()
-        .forEach(
-            call ->
-                call.arguments()
-                    .labels()
-                    .forEach(
-                        (span, index) -> {
-                          SymbolId parameter =
-                              parameters
-                                  .getOrDefault(call.target(), Map.of())
-                                  .get(call.parameters().get(index).name());
-                          if (parameter != null) result.put(span, parameter);
-                        }));
+        .forEach(call ->
+            call.arguments()
+                .labels()
+                .forEach((span, index) -> {
+                  SymbolId parameter =
+                      parameters
+                          .getOrDefault(call.target(), Map.of())
+                          .get(call.parameters().get(index).name());
+                  if (parameter != null) result.put(span, parameter);
+                }));
     return Map.copyOf(result);
   }
 
@@ -69,26 +65,24 @@ public final class ReferenceIndex {
     Map<SourceSpan, SymbolId> callTargets = new LinkedHashMap<>();
     calls.values().forEach(call -> callTargets.put(call.calleeSpan(), call.target()));
     Map<SymbolId, List<SourceSpan>> grouped = new LinkedHashMap<>();
-    bindings.forEach(
-        (span, symbol) -> {
-          SymbolId callTarget = callTargets.get(span);
-          List<SymbolId> targets =
-              callTarget != null
-                  ? List.of(callTarget)
-                  : aliasTargets.getOrDefault(symbol, List.of(symbol));
-          targets.forEach(
-              target -> grouped.computeIfAbsent(target, ignored -> new ArrayList<>()).add(span));
-        });
+    bindings.forEach((span, symbol) -> {
+      SymbolId callTarget = callTargets.get(span);
+      List<SymbolId> targets =
+          callTarget != null
+              ? List.of(callTarget)
+              : aliasTargets.getOrDefault(symbol, List.of(symbol));
+      targets.forEach(
+          target -> grouped.computeIfAbsent(target, ignored -> new ArrayList<>()).add(span));
+    });
     return create(grouped);
   }
 
   private static ReferenceIndex create(Map<SymbolId, List<SourceSpan>> grouped) {
     Map<SymbolId, List<SourceSpan>> immutable = new LinkedHashMap<>();
-    grouped.forEach(
-        (symbol, spans) -> {
-          spans.sort(ORDER);
-          immutable.put(symbol, spans.stream().distinct().toList());
-        });
+    grouped.forEach((symbol, spans) -> {
+      spans.sort(ORDER);
+      immutable.put(symbol, spans.stream().distinct().toList());
+    });
     return new ReferenceIndex(Map.copyOf(immutable));
   }
 

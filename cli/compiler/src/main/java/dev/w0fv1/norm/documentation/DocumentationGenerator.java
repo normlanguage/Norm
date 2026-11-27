@@ -42,17 +42,16 @@ public final class DocumentationGenerator {
     List<ModuleDocumentation.File> files =
         sourcePaths.entrySet().stream()
             .sorted(Map.Entry.comparingByValue())
-            .map(
-                entry ->
-                    file(
-                        entry.getValue(),
-                        exportedSources.contains(entry.getKey()),
-                        snapshot.document(entry.getKey()).orElseThrow(),
-                        semantics,
-                        documents,
-                        declarationIds,
-                        strict,
-                        missing))
+            .map(entry ->
+                file(
+                    entry.getValue(),
+                    exportedSources.contains(entry.getKey()),
+                    snapshot.document(entry.getKey()).orElseThrow(),
+                    semantics,
+                    documents,
+                    declarationIds,
+                    strict,
+                    missing))
             .toList();
     if (!missing.isEmpty()) throw new MissingDocumentationException(missing);
     return new ModuleDocumentation(module, files);
@@ -73,16 +72,15 @@ public final class DocumentationGenerator {
         exported
             ? nodes.stream()
                 .filter(DocumentationGenerator::isPublic)
-                .map(
-                    node ->
-                        declaration(
-                            node,
-                            program.packageName(),
-                            semantics,
-                            documents,
-                            declarationIds,
-                            strict,
-                            missing))
+                .map(node ->
+                    declaration(
+                        node,
+                        program.packageName(),
+                        semantics,
+                        documents,
+                        declarationIds,
+                        strict,
+                        missing))
                 .toList()
             : List.of();
     String documentPath =
@@ -99,17 +97,16 @@ public final class DocumentationGenerator {
     var tests =
         program.functions().stream()
             .filter(function -> marked.contains(requireSymbol(semantics, function.nameSpan()).id()))
-            .map(
-                function ->
-                    new ModuleDocumentation.TestCase(
-                        declarationIds.get(requireSymbol(semantics, function.nameSpan()).id()).id(),
-                        function.name(),
-                        range(function.span()),
-                        function
-                            .span()
-                            .source()
-                            .text()
-                            .substring(function.span().startOffset(), function.span().endOffset())))
+            .map(function ->
+                new ModuleDocumentation.TestCase(
+                    declarationIds.get(requireSymbol(semantics, function.nameSpan()).id()).id(),
+                    function.name(),
+                    range(function.span()),
+                    function
+                        .span()
+                        .source()
+                        .text()
+                        .substring(function.span().startOffset(), function.span().endOffset())))
             .toList();
     return new ModuleDocumentation.File(
         sourcePath,
@@ -262,22 +259,21 @@ public final class DocumentationGenerator {
     Symbol symbol = requireSymbol(semantics, declaration.nameSpan());
     List<ModuleDocumentation.Declaration> members =
         declaration.methods().stream()
-            .map(
-                method ->
-                    callable(
-                        method,
-                        method.nameSpan(),
-                        method.name(),
-                        "interfaceMethod",
-                        Syntax.Visibility.PUBLIC,
-                        method.typeParameters(),
-                        method.parameters(),
-                        packageName,
-                        semantics,
-                        documents,
-                        declarationIds,
-                        strict,
-                        missing))
+            .map(method ->
+                callable(
+                    method,
+                    method.nameSpan(),
+                    method.name(),
+                    "interfaceMethod",
+                    Syntax.Visibility.PUBLIC,
+                    method.typeParameters(),
+                    method.parameters(),
+                    packageName,
+                    semantics,
+                    documents,
+                    declarationIds,
+                    strict,
+                    missing))
             .toList();
     return leaf(
         "interface",
@@ -308,32 +304,31 @@ public final class DocumentationGenerator {
     Symbol symbol = requireSymbol(semantics, declaration.nameSpan());
     List<ModuleDocumentation.Declaration> members =
         declaration.variants().stream()
-            .map(
-                variant -> {
-                  Symbol variantSymbol = requireSymbol(semantics, variant.nameSpan());
-                  return leaf(
-                      "variant",
+            .map(variant -> {
+              Symbol variantSymbol = requireSymbol(semantics, variant.nameSpan());
+              return leaf(
+                  "variant",
+                  variantSymbol,
+                  variantSignature(variant),
+                  Syntax.Visibility.PUBLIC,
+                  variant.span(),
+                  List.of(),
+                  parameters(
+                      variant.parameters(),
                       variantSymbol,
-                      variantSignature(variant),
-                      Syntax.Visibility.PUBLIC,
-                      variant.span(),
-                      List.of(),
-                      parameters(
-                          variant.parameters(),
-                          variantSymbol,
-                          semantics,
-                          documents,
-                          declarationIds,
-                          false,
-                          missing),
-                      Optional.empty(),
-                      Optional.empty(),
                       semantics,
                       documents,
                       declarationIds,
                       false,
-                      missing);
-                })
+                      missing),
+                  Optional.empty(),
+                  Optional.empty(),
+                  semantics,
+                  documents,
+                  declarationIds,
+                  false,
+                  missing);
+            })
             .toList();
     return leaf(
         "enum",
@@ -492,12 +487,11 @@ public final class DocumentationGenerator {
 
   private static List<ModuleDocumentation.TypeParameter> typeParameters(Symbol symbol) {
     return symbol.typeParameters().stream()
-        .map(
-            parameter ->
-                new ModuleDocumentation.TypeParameter(
-                    parameter.name(),
-                    parameter.upperBound().map(DocumentationGenerator::type),
-                    parameter.defaultType().map(DocumentationGenerator::type)))
+        .map(parameter ->
+            new ModuleDocumentation.TypeParameter(
+                parameter.name(),
+                parameter.upperBound().map(DocumentationGenerator::type),
+                parameter.defaultType().map(DocumentationGenerator::type)))
         .toList();
   }
 
@@ -519,16 +513,15 @@ public final class DocumentationGenerator {
       SemanticModel semantics,
       Map<SymbolId, DeclarationLink> declarationIds) {
     return targets.stream()
-        .map(
-            target -> {
-              Symbol symbol = semantics.symbol(target).orElseThrow();
-              DeclarationLink link = declarationIds.get(target);
-              return new ModuleDocumentation.Reference(
-                  kind,
-                  link == null ? externalId(symbol, semantics) : link.id(),
-                  symbol.name(),
-                  Optional.ofNullable(link).map(DeclarationLink::document));
-            })
+        .map(target -> {
+          Symbol symbol = semantics.symbol(target).orElseThrow();
+          DeclarationLink link = declarationIds.get(target);
+          return new ModuleDocumentation.Reference(
+              kind,
+              link == null ? externalId(symbol, semantics) : link.id(),
+              symbol.name(),
+              Optional.ofNullable(link).map(DeclarationLink::document));
+        })
         .toList();
   }
 
@@ -542,9 +535,8 @@ public final class DocumentationGenerator {
         .forEach((id, document) -> packages.put(id, Optional.of(raw(document, List.of()))));
     index
         .symbols()
-        .forEach(
-            (id, document) ->
-                symbols.put(id, Optional.of(raw(document, tests.forDeclaration(id)))));
+        .forEach((id, document) ->
+            symbols.put(id, Optional.of(raw(document, tests.forDeclaration(id)))));
     return new DocumentationIndex(packages, symbols, tests);
   }
 
@@ -564,20 +556,18 @@ public final class DocumentationGenerator {
       }
     }
     Map<SymbolId, DeclarationLink> links = new LinkedHashMap<>();
-    result.forEach(
-        (id, name) -> {
-          String path =
-              sourcePaths.get(
-                  snapshot
-                      .semanticModel()
-                      .symbol(id)
-                      .orElseThrow()
-                      .declaration()
-                      .orElseThrow()
-                      .document());
-          links.put(
-              id, new DeclarationLink(name, path.substring(0, path.length() - 5) + ".api.json"));
-        });
+    result.forEach((id, name) -> {
+      String path =
+          sourcePaths.get(
+              snapshot
+                  .semanticModel()
+                  .symbol(id)
+                  .orElseThrow()
+                  .declaration()
+                  .orElseThrow()
+                  .document());
+      links.put(id, new DeclarationLink(name, path.substring(0, path.length() - 5) + ".api.json"));
+    });
     return Map.copyOf(links);
   }
 
@@ -591,11 +581,10 @@ public final class DocumentationGenerator {
         ids.put(owner.id(), packageName + "::" + owner.name());
         aggregate
             .fields()
-            .forEach(
-                field -> {
-                  Symbol symbol = requireSymbol(semantics, field.nameSpan());
-                  ids.put(symbol.id(), packageName + "::" + owner.name() + "." + symbol.name());
-                });
+            .forEach(field -> {
+              Symbol symbol = requireSymbol(semantics, field.nameSpan());
+              ids.put(symbol.id(), packageName + "::" + owner.name() + "." + symbol.name());
+            });
         aggregate
             .constructors()
             .forEach(
@@ -616,11 +605,10 @@ public final class DocumentationGenerator {
         ids.put(owner.id(), packageName + "::" + owner.name());
         declaration
             .variants()
-            .forEach(
-                variant -> {
-                  Symbol symbol = requireSymbol(semantics, variant.nameSpan());
-                  ids.put(symbol.id(), packageName + "::" + owner.name() + "." + symbol.name());
-                });
+            .forEach(variant -> {
+              Symbol symbol = requireSymbol(semantics, variant.nameSpan());
+              ids.put(symbol.id(), packageName + "::" + owner.name() + "." + symbol.name());
+            });
       }
       default -> throw new IllegalArgumentException("unsupported declaration identity");
     }
@@ -771,11 +759,10 @@ public final class DocumentationGenerator {
   private static String typeParameters(List<Syntax.TypeParameter> values) {
     if (values.isEmpty()) return "";
     return values.stream()
-        .map(
-            value ->
-                value.name()
-                    + value.upperBound().map(bound -> " extends " + bound.displayName()).orElse("")
-                    + value.defaultType().map(type -> " = " + type.displayName()).orElse(""))
+        .map(value ->
+            value.name()
+                + value.upperBound().map(bound -> " extends " + bound.displayName()).orElse("")
+                + value.defaultType().map(type -> " = " + type.displayName()).orElse(""))
         .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
   }
 

@@ -18,16 +18,15 @@ final class TypeReferenceResolver {
   Optional<List<SemanticType>> arguments(
       DocumentSemanticModel document, List<Token> tokens, int start, int end, int offset) {
     return TypeSyntaxParser.arguments(tokens.subList(start, end))
-        .flatMap(
-            references -> {
-              List<SemanticType> arguments = new ArrayList<>();
-              for (var reference : references) {
-                Optional<SemanticType> type = resolve(document, reference, offset);
-                if (type.isEmpty()) return Optional.empty();
-                arguments.add(type.orElseThrow());
-              }
-              return Optional.of(List.copyOf(arguments));
-            });
+        .flatMap(references -> {
+          List<SemanticType> arguments = new ArrayList<>();
+          for (var reference : references) {
+            Optional<SemanticType> type = resolve(document, reference, offset);
+            if (type.isEmpty()) return Optional.empty();
+            arguments.add(type.orElseThrow());
+          }
+          return Optional.of(List.copyOf(arguments));
+        });
   }
 
   Optional<SemanticType> beforeIncompleteInitializer(DocumentSemanticModel document, int offset) {
@@ -86,11 +85,10 @@ final class TypeReferenceResolver {
             () -> {
               Optional<Symbol> symbol =
                   document.semanticModel().visibleSymbols(offset).stream()
-                      .filter(
-                          candidate ->
-                              candidate.kind() == SymbolKind.TYPE
-                                  || candidate.kind() == SymbolKind.INTERFACE
-                                  || candidate.kind() == SymbolKind.TYPE_PARAMETER)
+                      .filter(candidate ->
+                          candidate.kind() == SymbolKind.TYPE
+                              || candidate.kind() == SymbolKind.INTERFACE
+                              || candidate.kind() == SymbolKind.TYPE_PARAMETER)
                       .filter(candidate -> candidate.name().equals(reference.name()))
                       .map(document.semanticModel()::resolveAlias)
                       .findFirst();
@@ -99,13 +97,12 @@ final class TypeReferenceResolver {
               if (declaration.type().kind() == SemanticType.Kind.TYPE_PARAMETER)
                 return declaration.type();
               return TypeArguments.complete(declaration.typeParameters(), arguments)
-                  .map(
-                      completed ->
-                          SemanticType.declared(
-                              declaration.type().identity(),
-                              declaration.type().name(),
-                              completed,
-                              declaration.type().category()))
+                  .map(completed ->
+                      SemanticType.declared(
+                          declaration.type().identity(),
+                          declaration.type().name(),
+                          completed,
+                          declaration.type().category()))
                   .orElse(SemanticType.DYNAMIC);
             });
     return resolved.equals(SemanticType.DYNAMIC) ? Optional.empty() : Optional.of(resolved);

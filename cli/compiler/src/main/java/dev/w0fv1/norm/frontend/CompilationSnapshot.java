@@ -45,12 +45,11 @@ public final class CompilationSnapshot {
         analyzed.semanticModel().documentView(entry.source(), entry.syntax(), entry.tokens());
     this.analysis = new AnalysisResult(projectModel, analyzed.entryPoint(), analyzed.diagnostics());
     Map<DocumentId, DocumentSemanticModel> views = new LinkedHashMap<>();
-    parsedDocuments.forEach(
-        parsed ->
-            views.put(
-                parsed.source().id(),
-                new DocumentSemanticModel(
-                    parsed.source(), parsed.syntax(), parsed.tokens(), projectModel)));
+    parsedDocuments.forEach(parsed ->
+        views.put(
+            parsed.source().id(),
+            new DocumentSemanticModel(
+                parsed.source(), parsed.syntax(), parsed.tokens(), projectModel)));
     documents = Map.copyOf(views);
   }
 

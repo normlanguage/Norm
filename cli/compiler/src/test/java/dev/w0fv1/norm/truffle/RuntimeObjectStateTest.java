@@ -398,18 +398,17 @@ final class RuntimeObjectStateTest {
         }.getCallTarget();
     var fields =
         base.fields().stream()
-            .map(
-                field ->
-                    field.name().equals("extra")
-                        ? new RuntimeValues.FieldPlan(
-                            field.owner(),
-                            field.name(),
-                            field.index(),
-                            true,
-                            List.of(),
-                            field.type(),
-                            Optional.of(initializer))
-                        : field)
+            .map(field ->
+                field.name().equals("extra")
+                    ? new RuntimeValues.FieldPlan(
+                        field.owner(),
+                        field.name(),
+                        field.index(),
+                        true,
+                        List.of(),
+                        field.type(),
+                        Optional.of(initializer))
+                    : field)
             .toList();
     var next =
         new RuntimeValues.AggregateInfo(
@@ -481,11 +480,10 @@ final class RuntimeObjectStateTest {
       assertEquals(1, migration.read(key("value"), CoreType.INTEGER));
       assertEquals(9, migration.read(key("configuration"), CoreType.INTEGER));
       var writer =
-          new Thread(
-              () -> {
-                object.writeRawField(key("value"), 2);
-                object.writeRawField(key("configuration"), 10);
-              });
+          new Thread(() -> {
+            object.writeRawField(key("value"), 2);
+            object.writeRawField(key("configuration"), 10);
+          });
       writer.start();
       writer.join();
       transaction.commit();
@@ -499,18 +497,18 @@ final class RuntimeObjectStateTest {
     var result =
         dev.w0fv1.norm.testing.NormTestKit.compile(
             """
-        class Base<T> {
-          T value
-          Base(T value) { this.value = value }
-        }
-        class Derived<A, B> extends Base<B> {
-          Derived(B value) { super(value: value) }
-        }
-        Void main() {
-          var object = Derived<Integer, String>(value: "x")
-          printLine(object.value)
-        }
-        """);
+            class Base<T> {
+              T value
+              Base(T value) { this.value = value }
+            }
+            class Derived<A, B> extends Base<B> {
+              Derived(B value) { super(value: value) }
+            }
+            Void main() {
+              var object = Derived<Integer, String>(value: "x")
+              printLine(object.value)
+            }
+            """);
     assertTrue(result.isSuccess(), result.diagnostics().toString());
     var output = new java.io.StringWriter();
     new dev.w0fv1.norm.runtime.NormRuntime()
@@ -526,17 +524,16 @@ final class RuntimeObjectStateTest {
     var plans = new ArrayList<RuntimeValues.FieldPlan>();
     fields.entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
-        .forEach(
-            field ->
-                plans.add(
-                    new RuntimeValues.FieldPlan(
-                        OCCURRENCE,
-                        field.getKey(),
-                        plans.size(),
-                        true,
-                        List.of(),
-                        field.getValue(),
-                        Optional.empty())));
+        .forEach(field ->
+            plans.add(
+                new RuntimeValues.FieldPlan(
+                    OCCURRENCE,
+                    field.getKey(),
+                    plans.size(),
+                    true,
+                    List.of(),
+                    field.getValue(),
+                    Optional.empty())));
     return new RuntimeValues.AggregateInfo(
         OWNER, "Counter", plans.size(), plans, Map.of(), Set.of(OWNER), null);
   }

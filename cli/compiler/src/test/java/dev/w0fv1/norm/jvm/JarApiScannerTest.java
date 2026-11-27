@@ -182,18 +182,16 @@ final class JarApiScannerTest {
             .value());
     assertTrue(
         tools.methods().stream()
-            .anyMatch(
-                value ->
-                    value.kind() == JavaCallableKind.CONSTRUCTOR
-                        && value.descriptor().equals("()V")
-                        && value.disposition() == JavaApiDisposition.BINDABLE));
+            .anyMatch(value ->
+                value.kind() == JavaCallableKind.CONSTRUCTOR
+                    && value.descriptor().equals("()V")
+                    && value.disposition() == JavaApiDisposition.BINDABLE));
     assertTrue(
         tools.methods().stream()
-            .anyMatch(
-                value ->
-                    value.kind() == JavaCallableKind.STATIC_METHOD
-                        && value.name().equals("reverse")
-                        && value.disposition() == JavaApiDisposition.BINDABLE));
+            .anyMatch(value ->
+                value.kind() == JavaCallableKind.STATIC_METHOD
+                    && value.name().equals("reverse")
+                    && value.disposition() == JavaApiDisposition.BINDABLE));
     JavaApiMethod reverse =
         tools.methods().stream()
             .filter(value -> value.name().equals("reverse"))
@@ -619,11 +617,10 @@ final class JarApiScannerTest {
 
       assertTrue(
           type(schema, "org.apache.commons.lang3.StringUtils").methods().stream()
-              .anyMatch(
-                  value ->
-                      value.kind() == JavaCallableKind.STATIC_METHOD
-                          && value.name().equals("reverse")
-                          && value.descriptor().equals("(Ljava/lang/String;)Ljava/lang/String;")));
+              .anyMatch(value ->
+                  value.kind() == JavaCallableKind.STATIC_METHOD
+                      && value.name().equals("reverse")
+                      && value.descriptor().equals("(Ljava/lang/String;)Ljava/lang/String;")));
     }
   }
 

@@ -156,10 +156,9 @@ final class EnumMigrationContext implements MigrationContext {
         targetDefinition.variants().stream()
             .filter(item -> item.key().equals(candidate.variantKey()))
             .findFirst()
-            .orElseThrow(
-                () ->
-                    new RuntimeValues.StateMigrationFailure(
-                        "Migration replacement variant is absent from the candidate schema"));
+            .orElseThrow(() ->
+                new RuntimeValues.StateMigrationFailure(
+                    "Migration replacement variant is absent from the candidate schema"));
     if (variant.fields().size() != candidate.fieldCount())
       throw new RuntimeValues.StateMigrationFailure(
           "Migration replacement payload count does not match the candidate schema");

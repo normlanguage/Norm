@@ -104,9 +104,8 @@ final class NativeImageConfigurationWriterTest {
       var allocated =
           metadata.getAsJsonArray("reflection").asList().stream()
               .map(value -> value.getAsJsonObject())
-              .filter(
-                  value ->
-                      value.has("unsafeAllocated") && value.get("unsafeAllocated").getAsBoolean())
+              .filter(value ->
+                  value.has("unsafeAllocated") && value.get("unsafeAllocated").getAsBoolean())
               .map(value -> value.get("type").getAsString())
               .sorted()
               .toList();

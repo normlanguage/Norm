@@ -24,9 +24,8 @@ public final class ModuleDependencySourceEditor {
               .filter(value -> matches(value, update.repository(), update.name()))
               .skip(update.occurrence())
               .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException("dependency call not found: " + update.name()));
+              .orElseThrow(() ->
+                  new IllegalArgumentException("dependency call not found: " + update.name()));
       Optional<Syntax.CallArgument> version = argument(call, "version", 2);
       if (version.isPresent()) {
         if (!(version.orElseThrow().value() instanceof Syntax.IntegerLiteral literal))
@@ -99,9 +98,8 @@ public final class ModuleDependencySourceEditor {
       Syntax.Call call, String label, int position) {
     Optional<Syntax.CallArgument> named =
         call.arguments().stream()
-            .filter(
-                value ->
-                    value.label().map(Syntax.ArgumentLabel::name).filter(label::equals).isPresent())
+            .filter(value ->
+                value.label().map(Syntax.ArgumentLabel::name).filter(label::equals).isPresent())
             .findFirst();
     if (named.isPresent() || position < 0 || position >= call.arguments().size()) return named;
     Syntax.CallArgument positional = call.arguments().get(position);

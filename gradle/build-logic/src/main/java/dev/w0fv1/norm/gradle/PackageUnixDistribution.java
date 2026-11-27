@@ -39,14 +39,13 @@ public abstract class PackageUnixDistribution extends DefaultTask {
     }
     Files.createDirectories(staging.resolve("norm"));
     getExecOperations()
-        .exec(
-            spec -> {
-              spec.executable("cp");
-              spec.args(
-                  "-RPp",
-                  getRuntimeDirectory().get().getAsFile().toPath().resolve(".").toString(),
-                  staging.resolve("norm").toString());
-            })
+        .exec(spec -> {
+          spec.executable("cp");
+          spec.args(
+              "-RPp",
+              getRuntimeDirectory().get().getAsFile().toPath().resolve(".").toString(),
+              staging.resolve("norm").toString());
+        })
         .assertNormalExitValue();
     Files.setPosixFilePermissions(
         staging.resolve("norm"), PosixFilePermissions.fromString("rwxr-xr-x"));
@@ -55,11 +54,10 @@ public abstract class PackageUnixDistribution extends DefaultTask {
     Path temporary = Files.createTempFile(destination.getParent(), "norm-distribution-", ".tar.gz");
     try {
       getExecOperations()
-          .exec(
-              spec -> {
-                spec.executable("tar");
-                spec.args("-czf", temporary.toString(), "-C", staging.toString(), "norm");
-              })
+          .exec(spec -> {
+            spec.executable("tar");
+            spec.args("-czf", temporary.toString(), "-C", staging.toString(), "norm");
+          })
           .assertNormalExitValue();
       Files.move(
           temporary,

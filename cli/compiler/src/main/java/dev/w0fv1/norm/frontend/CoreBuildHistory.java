@@ -46,19 +46,18 @@ record CoreBuildHistory(
           index -> indices.computeIfAbsent(index, ignored -> indices.size());
       var relocated = source.relocate(local);
       var shape =
-          binding.map(
-              value ->
-                  value.mapLinks(
-                      link ->
-                          link instanceof PendingDefinitionReference pending
-                              ? new PendingDefinitionReference(
-                                  local.applyAsInt(pending.declarationIndex()))
-                              : link,
-                      argument ->
-                          argument instanceof CoreDefaultArgument.Pending pending
-                              ? new CoreDefaultArgument.Pending(
-                                  local.applyAsInt(pending.declarationIndex()))
-                              : argument));
+          binding.map(value ->
+              value.mapLinks(
+                  link ->
+                      link instanceof PendingDefinitionReference pending
+                          ? new PendingDefinitionReference(
+                              local.applyAsInt(pending.declarationIndex()))
+                          : link,
+                  argument ->
+                      argument instanceof CoreDefaultArgument.Pending pending
+                          ? new CoreDefaultArgument.Pending(
+                              local.applyAsInt(pending.declarationIndex()))
+                          : argument));
       return new Unit(
           relocated,
           shape,

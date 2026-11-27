@@ -154,10 +154,9 @@ final class AuthoringCommand implements Command {
                     selected.symbol().id(),
                     selected
                         .revision()
-                        .orElseThrow(
-                            () ->
-                                new IllegalArgumentException(
-                                    "declaration is outside editable project sources")),
+                        .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                "declaration is outside editable project sources")),
                     options.newName().orElseThrow());
             report = CommandReport.checked(name(), preview.after());
             var result = writer.json(report);
@@ -204,41 +203,37 @@ final class AuthoringCommand implements Command {
           JsonArray modules = new JsonArray();
           project.moduleDescriptors().entrySet().stream()
               .sorted(java.util.Map.Entry.comparingByKey())
-              .forEach(
-                  entry -> {
-                    JsonObject module = new JsonObject();
-                    module.addProperty("name", entry.getKey().name());
-                    module.addProperty("version", entry.getKey().version());
-                    JsonArray dependencies = new JsonArray();
-                    entry.getValue().dependencies().stream()
-                        .sorted(
-                            java.util.Comparator.comparing(requirement -> requirement.coordinate()))
-                        .forEach(
-                            requirement -> {
-                              JsonObject dependency = new JsonObject();
-                              dependency.addProperty("name", requirement.coordinate().name());
-                              dependency.addProperty("version", requirement.coordinate().version());
-                              dependencies.add(dependency);
-                            });
-                    module.add("dependencies", dependencies);
-                    modules.add(module);
-                  });
+              .forEach(entry -> {
+                JsonObject module = new JsonObject();
+                module.addProperty("name", entry.getKey().name());
+                module.addProperty("version", entry.getKey().version());
+                JsonArray dependencies = new JsonArray();
+                entry.getValue().dependencies().stream()
+                    .sorted(java.util.Comparator.comparing(requirement -> requirement.coordinate()))
+                    .forEach(requirement -> {
+                      JsonObject dependency = new JsonObject();
+                      dependency.addProperty("name", requirement.coordinate().name());
+                      dependency.addProperty("version", requirement.coordinate().version());
+                      dependencies.add(dependency);
+                    });
+                module.add("dependencies", dependencies);
+                modules.add(module);
+              });
           data.add("modules", modules);
           JsonArray documents = new JsonArray();
           query
               .documents()
-              .forEach(
-                  revision -> {
-                    JsonObject item = new JsonObject();
-                    item.addProperty("uri", revision.document().uri().toString());
-                    item.addProperty("revision", revision.content().value());
-                    var coordinate = project.scope().coordinate(revision.document());
-                    item.addProperty("module", coordinate.module().name());
-                    item.addProperty("moduleVersion", coordinate.module().version());
-                    item.addProperty(
-                        "testSource", project.scope().testSources().contains(revision.document()));
-                    documents.add(item);
-                  });
+              .forEach(revision -> {
+                JsonObject item = new JsonObject();
+                item.addProperty("uri", revision.document().uri().toString());
+                item.addProperty("revision", revision.content().value());
+                var coordinate = project.scope().coordinate(revision.document());
+                item.addProperty("module", coordinate.module().name());
+                item.addProperty("moduleVersion", coordinate.module().version());
+                item.addProperty(
+                    "testSource", project.scope().testSources().contains(revision.document()));
+                documents.add(item);
+              });
           data.add("documents", documents);
         }
         if (options.target().isEmpty())

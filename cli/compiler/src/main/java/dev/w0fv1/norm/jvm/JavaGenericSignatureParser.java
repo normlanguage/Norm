@@ -132,13 +132,12 @@ public final class JavaGenericSignatureParser {
   }
 
   private static SignatureVisitor classType(Consumer<JavaClassTypeSignature> consumer) {
-    return new TypeCollector(
-        value -> {
-          if (!(value instanceof JavaClassTypeSignature classType)) {
-            throw new IllegalArgumentException("Java class signature requires a class type");
-          }
-          consumer.accept(classType);
-        });
+    return new TypeCollector(value -> {
+      if (!(value instanceof JavaClassTypeSignature classType)) {
+        throw new IllegalArgumentException("Java class signature requires a class type");
+      }
+      consumer.accept(classType);
+    });
   }
 
   private static final class TypeCollector extends SignatureVisitor {

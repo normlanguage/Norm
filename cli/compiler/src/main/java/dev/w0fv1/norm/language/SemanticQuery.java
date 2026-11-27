@@ -40,33 +40,31 @@ public final class SemanticQuery {
       throw new IllegalArgumentException("query documents must belong to the snapshot");
     documents.stream()
         .sorted(Comparator.comparing(id -> id.uri().toString()))
-        .forEach(
-            id -> {
-              var document = snapshot.document(id).orElseThrow();
-              revisions.put(id, DocumentRevision.of(document.source()));
-              var syntax = document.syntax();
-              List<AstNode> nodes = new ArrayList<>();
-              nodes.addAll(syntax.functions());
-              nodes.addAll(syntax.aggregates());
-              nodes.addAll(syntax.interfaces());
-              nodes.addAll(syntax.enums());
-              syntax
-                  .aggregates()
-                  .forEach(
-                      aggregate -> {
-                        nodes.addAll(aggregate.fields());
-                        nodes.addAll(aggregate.constructors());
-                        nodes.addAll(aggregate.methods());
-                      });
-              syntax.interfaces().forEach(declaration -> nodes.addAll(declaration.methods()));
-              syntax.enums().forEach(declaration -> nodes.addAll(declaration.variants()));
-              declarations.put(
-                  id,
-                  nodes.stream()
-                      .map(AstNode::span)
-                      .sorted(Comparator.comparingInt(SourceSpan::length))
-                      .toList());
-            });
+        .forEach(id -> {
+          var document = snapshot.document(id).orElseThrow();
+          revisions.put(id, DocumentRevision.of(document.source()));
+          var syntax = document.syntax();
+          List<AstNode> nodes = new ArrayList<>();
+          nodes.addAll(syntax.functions());
+          nodes.addAll(syntax.aggregates());
+          nodes.addAll(syntax.interfaces());
+          nodes.addAll(syntax.enums());
+          syntax
+              .aggregates()
+              .forEach(aggregate -> {
+                nodes.addAll(aggregate.fields());
+                nodes.addAll(aggregate.constructors());
+                nodes.addAll(aggregate.methods());
+              });
+          syntax.interfaces().forEach(declaration -> nodes.addAll(declaration.methods()));
+          syntax.enums().forEach(declaration -> nodes.addAll(declaration.variants()));
+          declarations.put(
+              id,
+              nodes.stream()
+                  .map(AstNode::span)
+                  .sorted(Comparator.comparingInt(SourceSpan::length))
+                  .toList());
+        });
     this.revisions = Map.copyOf(revisions);
     this.declarations = Map.copyOf(declarations);
   }
@@ -85,18 +83,16 @@ public final class SemanticQuery {
     String search = Objects.requireNonNull(text, "text").toLowerCase(Locale.ROOT);
     List<Declaration> matches =
         snapshot.semanticModel().symbols().stream()
-            .filter(
-                symbol ->
-                    symbol
-                        .declaration()
-                        .filter(location -> revisions.containsKey(location.document()))
-                        .isPresent())
-            .filter(
-                symbol ->
-                    switch (symbol.kind()) {
-                      case LOCAL_VARIABLE, PARAMETER, TYPE_PARAMETER, SELF -> false;
-                      default -> true;
-                    })
+            .filter(symbol ->
+                symbol
+                    .declaration()
+                    .filter(location -> revisions.containsKey(location.document()))
+                    .isPresent())
+            .filter(symbol ->
+                switch (symbol.kind()) {
+                  case LOCAL_VARIABLE, PARAMETER, TYPE_PARAMETER, SELF -> false;
+                  default -> true;
+                })
             .filter(symbol -> symbol.name().toLowerCase(Locale.ROOT).contains(search))
             .sorted(
                 Comparator.comparing(
@@ -118,10 +114,9 @@ public final class SemanticQuery {
     SourceLocation location = selected.symbol().declaration().orElseThrow();
     Optional<SourceSpan> span =
         declarations.get(location.document()).stream()
-            .filter(
-                candidate ->
-                    candidate.startOffset() <= location.startOffset()
-                        && candidate.endOffset() >= location.endOffset())
+            .filter(candidate ->
+                candidate.startOffset() <= location.startOffset()
+                    && candidate.endOffset() >= location.endOffset())
             .findFirst();
     var model = snapshot.semanticModel();
     List<Declaration> dependencies =
@@ -130,21 +125,19 @@ public final class SemanticQuery {
             : span.stream()
                 .flatMap(root -> model.declarationDependencies(root).stream())
                 .sorted(LOCATION_ORDER)
-                .flatMap(
-                    target ->
-                        model.resolvedSymbolAt(target.document(), target.startOffset()).stream())
+                .flatMap(target ->
+                    model.resolvedSymbolAt(target.document(), target.startOffset()).stream())
                 .filter(symbol -> !symbol.id().equals(id))
-                .filter(
-                    symbol ->
-                        span.isEmpty()
-                            || !symbol
-                                .declaration()
-                                .orElseThrow()
-                                .document()
-                                .equals(location.document())
-                            || !span.orElseThrow()
-                                .location()
-                                .contains(symbol.declaration().orElseThrow().startOffset()))
+                .filter(symbol ->
+                    span.isEmpty()
+                        || !symbol
+                            .declaration()
+                            .orElseThrow()
+                            .document()
+                            .equals(location.document())
+                        || !span.orElseThrow()
+                            .location()
+                            .contains(symbol.declaration().orElseThrow().startOffset()))
                 .distinct()
                 .map(this::describe)
                 .toList();
@@ -195,18 +188,16 @@ public final class SemanticQuery {
         snapshot.semanticModel().symbols().stream()
             .filter(symbol -> symbol.declaration().isPresent())
             .filter(symbol -> symbol.kind() != dev.w0fv1.norm.semantic.SymbolKind.SELF)
-            .filter(
-                symbol ->
-                    names.name(symbol, false).equals(selector)
-                        || names.name(symbol, true).equals(selector))
-            .filter(
-                symbol ->
-                    at.isEmpty()
-                        || at.orElseThrow()
-                            .equals(
-                                symbol.declaration().orElseThrow().document().uri()
-                                    + "#"
-                                    + symbol.declaration().orElseThrow().startOffset()))
+            .filter(symbol ->
+                names.name(symbol, false).equals(selector)
+                    || names.name(symbol, true).equals(selector))
+            .filter(symbol ->
+                at.isEmpty()
+                    || at.orElseThrow()
+                        .equals(
+                            symbol.declaration().orElseThrow().document().uri()
+                                + "#"
+                                + symbol.declaration().orElseThrow().startOffset()))
             .sorted(
                 Comparator.comparing(symbol -> symbol.declaration().orElseThrow(), LOCATION_ORDER))
             .map(this::describe)

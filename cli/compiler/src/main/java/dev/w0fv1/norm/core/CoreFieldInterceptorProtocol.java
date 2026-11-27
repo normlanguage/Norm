@@ -16,9 +16,8 @@ public record CoreFieldInterceptorProtocol(
                     nominal.module(), nominal.packageName(), nominal.name()),
             AnnotationAbi.FIELD_TARGET,
             "std.core.FieldContext")
-        .map(
-            protocol ->
-                new CoreFieldInterceptorProtocol(
-                    protocol.interfaceId(), protocol.before(), protocol.after()));
+        .map(protocol ->
+            new CoreFieldInterceptorProtocol(
+                protocol.interfaceId(), protocol.before(), protocol.after()));
   }
 }

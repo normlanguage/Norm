@@ -54,17 +54,16 @@ final class BackendTest {
     var failure = new AtomicReference<Throwable>();
     Thread execution =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try {
-                    new NormRuntime()
-                        .run(
-                            compilation.output().orElseThrow().artifact(),
-                            new PrintWriter(output, true));
-                  } catch (Throwable throwable) {
-                    failure.set(throwable);
-                  }
-                });
+            .start(() -> {
+              try {
+                new NormRuntime()
+                    .run(
+                        compilation.output().orElseThrow().artifact(),
+                        new PrintWriter(output, true));
+              } catch (Throwable throwable) {
+                failure.set(throwable);
+              }
+            });
     while (!output.toString().contains("ready")) Thread.sleep(10);
 
     execution.interrupt();
@@ -202,15 +201,14 @@ final class BackendTest {
     try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
       var executions =
           java.util.stream.IntStream.range(0, 32)
-              .mapToObj(
-                  ignored ->
-                      java.util.concurrent.CompletableFuture.supplyAsync(
-                          () -> {
-                            StringWriter output = new StringWriter();
-                            runner.run(program.artifact(), new PrintWriter(output));
-                            return output.toString();
-                          },
-                          executor))
+              .mapToObj(ignored ->
+                  java.util.concurrent.CompletableFuture.supplyAsync(
+                      () -> {
+                        StringWriter output = new StringWriter();
+                        runner.run(program.artifact(), new PrintWriter(output));
+                        return output.toString();
+                      },
+                      executor))
               .toList();
       String expected = "concurrent" + System.lineSeparator();
       executions.forEach(execution -> assertEquals(expected, execution.join()));

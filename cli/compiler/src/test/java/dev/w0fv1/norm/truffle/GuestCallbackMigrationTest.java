@@ -26,25 +26,21 @@ final class GuestCallbackMigrationTest {
           assertThrows(
               ExecutionException.class,
               () ->
-                  scheduler.hostCall(
-                      () -> {
-                        var callback =
-                            executor.submit(
-                                () ->
-                                    scheduler.invoke(
-                                        () -> {
-                                          entered.set(true);
-                                          try {
-                                            if (stateLock.tryLock(1, TimeUnit.SECONDS))
-                                              stateLock.unlock();
-                                          } catch (InterruptedException interruption) {
-                                            Thread.currentThread().interrupt();
-                                            throw new IllegalStateException(interruption);
-                                          }
-                                          return null;
-                                        }));
-                        return callback.get(2, TimeUnit.SECONDS);
-                      }));
+                  scheduler.hostCall(() -> {
+                    var callback =
+                        executor.submit(() ->
+                            scheduler.invoke(() -> {
+                              entered.set(true);
+                              try {
+                                if (stateLock.tryLock(1, TimeUnit.SECONDS)) stateLock.unlock();
+                              } catch (InterruptedException interruption) {
+                                Thread.currentThread().interrupt();
+                                throw new IllegalStateException(interruption);
+                              }
+                              return null;
+                            }));
+                    return callback.get(2, TimeUnit.SECONDS);
+                  }));
       assertInstanceOf(RuntimeValues.StateMigrationFailure.class, failure.getCause());
       assertFalse(entered.get());
       assertEquals("available", scheduler.invoke(() -> "available"));
@@ -59,13 +55,11 @@ final class GuestCallbackMigrationTest {
     try (var scheduler = new GuestCallbackScheduler();
         var scope = scheduler.migrationScope();
         var migration = RuntimeValues.prepareState(List.of(list), null)) {
-      scheduler.hostCall(
-          () ->
-              scheduler.invoke(
-                  () -> {
-                    list.values.add(2);
-                    return null;
-                  }));
+      scheduler.hostCall(() ->
+          scheduler.invoke(() -> {
+            list.values.add(2);
+            return null;
+          }));
       assertEquals(List.of(1, 2), list.values);
     }
     assertEquals(List.of(1), list.values);
@@ -88,11 +82,10 @@ final class GuestCallbackMigrationTest {
       var invoked = new CountDownLatch(1);
       try (var migration = RuntimeValues.prepareState(List.of(), execution)) {
         queued =
-            executor.submit(
-                () -> {
-                  invoked.countDown();
-                  return execution.callbacks().invoke(() -> 7);
-                });
+            executor.submit(() -> {
+              invoked.countDown();
+              return execution.callbacks().invoke(() -> 7);
+            });
         assertTrue(invoked.await(2, TimeUnit.SECONDS));
       }
       assertEquals(7, execution.callbacks().hostCall(() -> queued.get(2, TimeUnit.SECONDS)));
@@ -125,11 +118,10 @@ final class GuestCallbackMigrationTest {
               () ->
                   execution
                       .callbacks()
-                      .hostCall(
-                          () ->
-                              executor
-                                  .submit(() -> execution.callbacks().invoke(() -> 7))
-                                  .get(2, TimeUnit.SECONDS)));
+                      .hostCall(() ->
+                          executor
+                              .submit(() -> execution.callbacks().invoke(() -> 7))
+                              .get(2, TimeUnit.SECONDS)));
       assertInstanceOf(RuntimeValues.StateMigrationFailure.class, failure.getCause());
     } finally {
       try {

@@ -26,11 +26,10 @@ public record ArtifactFileSet(Map<Path, FileSnapshot> files) {
     files.entrySet().stream()
         .sorted(
             java.util.Comparator.comparing(entry -> entry.getKey().toString().replace('\\', '/')))
-        .forEach(
-            entry ->
-                writer
-                    .writeString(entry.getKey().toString().replace('\\', '/'))
-                    .writeString(entry.getValue().content().value()));
+        .forEach(entry ->
+            writer
+                .writeString(entry.getKey().toString().replace('\\', '/'))
+                .writeString(entry.getValue().content().value()));
     return cache.acquire(
         Sha256Digest.compute(writer.toByteArray()),
         root -> {

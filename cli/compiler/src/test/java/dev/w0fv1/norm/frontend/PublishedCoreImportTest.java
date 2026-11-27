@@ -34,15 +34,15 @@ final class PublishedCoreImportTest {
         SourceFile.of(
             directory.resolve("published/library.norm"),
             """
-        package library
-        import std.annotation.TypeTarget
-        import std.annotation.RuntimeRetention
-        public annotation Link implements TypeTarget, RuntimeRetention { Function<String()> action = first.function }
-        public String first() { "same" }
-        public String second() { "same" }
-        @Link() public class Original {}
-        @Link(action: second.function) public class Other {}
-        """);
+            package library
+            import std.annotation.TypeTarget
+            import std.annotation.RuntimeRetention
+            public annotation Link implements TypeTarget, RuntimeRetention { Function<String()> action = first.function }
+            public String first() { "same" }
+            public String second() { "same" }
+            @Link() public class Original {}
+            @Link(action: second.function) public class Other {}
+            """);
     CompiledModule published;
     try (var compiler = new CompilerSession()) {
       var result =
@@ -62,17 +62,17 @@ final class PublishedCoreImportTest {
         SourceFile.of(
             directory.resolve("main.norm"),
             """
-        package application
-        import library.Link
-        import library.Original
-        import library.Other
-        @Link() class Local {}
-        Void main() {
-          printLine(Original.class.annotation<Link>()!!.action.name())
-          printLine(Other.class.annotation<Link>()!!.action.name())
-          printLine(Local.class.annotation<Link>()!!.action.name())
-        }
-        """);
+            package application
+            import library.Link
+            import library.Original
+            import library.Other
+            @Link() class Local {}
+            Void main() {
+              printLine(Original.class.annotation<Link>()!!.action.name())
+              printLine(Other.class.annotation<Link>()!!.action.name())
+              printLine(Local.class.annotation<Link>()!!.action.name())
+            }
+            """);
     var input =
         request(
             application,
@@ -384,11 +384,10 @@ final class PublishedCoreImportTest {
     var source = documents.get(entry);
     var coordinates =
         new java.util.LinkedHashMap<dev.w0fv1.norm.source.DocumentId, ModuleSourceCoordinate>();
-    documents.forEach(
-        (module, document) ->
-            coordinates.put(
-                document.id(),
-                new ModuleSourceCoordinate(module, document.path().getFileName().toString())));
+    documents.forEach((module, document) ->
+        coordinates.put(
+            document.id(),
+            new ModuleSourceCoordinate(module, document.path().getFileName().toString())));
     return new CompilationRequest(
         new CompilationUnitId(source.id().uri()),
         new CompilationScope(coordinates, new ModuleGraph(reads)),
@@ -430,11 +429,11 @@ final class PublishedCoreImportTest {
         SourceFile.of(
             directory.resolve("consumer/main.norm"),
             """
-        package app
-        import library.value
-        import library.deferred
-        Void main() { printLine(value()); Function<Integer()> callback = deferred(7); printLine(callback()) }
-        """);
+            package app
+            import library.value
+            import library.deferred
+            Void main() { printLine(value()); Function<Integer()> callback = deferred(7); printLine(callback()) }
+            """);
     var scope =
         new CompilationScope(
             Map.of(
@@ -464,9 +463,8 @@ final class PublishedCoreImportTest {
           ArtifactId.forArtifact(output.artifact(), "test"));
       assertTrue(
           output.artifact().authoring().occurrences().stream()
-              .allMatch(
-                  occurrence ->
-                      !occurrence.origin().rootSpan().source().id().equals(publishedSource.id())));
+              .allMatch(occurrence ->
+                  !occurrence.origin().rootSpan().source().id().equals(publishedSource.id())));
       var printed = new java.io.StringWriter();
       new dev.w0fv1.norm.runtime.NormRuntime()
           .run(output.artifact(), new java.io.PrintWriter(printed));

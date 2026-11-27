@@ -32,12 +32,12 @@ final class BlockCallChainExecutionTest {
     String text =
         BOX
             + """
-        Void main() {
-          var answer = produce { 21 } map { result * 2 } map { item in item + 1 }
-          printLine(answer.value)
-          printLine(produce<Integer> { 2 } map { result.toString() }.value)
-        }
-        """;
+            Void main() {
+              var answer = produce { 21 } map { result * 2 } map { item in item + 1 }
+              printLine(answer.value)
+              printLine(produce<Integer> { 2 } map { result.toString() }.value)
+            }
+            """;
     NormTestKit.assertOutput(text, "43", "2");
     assertEquals(NormTestKit.run(text.replace("} map", "}.map")), NormTestKit.run(text));
     String formatted =
@@ -50,18 +50,18 @@ final class BlockCallChainExecutionTest {
     String text =
         BOX
             + """
-        class Producer {
-          Integer calls = 0
-          Box<Integer> load(Integer work()) { calls = calls + 1; Box<Integer>(value: work()) }
-        }
-        extension Integer finish<T>(Box<T> box, Integer action(T result)) { action(box.value) }
-        Void main() {
-          var producer = Producer()
-          var answer = producer.load { 21 } map { result * 2 } finish { result + 1 }
-          printLine(answer)
-          printLine(producer.calls)
-        }
-        """;
+            class Producer {
+              Integer calls = 0
+              Box<Integer> load(Integer work()) { calls = calls + 1; Box<Integer>(value: work()) }
+            }
+            extension Integer finish<T>(Box<T> box, Integer action(T result)) { action(box.value) }
+            Void main() {
+              var producer = Producer()
+              var answer = producer.load { 21 } map { result * 2 } finish { result + 1 }
+              printLine(answer)
+              printLine(producer.calls)
+            }
+            """;
     NormTestKit.assertOutput(text, "43", "1");
   }
 

@@ -111,15 +111,14 @@ final class Binder {
     bindCallables();
     List<BoundSource> sources =
         programs.stream()
-            .map(
-                program ->
-                    new BoundSource(
-                        program.span().source(),
-                        program.packageName(),
-                        program.enums().stream().map(this::enumId).toList(),
-                        program.interfaces().stream().map(this::interfaceId).toList(),
-                        program.aggregates().stream().map(this::aggregateId).toList(),
-                        sourceCallables(program)))
+            .map(program ->
+                new BoundSource(
+                    program.span().source(),
+                    program.packageName(),
+                    program.enums().stream().map(this::enumId).toList(),
+                    program.interfaces().stream().map(this::interfaceId).toList(),
+                    program.aggregates().stream().map(this::aggregateId).toList(),
+                    sourceCallables(program)))
             .toList();
     return new BoundProgram(
         sources,
@@ -284,17 +283,15 @@ final class Binder {
 
   private List<BoundAnnotationApplication> bindAnnotationApplications() {
     return semantics.annotations().applications().stream()
-        .filter(
-            application ->
-                semantics.annotations().schema(application.annotation()).orElseThrow().retention()
-                    != AnnotationRetention.SOURCE)
-        .map(
-            application ->
-                new BoundAnnotationApplication(
-                    BoundAggregateId.of(application.annotation()),
-                    bindAnnotationTarget(application.target()),
-                    application.values().stream().map(this::bindAnnotationValue).toList(),
-                    application.span()))
+        .filter(application ->
+            semantics.annotations().schema(application.annotation()).orElseThrow().retention()
+                != AnnotationRetention.SOURCE)
+        .map(application ->
+            new BoundAnnotationApplication(
+                BoundAggregateId.of(application.annotation()),
+                bindAnnotationTarget(application.target()),
+                application.values().stream().map(this::bindAnnotationValue).toList(),
+                application.span()))
         .toList();
   }
 
@@ -420,13 +417,12 @@ final class Binder {
     Optional<BoundBlock> implementation =
         declaration
             .implementation()
-            .map(
-                statements ->
-                    bindBlock(
-                        BlockResults.returning(
-                            statements,
-                            !implicitSelfReturn && !callable.type().equals(SemanticType.VOID)),
-                        declaration.span()));
+            .map(statements ->
+                bindBlock(
+                    BlockResults.returning(
+                        statements,
+                        !implicitSelfReturn && !callable.type().equals(SemanticType.VOID)),
+                    declaration.span()));
     if (implicitSelfReturn && implementation.isPresent()) {
       BoundBlock body = implementation.orElseThrow();
       List<BoundStatement> statements = new ArrayList<>(body.statements());
@@ -486,34 +482,33 @@ final class Binder {
     declaration
         .flatMap(Syntax.ConstructorDecl::superCall)
         .or(owner::implicitSuperCall)
-        .ifPresent(
-            superCall -> {
-              ResolvedCall resolution = semantics.callOf(superCall.span()).orElseThrow();
-              Syntax.Call call =
-                  new Syntax.Call(
-                      new Syntax.Name("super", superCall.span()),
-                      superCall.arguments(),
-                      superCall.span());
-              Symbol target = semantics.symbol(resolution.target()).orElseThrow();
-              BoundCallableId initializer =
-                  target.kind() == SymbolKind.CONSTRUCTOR
-                      ? BoundCallableId.of(target.id())
-                      : new BoundCallableId(target.id().value() + "/constructor");
-              SemanticType parent = semantics.aggregateParent(thisType).orElseThrow();
-              statements.add(
-                  new BoundStatement.ExpressionStatement(
-                      new BoundCall(
-                          initializer,
-                          Optional.of(thisRead(superCall.span())),
-                          bindArguments(call, resolution, null),
-                          List.of(),
-                          parent.arguments().stream().map(this::runtimeType).toList(),
-                          false,
-                          false,
-                          SemanticType.VOID,
-                          superCall.span()),
-                      superCall.span()));
-            });
+        .ifPresent(superCall -> {
+          ResolvedCall resolution = semantics.callOf(superCall.span()).orElseThrow();
+          Syntax.Call call =
+              new Syntax.Call(
+                  new Syntax.Name("super", superCall.span()),
+                  superCall.arguments(),
+                  superCall.span());
+          Symbol target = semantics.symbol(resolution.target()).orElseThrow();
+          BoundCallableId initializer =
+              target.kind() == SymbolKind.CONSTRUCTOR
+                  ? BoundCallableId.of(target.id())
+                  : new BoundCallableId(target.id().value() + "/constructor");
+          SemanticType parent = semantics.aggregateParent(thisType).orElseThrow();
+          statements.add(
+              new BoundStatement.ExpressionStatement(
+                  new BoundCall(
+                      initializer,
+                      Optional.of(thisRead(superCall.span())),
+                      bindArguments(call, resolution, null),
+                      List.of(),
+                      parent.arguments().stream().map(this::runtimeType).toList(),
+                      false,
+                      false,
+                      SemanticType.VOID,
+                      superCall.span()),
+                  superCall.span()));
+        });
     if (declaration.isEmpty()) {
       for (int ordinal = 0; ordinal < owner.fields().size(); ordinal++) {
         Syntax.FieldDecl field = owner.fields().get(ordinal);
@@ -571,17 +566,16 @@ final class Binder {
       for (Syntax.FieldDecl field : owner.fields()) {
         field
             .defaultValue()
-            .ifPresent(
-                value -> {
-                  BoundField boundField = field(symbol(field.nameSpan()));
-                  statements.add(
-                      new BoundStatement.FieldAssignment(
-                          thisRead(field.span()),
-                          boundField.id(),
-                          boundField.ordinal(),
-                          fieldInitializer(boundField, field.span()),
-                          field.span()));
-                });
+            .ifPresent(value -> {
+              BoundField boundField = field(symbol(field.nameSpan()));
+              statements.add(
+                  new BoundStatement.FieldAssignment(
+                      thisRead(field.span()),
+                      boundField.id(),
+                      boundField.ordinal(),
+                      fieldInitializer(boundField, field.span()),
+                      field.span()));
+            });
       }
       statements.addAll(bindBlock(constructor.body(), constructor.span()).statements());
     }
@@ -601,9 +595,8 @@ final class Binder {
             activeTypeParameters,
             reified,
             declaration
-                .map(
-                    value ->
-                        interceptors(AnnotationTarget.CONSTRUCTOR, symbol(value.nameSpan()).id()))
+                .map(value ->
+                    interceptors(AnnotationTarget.CONSTRUCTOR, symbol(value.nameSpan()).id()))
                 .orElse(List.of()),
             SemanticType.VOID,
             new BoundBlock(statements, span),
@@ -640,16 +633,15 @@ final class Binder {
 
   private List<BoundInterceptor> interceptors(AnnotationTarget target, SymbolId symbol) {
     return semantics.annotations().applications().stream()
-        .filter(
-            application ->
-                application.target() instanceof AnnotationSite.Symbol site
-                    && site.kind() == target
-                    && site.symbol().equals(symbol)
-                    && semantics
-                        .annotations()
-                        .schema(application.annotation())
-                        .orElseThrow()
-                        .intercepts(target))
+        .filter(application ->
+            application.target() instanceof AnnotationSite.Symbol site
+                && site.kind() == target
+                && site.symbol().equals(symbol)
+                && semantics
+                    .annotations()
+                    .schema(application.annotation())
+                    .orElseThrow()
+                    .intercepts(target))
         .map(this::bindInterceptor)
         .toList();
   }
@@ -1135,11 +1127,10 @@ final class Binder {
     Symbol target =
         semantics
             .symbol(resolution.target())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "resolved call target is absent from the semantic model: "
-                            + resolution.target()));
+            .orElseThrow(() ->
+                new IllegalStateException(
+                    "resolved call target is absent from the semantic model: "
+                        + resolution.target()));
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
     BoundExpression receiver =
         member == null
@@ -1155,10 +1146,9 @@ final class Binder {
             && defaults.isPresent()
             && defaults.orElseThrow().receiver().isPresent()
             && java.util.stream.IntStream.range(0, defaults.orElseThrow().defaults().size())
-                .anyMatch(
-                    index ->
-                        defaults.orElseThrow().defaults().get(index).isPresent()
-                            && !resolution.arguments().parameterIndices().contains(index));
+                .anyMatch(index ->
+                    defaults.orElseThrow().defaults().get(index).isPresent()
+                        && !resolution.arguments().parameterIndices().contains(index));
     BoundLocalId receiverLocal =
         receiverDefault
             ? new BoundLocalId(currentCallableId.value() + "/receiver/" + syntheticId++)
@@ -1288,18 +1278,16 @@ final class Binder {
     program.enums().forEach(value -> result.addAll(value.typeParameters()));
     program
         .interfaces()
-        .forEach(
-            value -> {
-              result.addAll(value.typeParameters());
-              value.methods().forEach(method -> result.addAll(method.typeParameters()));
-            });
+        .forEach(value -> {
+          result.addAll(value.typeParameters());
+          value.methods().forEach(method -> result.addAll(method.typeParameters()));
+        });
     program
         .aggregates()
-        .forEach(
-            value -> {
-              result.addAll(value.typeParameters());
-              value.methods().forEach(method -> result.addAll(method.typeParameters()));
-            });
+        .forEach(value -> {
+          result.addAll(value.typeParameters());
+          value.methods().forEach(method -> result.addAll(method.typeParameters()));
+        });
     program.functions().forEach(value -> result.addAll(value.typeParameters()));
     return List.copyOf(result);
   }
@@ -1483,12 +1471,11 @@ final class Binder {
 
   private List<BoundTypeParameter> bindTypeParameters(List<Syntax.TypeParameter> parameters) {
     return parameters.stream()
-        .map(
-            parameter ->
-                new BoundTypeParameter(
-                    symbol(parameter.nameSpan()).type(),
-                    parameter.upperBound().map(type -> semantics.typeOf(type).orElseThrow()),
-                    parameter.defaultType().map(type -> semantics.typeOf(type).orElseThrow())))
+        .map(parameter ->
+            new BoundTypeParameter(
+                symbol(parameter.nameSpan()).type(),
+                parameter.upperBound().map(type -> semantics.typeOf(type).orElseThrow()),
+                parameter.defaultType().map(type -> semantics.typeOf(type).orElseThrow())))
         .toList();
   }
 
@@ -1499,16 +1486,15 @@ final class Binder {
         declaration.name(),
         bindTypeParameters(declaration.typeParameters()),
         java.util.stream.IntStream.range(0, method.parameters().size())
-            .mapToObj(
-                index -> {
-                  var parameter = method.parameters().get(index);
-                  return new BoundParameter(
-                      new BoundLocalId(method.id().value() + "/parameter/" + index),
-                      parameter,
-                      index,
-                      List.of(),
-                      defaultValues.defaultValue(method.id(), index));
-                })
+            .mapToObj(index -> {
+              var parameter = method.parameters().get(index);
+              return new BoundParameter(
+                  new BoundLocalId(method.id().value() + "/parameter/" + index),
+                  parameter,
+                  index,
+                  List.of(),
+                  defaultValues.defaultValue(method.id(), index));
+            })
             .toList(),
         method.type(),
         declaration.span());
@@ -1516,13 +1502,12 @@ final class Binder {
 
   private List<BoundConformance> bindConformances(Syntax.AggregateDecl declaration) {
     return declaration.implementedInterfaces().stream()
-        .map(
-            type -> {
-              SemanticType interfaceType = semantics.typeOf(type).orElseThrow();
-              List<BoundWitness> witnesses = new ArrayList<>();
-              collectWitnesses(declaration, interfaceType, witnesses, new java.util.HashSet<>());
-              return new BoundConformance(interfaceType, witnesses);
-            })
+        .map(type -> {
+          SemanticType interfaceType = semantics.typeOf(type).orElseThrow();
+          List<BoundWitness> witnesses = new ArrayList<>();
+          collectWitnesses(declaration, interfaceType, witnesses, new java.util.HashSet<>());
+          return new BoundConformance(interfaceType, witnesses);
+        })
         .toList();
   }
 
@@ -1530,10 +1515,9 @@ final class Binder {
     List<BoundBuiltinConformance> result = new ArrayList<>();
     var conformances = new ArrayList<>(builtins.protocolConformances());
     semantics.builtinTypeConformances().stream()
-        .map(
-            value ->
-                new BuiltinCatalog.ProtocolConformance(
-                    List.of(), value.concreteType(), value.interfaceType(), Map.of()))
+        .map(value ->
+            new BuiltinCatalog.ProtocolConformance(
+                List.of(), value.concreteType(), value.interfaceType(), Map.of()))
         .forEach(conformances::add);
     for (BuiltinCatalog.ProtocolConformance conformance : conformances) {
       Syntax.InterfaceDecl contract = interfaceDeclaration(conformance.interfaceType());
@@ -1553,12 +1537,10 @@ final class Binder {
       for (Syntax.InterfaceMethodDecl requirement : contract.methods()) {
         if (requirement.body().isEmpty()
             || witnesses.stream()
-                .anyMatch(
-                    value ->
-                        value
-                            .requirement()
-                            .equals(
-                                BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id())))) {
+                .anyMatch(value ->
+                    value
+                        .requirement()
+                        .equals(BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id())))) {
           continue;
         }
         witnesses.add(
@@ -1661,12 +1643,11 @@ final class Binder {
       if (parentDeclaration != null) {
         Map<String, SemanticType> substitutions = aggregateSubstitutions(parentDeclaration, parent);
         bindDispatch(parentDeclaration).stream()
-            .map(
-                dispatch ->
-                    new BoundMethodDispatch(
-                        dispatch.slot(),
-                        dispatch.target(),
-                        dispatch.receiverType().substitute(substitutions)))
+            .map(dispatch ->
+                new BoundMethodDispatch(
+                    dispatch.slot(),
+                    dispatch.target(),
+                    dispatch.receiverType().substitute(substitutions)))
             .forEach(result::add);
       }
     }
@@ -1675,16 +1656,15 @@ final class Binder {
       BoundCallableId methodId = callableId(method);
       semantics
           .overriddenMethod(symbol(method.nameSpan()).id())
-          .ifPresent(
-              overridden -> {
-                BoundCallableId parentMethod = BoundCallableId.of(overridden);
-                for (int index = 0; index < result.size(); index++) {
-                  BoundMethodDispatch inherited = result.get(index);
-                  if (inherited.target().equals(parentMethod)) {
-                    result.set(index, new BoundMethodDispatch(inherited.slot(), methodId, self));
-                  }
-                }
-              });
+          .ifPresent(overridden -> {
+            BoundCallableId parentMethod = BoundCallableId.of(overridden);
+            for (int index = 0; index < result.size(); index++) {
+              BoundMethodDispatch inherited = result.get(index);
+              if (inherited.target().equals(parentMethod)) {
+                result.set(index, new BoundMethodDispatch(inherited.slot(), methodId, self));
+              }
+            }
+          });
       result.add(new BoundMethodDispatch(methodId, methodId, self));
     }
     return List.copyOf(result);
@@ -1796,13 +1776,12 @@ final class Binder {
     implicitSelfReturn = previousImplicitSelfReturn;
     List<BoundExpression> capturedValues =
         captures.entrySet().stream()
-            .map(
-                capture -> {
-                  recordCapture(capture.getKey(), capture.getValue());
-                  return (BoundExpression)
-                      new BoundExpression.LocalRead(
-                          capture.getKey(), capture.getValue(), lambda.span());
-                })
+            .map(capture -> {
+              recordCapture(capture.getKey(), capture.getValue());
+              return (BoundExpression)
+                  new BoundExpression.LocalRead(
+                      capture.getKey(), capture.getValue(), lambda.span());
+            })
             .toList();
     return new BoundClosure(
         lambdaId, Optional.empty(), capturedValues, closureReifiedArguments, type, lambda.span());
@@ -1898,10 +1877,9 @@ final class Binder {
   private Symbol symbol(SourceSpan span) {
     return semantics
         .symbolOf(span)
-        .orElseThrow(
-            () ->
-                new IllegalStateException(
-                    "symbol is absent for '" + span.text() + "' at " + span.location()));
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "symbol is absent for '" + span.text() + "' at " + span.location()));
   }
 
   private static boolean isBuiltin(Symbol symbol) {
@@ -1953,12 +1931,11 @@ final class Binder {
               BoundEnumVariantId.of(symbol(variant.nameSpan()).id()),
               variant.name(),
               java.util.stream.IntStream.range(0, variant.parameters().size())
-                  .mapToObj(
-                      index ->
-                          new BoundEnumField(
-                              symbol(variant.nameSpan()).parameters().get(index),
-                              index,
-                              defaultValues.defaultValue(symbol(variant.nameSpan()).id(), index)))
+                  .mapToObj(index ->
+                      new BoundEnumField(
+                          symbol(variant.nameSpan()).parameters().get(index),
+                          index,
+                          defaultValues.defaultValue(symbol(variant.nameSpan()).id(), index)))
                   .toList()));
     }
     return List.copyOf(result);

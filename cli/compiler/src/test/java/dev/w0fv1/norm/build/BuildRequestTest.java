@@ -29,13 +29,12 @@ final class BuildRequestTest {
                 ApplicationBuildTarget.JVM,
                 true,
                 dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
-    assertDoesNotThrow(
-        () ->
-            new BuildRequest(
-                Path.of("web.norm"),
-                ApplicationBuildTarget.JVM,
-                false,
-                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
+    assertDoesNotThrow(() ->
+        new BuildRequest(
+            Path.of("web.norm"),
+            ApplicationBuildTarget.JVM,
+            false,
+            dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
   }
 
   @Test

@@ -24,11 +24,10 @@ public final class SpanIndex<T> {
   public static <T> SpanIndex<T> of(List<Entry<T>> values) {
     Objects.requireNonNull(values, "values");
     Map<DocumentId, List<Entry<T>>> grouped = new LinkedHashMap<>();
-    values.forEach(
-        entry ->
-            grouped
-                .computeIfAbsent(entry.span().source().id(), ignored -> new ArrayList<>())
-                .add(entry));
+    values.forEach(entry ->
+        grouped
+            .computeIfAbsent(entry.span().source().id(), ignored -> new ArrayList<>())
+            .add(entry));
     return new SpanIndex<>(
         grouped.entrySet().stream()
             .collect(
@@ -83,10 +82,8 @@ public final class SpanIndex<T> {
       if (entries.isEmpty()) return null;
       List<Integer> points =
           entries.stream()
-              .flatMap(
-                  entry ->
-                      java.util.stream.Stream.of(
-                          entry.span().startOffset(), entry.span().endOffset()))
+              .flatMap(entry ->
+                  java.util.stream.Stream.of(entry.span().startOffset(), entry.span().endOffset()))
               .sorted()
               .toList();
       int center = points.get(points.size() / 2);

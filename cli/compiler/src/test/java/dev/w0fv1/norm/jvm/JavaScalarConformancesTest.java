@@ -40,30 +40,21 @@ final class JavaScalarConformancesTest {
       var relations = JavaScalarConformances.derive(schema, owners);
       assertTrue(
           relations.stream()
-              .anyMatch(
-                  value ->
-                      value.concreteType().equals(SemanticType.STRING)
-                          && value
-                              .interfaceType()
-                              .identity()
-                              .equals("java.base.lang.CharSequence")));
+              .anyMatch(value ->
+                  value.concreteType().equals(SemanticType.STRING)
+                      && value.interfaceType().identity().equals("java.base.lang.CharSequence")));
       assertTrue(
           relations.stream()
-              .anyMatch(
-                  value ->
-                      value.concreteType().equals(SemanticType.INTEGER)
-                          && value.interfaceType().identity().equals("java.base.lang.Comparable")
-                          && value
-                              .interfaceType()
-                              .arguments()
-                              .equals(List.of(SemanticType.INTEGER))));
+              .anyMatch(value ->
+                  value.concreteType().equals(SemanticType.INTEGER)
+                      && value.interfaceType().identity().equals("java.base.lang.Comparable")
+                      && value.interfaceType().arguments().equals(List.of(SemanticType.INTEGER))));
       assertFalse(
           relations.stream()
-              .anyMatch(
-                  value ->
-                      value.concreteType().equals(SemanticType.INTEGER)
-                          && value.interfaceType().arguments().stream()
-                              .anyMatch(argument -> argument.identity().contains("Short"))));
+              .anyMatch(value ->
+                  value.concreteType().equals(SemanticType.INTEGER)
+                      && value.interfaceType().arguments().stream()
+                          .anyMatch(argument -> argument.identity().contains("Short"))));
     }
   }
 }

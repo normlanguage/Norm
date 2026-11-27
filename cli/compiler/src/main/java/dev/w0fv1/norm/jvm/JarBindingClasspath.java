@@ -96,9 +96,8 @@ public final class JarBindingClasspath {
     var services = JarServiceIndex.scan(selected.stream().map(ResolvedJarArtifact::file).toList());
     var providers =
         services.registrations().stream()
-            .filter(
-                registration ->
-                    registration.service().equals("javax.annotation.processing.Processor"))
+            .filter(registration ->
+                registration.service().equals("javax.annotation.processing.Processor"))
             .map(JarServiceIndex.Registration::artifact)
             .collect(java.util.stream.Collectors.toSet());
     if (providers.isEmpty()) return List.of();

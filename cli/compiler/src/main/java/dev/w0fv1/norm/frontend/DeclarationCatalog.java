@@ -169,13 +169,12 @@ final class DeclarationCatalog {
       }
       program
           .enums()
-          .forEach(
-              declaration -> {
-                owners.put(declaration, program);
-                declaration
-                    .variants()
-                    .forEach(variant -> indexCallable(program, variant, variant.parameters()));
-              });
+          .forEach(declaration -> {
+            owners.put(declaration, program);
+            declaration
+                .variants()
+                .forEach(variant -> indexCallable(program, variant, variant.parameters()));
+          });
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         owners.put(declaration, program);
         declaration.fields().forEach(field -> owners.put(field, program));
@@ -221,10 +220,9 @@ final class DeclarationCatalog {
                 key(program, declaration.name(), declaration.visibility()),
                 ignored -> new ArrayList<>());
         if (overloads.stream()
-            .anyMatch(
-                candidate ->
-                    DeclarationIdentity.functionSignature(candidate)
-                        .equals(DeclarationIdentity.functionSignature(declaration)))) {
+            .anyMatch(candidate ->
+                DeclarationIdentity.functionSignature(candidate)
+                    .equals(DeclarationIdentity.functionSignature(declaration)))) {
           duplicates.add(declaration);
         }
         overloads.add(declaration);

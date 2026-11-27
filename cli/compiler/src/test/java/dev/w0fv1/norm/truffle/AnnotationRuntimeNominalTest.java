@@ -68,14 +68,13 @@ final class AnnotationRuntimeNominalTest {
 
   private static CoreDefinitionRecord nominal(List<CoreDefinitionRecord> definitions, String name) {
     return definitions.stream()
-        .filter(
-            record -> {
-              var definition = record.definition();
-              return (definition instanceof CoreDefinition.Aggregate aggregate
-                      && aggregate.nominalType().name().equals(name))
-                  || (definition instanceof CoreDefinition.Interface declaration
-                      && declaration.nominalType().name().equals(name));
-            })
+        .filter(record -> {
+          var definition = record.definition();
+          return (definition instanceof CoreDefinition.Aggregate aggregate
+                  && aggregate.nominalType().name().equals(name))
+              || (definition instanceof CoreDefinition.Interface declaration
+                  && declaration.nominalType().name().equals(name));
+        })
         .findFirst()
         .orElseThrow();
   }

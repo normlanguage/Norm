@@ -58,13 +58,12 @@ final class CoreCodec {
         writer.writeInt(callable.parameters().size());
         callable
             .parameters()
-            .forEach(
-                parameter -> {
-                  writer.writeString(parameter.name());
-                  writeType(writer, parameter.type(), referenceResolver);
-                  writer.writeInt(parameter.localIndex());
-                  writeInterceptors(writer, parameter.interceptors(), referenceResolver);
-                });
+            .forEach(parameter -> {
+              writer.writeString(parameter.name());
+              writeType(writer, parameter.type(), referenceResolver);
+              writer.writeInt(parameter.localIndex());
+              writeInterceptors(writer, parameter.interceptors(), referenceResolver);
+            });
         writeIntegers(writer, callable.reifiedTypeLocals());
         writeInterceptors(writer, callable.interceptors(), referenceResolver);
         writeType(writer, callable.returnType(), referenceResolver);
@@ -86,47 +85,40 @@ final class CoreCodec {
         writer.writeInt(aggregateDefinition.fields().size());
         aggregateDefinition
             .fields()
-            .forEach(
-                field -> {
-                  writer.writeInt(field.visibility().ordinal());
-                  writer.writeString(field.name()).writeInt(field.ordinal());
-                  writeType(writer, field.type(), referenceResolver);
-                  writeInterceptors(writer, field.interceptors(), referenceResolver);
-                  writer.writeBoolean(field.initializer().isPresent());
-                  field
-                      .initializer()
-                      .ifPresent(
-                          initializer ->
-                              writeReference(
-                                  writer, referenceResolver.apply(initializer.target())));
-                });
+            .forEach(field -> {
+              writer.writeInt(field.visibility().ordinal());
+              writer.writeString(field.name()).writeInt(field.ordinal());
+              writeType(writer, field.type(), referenceResolver);
+              writeInterceptors(writer, field.interceptors(), referenceResolver);
+              writer.writeBoolean(field.initializer().isPresent());
+              field
+                  .initializer()
+                  .ifPresent(initializer ->
+                      writeReference(writer, referenceResolver.apply(initializer.target())));
+            });
         writer.writeInt(aggregateDefinition.dispatch().size());
         aggregateDefinition.dispatch().stream()
             .sorted(
-                java.util.Comparator.comparing(
-                    dispatch ->
-                        java.util.HexFormat.of()
-                            .formatHex(referenceBytes(referenceResolver.apply(dispatch.slot())))))
-            .forEach(
-                dispatch -> {
-                  writeReference(writer, referenceResolver.apply(dispatch.slot()));
-                  writeReference(writer, referenceResolver.apply(dispatch.target()));
-                  writeType(writer, dispatch.receiverType(), referenceResolver);
-                });
+                java.util.Comparator.comparing(dispatch ->
+                    java.util.HexFormat.of()
+                        .formatHex(referenceBytes(referenceResolver.apply(dispatch.slot())))))
+            .forEach(dispatch -> {
+              writeReference(writer, referenceResolver.apply(dispatch.slot()));
+              writeReference(writer, referenceResolver.apply(dispatch.target()));
+              writeType(writer, dispatch.receiverType(), referenceResolver);
+            });
         writer.writeInt(aggregateDefinition.constructors().size());
         aggregateDefinition.constructors().stream()
             .map(referenceResolver)
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(referenceBytes(left), referenceBytes(right)))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(referenceBytes(left), referenceBytes(right)))
             .forEach(constructor -> writeReference(writer, constructor));
         writer.writeInt(aggregateDefinition.conformances().size());
         aggregateDefinition.conformances().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(
-                        conformanceKey(left, referenceResolver),
-                        conformanceKey(right, referenceResolver)))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(
+                    conformanceKey(left, referenceResolver),
+                    conformanceKey(right, referenceResolver)))
             .forEach(value -> writeConformance(writer, value, referenceResolver));
       }
       case CoreDefinition.Enum enumDefinition -> {
@@ -136,26 +128,22 @@ final class CoreCodec {
         writer.writeInt(enumDefinition.variants().size());
         enumDefinition
             .variants()
-            .forEach(
-                variant -> {
-                  writer.writeString(variant.key()).writeInt(variant.fields().size());
-                  variant
-                      .fields()
-                      .forEach(
-                          field -> {
-                            writer.writeInt(field.visibility().ordinal());
-                            writer.writeString(field.name()).writeInt(field.ordinal());
-                            writeType(writer, field.type(), referenceResolver);
-                            writeInterceptors(writer, field.interceptors(), referenceResolver);
-                            writer.writeBoolean(field.initializer().isPresent());
-                            field
-                                .initializer()
-                                .ifPresent(
-                                    initializer ->
-                                        writeReference(
-                                            writer, referenceResolver.apply(initializer.target())));
-                          });
-                });
+            .forEach(variant -> {
+              writer.writeString(variant.key()).writeInt(variant.fields().size());
+              variant
+                  .fields()
+                  .forEach(field -> {
+                    writer.writeInt(field.visibility().ordinal());
+                    writer.writeString(field.name()).writeInt(field.ordinal());
+                    writeType(writer, field.type(), referenceResolver);
+                    writeInterceptors(writer, field.interceptors(), referenceResolver);
+                    writer.writeBoolean(field.initializer().isPresent());
+                    field
+                        .initializer()
+                        .ifPresent(initializer ->
+                            writeReference(writer, referenceResolver.apply(initializer.target())));
+                  });
+            });
       }
       case CoreDefinition.Interface declaration -> {
         writer.writeTag("interface");
@@ -163,18 +151,16 @@ final class CoreCodec {
         writeTypeParameters(writer, declaration.typeParameters(), referenceResolver);
         writer.writeInt(declaration.directParents().size());
         declaration.directParents().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(
-                        typeKey(left, referenceResolver), typeKey(right, referenceResolver)))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(
+                    typeKey(left, referenceResolver), typeKey(right, referenceResolver)))
             .forEach(type -> writeType(writer, type, referenceResolver));
         writer.writeInt(declaration.declaredMethods().size());
         declaration.declaredMethods().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(
-                        referenceBytes(referenceResolver.apply(left)),
-                        referenceBytes(referenceResolver.apply(right))))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(
+                    referenceBytes(referenceResolver.apply(left)),
+                    referenceBytes(referenceResolver.apply(right))))
             .forEach(link -> writeReference(writer, referenceResolver.apply(link)));
       }
       case CoreDefinition.MethodSignature method -> {
@@ -192,23 +178,20 @@ final class CoreCodec {
         writer.writeInt(conformance.witnesses().size());
         conformance.witnesses().stream()
             .sorted(
-                java.util.Comparator.comparing(
-                    witness ->
-                        java.util.HexFormat.of()
-                            .formatHex(
-                                referenceBytes(referenceResolver.apply(witness.requirement())))))
-            .forEach(
-                witness -> {
-                  writeReference(writer, referenceResolver.apply(witness.requirement()));
-                  switch (witness.implementation()) {
-                    case CoreWitnessTarget.Callable callable -> {
-                      writer.writeTag("callable-witness");
-                      writeReference(writer, referenceResolver.apply(callable.definition()));
-                    }
-                    case CoreWitnessTarget.Intrinsic intrinsic ->
-                        writer.writeTag("intrinsic-witness").writeTag(intrinsic.intrinsic().name());
-                  }
-                });
+                java.util.Comparator.comparing(witness ->
+                    java.util.HexFormat.of()
+                        .formatHex(referenceBytes(referenceResolver.apply(witness.requirement())))))
+            .forEach(witness -> {
+              writeReference(writer, referenceResolver.apply(witness.requirement()));
+              switch (witness.implementation()) {
+                case CoreWitnessTarget.Callable callable -> {
+                  writer.writeTag("callable-witness");
+                  writeReference(writer, referenceResolver.apply(callable.definition()));
+                }
+                case CoreWitnessTarget.Intrinsic intrinsic ->
+                    writer.writeTag("intrinsic-witness").writeTag(intrinsic.intrinsic().name());
+              }
+            });
       }
     }
   }
@@ -218,14 +201,11 @@ final class CoreCodec {
       List<CoreInterceptor> interceptors,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(interceptors.size());
-    interceptors.forEach(
-        interceptor -> {
-          writeReference(writer, referenceResolver.apply(interceptor.annotation()));
-          writer.writeInt(interceptor.values().size());
-          interceptor
-              .values()
-              .forEach(value -> writeAnnotationValue(writer, value, referenceResolver));
-        });
+    interceptors.forEach(interceptor -> {
+      writeReference(writer, referenceResolver.apply(interceptor.annotation()));
+      writer.writeInt(interceptor.values().size());
+      interceptor.values().forEach(value -> writeAnnotationValue(writer, value, referenceResolver));
+    });
   }
 
   private static void writeLocal(
@@ -532,11 +512,10 @@ final class CoreCodec {
       List<CoreArgument> arguments,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(arguments.size());
-    arguments.forEach(
-        argument -> {
-          writeExpression(writer, argument.value(), referenceResolver);
-          writer.writeInt(argument.parameterIndex());
-        });
+    arguments.forEach(argument -> {
+      writeExpression(writer, argument.value(), referenceResolver);
+      writer.writeInt(argument.parameterIndex());
+    });
   }
 
   private static void writeRuntimeType(
@@ -547,9 +526,8 @@ final class CoreCodec {
     writer.writeInt(runtimeType.captures().size());
     runtimeType
         .captures()
-        .forEach(
-            capture ->
-                writer.writeInt(capture.typeParameterIndex()).writeInt(capture.localIndex()));
+        .forEach(capture ->
+            writer.writeInt(capture.typeParameterIndex()).writeInt(capture.localIndex()));
   }
 
   private static void writeConformance(
@@ -560,22 +538,20 @@ final class CoreCodec {
     writer.writeInt(conformance.witnesses().size());
     conformance.witnesses().stream()
         .sorted(
-            java.util.Comparator.comparing(
-                witness ->
-                    java.util.HexFormat.of()
-                        .formatHex(referenceBytes(referenceResolver.apply(witness.requirement())))))
-        .forEach(
-            witness -> {
-              writeReference(writer, referenceResolver.apply(witness.requirement()));
-              switch (witness.implementation()) {
-                case CoreWitnessTarget.Callable callable -> {
-                  writer.writeTag("callable-witness");
-                  writeReference(writer, referenceResolver.apply(callable.definition()));
-                }
-                case CoreWitnessTarget.Intrinsic intrinsic ->
-                    writer.writeTag("intrinsic-witness").writeTag(intrinsic.intrinsic().name());
-              }
-            });
+            java.util.Comparator.comparing(witness ->
+                java.util.HexFormat.of()
+                    .formatHex(referenceBytes(referenceResolver.apply(witness.requirement())))))
+        .forEach(witness -> {
+          writeReference(writer, referenceResolver.apply(witness.requirement()));
+          switch (witness.implementation()) {
+            case CoreWitnessTarget.Callable callable -> {
+              writer.writeTag("callable-witness");
+              writeReference(writer, referenceResolver.apply(callable.definition()));
+            }
+            case CoreWitnessTarget.Intrinsic intrinsic ->
+                writer.writeTag("intrinsic-witness").writeTag(intrinsic.intrinsic().name());
+          }
+        });
   }
 
   private static byte[] referenceBytes(CoreDefinitionLink reference) {
@@ -610,13 +586,12 @@ final class CoreCodec {
       List<CoreTypeParameter> parameters,
       Function<CoreDefinitionLink, ? extends CoreDefinitionLink> referenceResolver) {
     writer.writeInt(parameters.size());
-    parameters.forEach(
-        parameter -> {
-          writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
-          parameter.upperBound().ifPresent(type -> writeType(writer, type, referenceResolver));
-          writer.writeBoolean(parameter.defaultType().isPresent());
-          parameter.defaultType().ifPresent(type -> writeType(writer, type, referenceResolver));
-        });
+    parameters.forEach(parameter -> {
+      writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
+      parameter.upperBound().ifPresent(type -> writeType(writer, type, referenceResolver));
+      writer.writeBoolean(parameter.defaultType().isPresent());
+      parameter.defaultType().ifPresent(type -> writeType(writer, type, referenceResolver));
+    });
   }
 
   static void writeType(CanonicalWriter writer, CoreType type) {

@@ -16,12 +16,12 @@ final class GuestValueFactoryTest {
     var artifact =
         NormTestKit.compile(
                 """
-        import std.core.Exception
-        class Failure extends Exception {
-          Failure(String message) { super(message: message) }
-        }
-        Void main() { throw Failure("boundary failure") }
-        """)
+                import std.core.Exception
+                class Failure extends Exception {
+                  Failure(String message) { super(message: message) }
+                }
+                Void main() { throw Failure("boundary failure") }
+                """)
             .output()
             .orElseThrow()
             .artifact();
@@ -50,15 +50,13 @@ final class GuestValueFactoryTest {
     var artifact = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     assertFalse(
         artifact.namespace().bindings().stream()
-            .anyMatch(
-                binding ->
-                    binding.packageName().equals("std.time") && binding.name().equals("Duration")));
+            .anyMatch(binding ->
+                binding.packageName().equals("std.time") && binding.name().equals("Duration")));
     var definition =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    record.definition() instanceof CoreDefinition.Aggregate aggregate
-                        && aggregate.nominalType().name().equals("Entity"))
+            .filter(record ->
+                record.definition() instanceof CoreDefinition.Aggregate aggregate
+                    && aggregate.nominalType().name().equals("Entity"))
             .findFirst()
             .orElseThrow();
     var aggregate = (CoreDefinition.Aggregate) definition.definition();

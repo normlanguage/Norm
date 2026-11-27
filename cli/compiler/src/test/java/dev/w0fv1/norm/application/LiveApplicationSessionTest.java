@@ -82,35 +82,34 @@ class LiveApplicationSessionTest {
                 environment.projectLoader(), environment.compilerSession(), backend)) {
       var execution =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    try {
-                      assertTrue(
-                          runner
-                              .run(
-                                  entry,
-                                  ExecutionContext.of(new PrintWriter(new StringWriter())),
-                                  message -> {
-                                    if (!message.equals("Compiling Norm sources")
-                                        || compilations.incrementAndGet() != 2) return;
-                                    compiling.countDown();
-                                    boolean restoreInterrupt = false;
-                                    while (releaseCompilation.getCount() != 0) {
-                                      try {
-                                        releaseCompilation.await();
-                                      } catch (InterruptedException exception) {
-                                        restoreInterrupt = true;
-                                      }
-                                    }
-                                    if (restoreInterrupt) Thread.currentThread().interrupt();
-                                  },
-                                  message -> fail(message))
-                              .isSuccess());
-                      interrupted.set(Thread.currentThread().isInterrupted());
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    }
-                  });
+              .start(() -> {
+                try {
+                  assertTrue(
+                      runner
+                          .run(
+                              entry,
+                              ExecutionContext.of(new PrintWriter(new StringWriter())),
+                              message -> {
+                                if (!message.equals("Compiling Norm sources")
+                                    || compilations.incrementAndGet() != 2) return;
+                                compiling.countDown();
+                                boolean restoreInterrupt = false;
+                                while (releaseCompilation.getCount() != 0) {
+                                  try {
+                                    releaseCompilation.await();
+                                  } catch (InterruptedException exception) {
+                                    restoreInterrupt = true;
+                                  }
+                                }
+                                if (restoreInterrupt) Thread.currentThread().interrupt();
+                              },
+                              message -> fail(message))
+                          .isSuccess());
+                  interrupted.set(Thread.currentThread().isInterrupted());
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                }
+              });
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
         Files.writeString(entry, "Void main() { printLine(\"new\") }");
@@ -184,21 +183,20 @@ class LiveApplicationSessionTest {
                 environment.projectLoader(), environment.compilerSession(), backend)) {
       var execution =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    try {
-                      assertTrue(
-                          runner
-                              .run(
-                                  entry,
-                                  ExecutionContext.of(new PrintWriter(new StringWriter())),
-                                  message -> {},
-                                  message -> invalid.countDown())
-                              .isSuccess());
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    }
-                  });
+              .start(() -> {
+                try {
+                  assertTrue(
+                      runner
+                          .run(
+                              entry,
+                              ExecutionContext.of(new PrintWriter(new StringWriter())),
+                              message -> {},
+                              message -> invalid.countDown())
+                          .isSuccess());
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                }
+              });
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
         Files.writeString(entry, "Void main() { missing() }");

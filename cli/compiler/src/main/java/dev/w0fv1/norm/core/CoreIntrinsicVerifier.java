@@ -293,16 +293,15 @@ final class CoreIntrinsicVerifier {
       case CoreIteration.Builtin builtin -> {
         boolean valid =
             builtins.iterationCandidates(builtin.intrinsic()).stream()
-                .anyMatch(
-                    candidate -> {
-                      Map<String, CoreType> substitutions = new LinkedHashMap<>();
-                      return bindPattern(
-                              CoreVerificationTypes.nonNullable(
-                                  validationTypes.absolute(owner, iterable.type())),
-                              candidate.receiver(),
-                              substitutions)
-                          && instantiate(candidate.element(), substitutions).equals(variable);
-                    });
+                .anyMatch(candidate -> {
+                  Map<String, CoreType> substitutions = new LinkedHashMap<>();
+                  return bindPattern(
+                          CoreVerificationTypes.nonNullable(
+                              validationTypes.absolute(owner, iterable.type())),
+                          candidate.receiver(),
+                          substitutions)
+                      && instantiate(candidate.element(), substitutions).equals(variable);
+                });
         if (!valid) {
           throw new IllegalArgumentException("iteration does not match its builtin ABI");
         }

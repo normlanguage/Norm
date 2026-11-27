@@ -26,11 +26,10 @@ abstract class CoreWalker {
         callable.captureTypes().forEach(this::walkType);
         callable
             .parameters()
-            .forEach(
-                parameter -> {
-                  walkType(parameter.type());
-                  walkInterceptors(parameter.interceptors());
-                });
+            .forEach(parameter -> {
+              walkType(parameter.type());
+              walkInterceptors(parameter.interceptors());
+            });
         walkInterceptors(callable.interceptors());
         walkType(callable.returnType());
       }
@@ -39,27 +38,22 @@ abstract class CoreWalker {
         declaration.parentType().ifPresent(this::walkType);
         declaration
             .fields()
-            .forEach(
-                field -> {
-                  walkType(field.type());
-                  walkInterceptors(field.interceptors());
-                  field
-                      .initializer()
-                      .ifPresent(
-                          initializer ->
-                              visitReferenceDependency(
-                                  initializer.nodeIndex(),
-                                  CoreDependency.Kind.CALL,
-                                  initializer.target()));
-                });
+            .forEach(field -> {
+              walkType(field.type());
+              walkInterceptors(field.interceptors());
+              field
+                  .initializer()
+                  .ifPresent(initializer ->
+                      visitReferenceDependency(
+                          initializer.nodeIndex(), CoreDependency.Kind.CALL, initializer.target()));
+            });
         declaration
             .dispatch()
-            .forEach(
-                dispatch -> {
-                  visitDependency(CoreDependency.Kind.DECLARED_MEMBER, dispatch.slot());
-                  visitDependency(CoreDependency.Kind.IMPLEMENTATION, dispatch.target());
-                  walkType(dispatch.receiverType());
-                });
+            .forEach(dispatch -> {
+              visitDependency(CoreDependency.Kind.DECLARED_MEMBER, dispatch.slot());
+              visitDependency(CoreDependency.Kind.IMPLEMENTATION, dispatch.target());
+              walkType(dispatch.receiverType());
+            });
         declaration
             .constructors()
             .forEach(link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
@@ -69,15 +63,13 @@ abstract class CoreWalker {
         declaration.typeParameters().forEach(this::walkTypeParameter);
         declaration
             .variants()
-            .forEach(
-                variant ->
-                    variant
-                        .fields()
-                        .forEach(
-                            field -> {
-                              walkType(field.type());
-                              walkInterceptors(field.interceptors());
-                            }));
+            .forEach(variant ->
+                variant
+                    .fields()
+                    .forEach(field -> {
+                      walkType(field.type());
+                      walkInterceptors(field.interceptors());
+                    }));
       }
       case CoreDefinition.Interface declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
@@ -102,11 +94,10 @@ abstract class CoreWalker {
   }
 
   private void walkInterceptors(java.util.List<CoreInterceptor> interceptors) {
-    interceptors.forEach(
-        interceptor -> {
-          visitDependency(CoreDependency.Kind.ANNOTATION, interceptor.annotation());
-          interceptor.values().forEach(this::walkAnnotationValue);
-        });
+    interceptors.forEach(interceptor -> {
+      visitDependency(CoreDependency.Kind.ANNOTATION, interceptor.annotation());
+      interceptor.values().forEach(this::walkAnnotationValue);
+    });
   }
 
   final void walkAnnotationValue(CoreAnnotationValue value) {

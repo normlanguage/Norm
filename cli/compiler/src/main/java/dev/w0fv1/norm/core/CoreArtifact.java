@@ -78,16 +78,15 @@ public final class CoreArtifact {
       if (!references.keySet().equals(occurrence.references().keySet())) {
         throw new IllegalArgumentException("authoring references do not match the core definition");
       }
-      references.forEach(
-          (nodeIndex, reference) -> {
-            DefinitionId resolved = program.resolve(occurrence.id().representative(), reference);
-            CoreDefinitionOccurrence target =
-                authoring.occurrence(occurrence.references().get(nodeIndex)).orElseThrow();
-            if (!target.representedDefinitions().contains(resolved)) {
-              throw new IllegalArgumentException(
-                  "authoring reference target does not represent the core target");
-            }
-          });
+      references.forEach((nodeIndex, reference) -> {
+        DefinitionId resolved = program.resolve(occurrence.id().representative(), reference);
+        CoreDefinitionOccurrence target =
+            authoring.occurrence(occurrence.references().get(nodeIndex)).orElseThrow();
+        if (!target.representedDefinitions().contains(resolved)) {
+          throw new IllegalArgumentException(
+              "authoring reference target does not represent the core target");
+        }
+      });
     }
     if (authoring.entryPoint().isPresent()) {
       CoreDefinitionOccurrence entry =
@@ -111,32 +110,28 @@ public final class CoreArtifact {
       var owner = new CoreAnnotationReferenceSite.Definition(occurrence.id());
       CoreAnnotationSites.references(
               program.definition(occurrence.id().representative()).orElseThrow())
-          .forEach(
-              (path, link) ->
-                  annotationSites.put(
-                      new CoreAnnotationReferenceSite(owner, path),
-                      program.resolve(
-                          occurrence.id().representative(), (DefinitionReference) link)));
+          .forEach((path, link) ->
+              annotationSites.put(
+                  new CoreAnnotationReferenceSite(owner, path),
+                  program.resolve(occurrence.id().representative(), (DefinitionReference) link)));
     }
     for (var application : metadata.annotations()) {
       var owner = new CoreAnnotationReferenceSite.Metadata(application.id());
       CoreAnnotationSites.references(application)
-          .forEach(
-              (path, link) ->
-                  annotationSites.put(
-                      new CoreAnnotationReferenceSite(owner, path),
-                      program.resolve(application.annotation(), (DefinitionReference) link)));
+          .forEach((path, link) ->
+              annotationSites.put(
+                  new CoreAnnotationReferenceSite(owner, path),
+                  program.resolve(application.annotation(), (DefinitionReference) link)));
     }
     if (!annotationSites.keySet().equals(authoring.annotationReferences().keySet()))
       throw new IllegalArgumentException(
           "annotation authoring reference sites do not match the artifact");
-    annotationSites.forEach(
-        (site, definition) -> {
-          var target = authoring.occurrence(authoring.annotationTarget(site)).orElseThrow();
-          if (!target.representedDefinitions().contains(definition))
-            throw new IllegalArgumentException(
-                "annotation authoring reference does not represent its content target");
-        });
+    annotationSites.forEach((site, definition) -> {
+      var target = authoring.occurrence(authoring.annotationTarget(site)).orElseThrow();
+      if (!target.representedDefinitions().contains(definition))
+        throw new IllegalArgumentException(
+            "annotation authoring reference does not represent its content target");
+    });
     CoreArtifactMutabilityVerifier.verify(program, authoring);
   }
 
@@ -236,12 +231,11 @@ public final class CoreArtifact {
               };
           boolean ownerBindingPresent =
               namespace.bindings().stream()
-                  .anyMatch(
-                      candidate ->
-                          candidate.kind() == ownerKind
-                              && candidate.packageName().equals(binding.packageName())
-                              && candidate.name().equals(binding.ownerName().orElseThrow())
-                              && candidate.definition().equals(owner));
+                  .anyMatch(candidate ->
+                      candidate.kind() == ownerKind
+                          && candidate.packageName().equals(binding.packageName())
+                          && candidate.name().equals(binding.ownerName().orElseThrow())
+                          && candidate.definition().equals(owner));
           if (!ownerBindingPresent) throw bindingMismatch(binding);
         }
       }

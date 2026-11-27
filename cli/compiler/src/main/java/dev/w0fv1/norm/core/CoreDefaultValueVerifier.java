@@ -125,12 +125,11 @@ final class CoreDefaultValueVerifier {
           case CoreDefinition.BuiltinConformance conformance -> conformance.typeParameters();
         };
     return parameters.stream()
-        .map(
-            parameter ->
-                new CoreTypeParameter(
-                    parameter.index(),
-                    parameter.upperBound().map(type -> CoreTypes.absolute(type, owner, program)),
-                    parameter.defaultType().map(type -> CoreTypes.absolute(type, owner, program))))
+        .map(parameter ->
+            new CoreTypeParameter(
+                parameter.index(),
+                parameter.upperBound().map(type -> CoreTypes.absolute(type, owner, program)),
+                parameter.defaultType().map(type -> CoreTypes.absolute(type, owner, program))))
         .toList();
   }
 }

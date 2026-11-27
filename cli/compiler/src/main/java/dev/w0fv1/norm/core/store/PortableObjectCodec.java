@@ -243,9 +243,8 @@ public final class PortableObjectCodec {
       }
     }
     entries.sort(
-        java.util.Comparator.comparing(
-                (OrderedValue entry) ->
-                    entry.value() == null ? "" : entry.value().getClass().getName())
+        java.util.Comparator.comparing((OrderedValue entry) ->
+                entry.value() == null ? "" : entry.value().getClass().getName())
             .thenComparing(OrderedValue::bytes, java.util.Arrays::compareUnsigned));
     return entries.stream().map(OrderedValue::value).toList();
   }

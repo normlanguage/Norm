@@ -52,35 +52,33 @@ class JavaApplicationPublicationTest {
         try {
           execution
               .callbacks()
-              .hostCall(
-                  () -> {
-                    synchronized (bindings) {
-                      candidate.installBridge(execution);
-                      callback.set(
-                          Thread.ofVirtual()
-                              .start(
-                                  () -> {
-                                    attempted.countDown();
-                                    try {
-                                      assertEquals(
-                                          "candidate",
-                                          JavaApplicationBridge.toJava(
-                                              runtime.applicationClassLoader(), "candidate"));
-                                    } catch (Throwable exception) {
-                                      failure.set(exception);
-                                    } finally {
-                                      completed.countDown();
-                                    }
-                                  }));
-                      assertTrue(attempted.await(5, TimeUnit.SECONDS));
-                      assertFalse(
-                          completed.await(250, TimeUnit.MILLISECONDS),
-                          "candidate entered before publication");
-                      bindings.publish(candidate);
-                    }
-                    assertTrue(completed.await(5, TimeUnit.SECONDS));
-                    return null;
-                  });
+              .hostCall(() -> {
+                synchronized (bindings) {
+                  candidate.installBridge(execution);
+                  callback.set(
+                      Thread.ofVirtual()
+                          .start(() -> {
+                            attempted.countDown();
+                            try {
+                              assertEquals(
+                                  "candidate",
+                                  JavaApplicationBridge.toJava(
+                                      runtime.applicationClassLoader(), "candidate"));
+                            } catch (Throwable exception) {
+                              failure.set(exception);
+                            } finally {
+                              completed.countDown();
+                            }
+                          }));
+                  assertTrue(attempted.await(5, TimeUnit.SECONDS));
+                  assertFalse(
+                      completed.await(250, TimeUnit.MILLISECONDS),
+                      "candidate entered before publication");
+                  bindings.publish(candidate);
+                }
+                assertTrue(completed.await(5, TimeUnit.SECONDS));
+                return null;
+              });
           if (failure.get() != null) throw new AssertionError(failure.get());
         } finally {
           bindings.endExecution();

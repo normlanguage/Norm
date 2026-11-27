@@ -75,17 +75,15 @@ public final class CoreRuntimeIdentity {
     artifact
         .authoring()
         .occurrences()
-        .forEach(
-            occurrence ->
-                indexedNames.putIfAbsent(occurrence.id(), occurrence.origin().definitionName()));
+        .forEach(occurrence ->
+            indexedNames.putIfAbsent(occurrence.id(), occurrence.origin().definitionName()));
     memberNames = Map.copyOf(indexedNames);
     occurrences = Map.copyOf(indexedOccurrences);
     definitions =
         artifact.program().definitions().stream()
-            .map(
-                record ->
-                    new CoreDefinitionRecord(
-                        id(record.id()), definition(record.id(), record.definition())))
+            .map(record ->
+                new CoreDefinitionRecord(
+                    id(record.id()), definition(record.id(), record.definition())))
             .toList();
     var slots = new HashMap<DefinitionId, DefinitionId>();
     for (var record : definitions) {

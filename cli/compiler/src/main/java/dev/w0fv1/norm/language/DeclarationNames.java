@@ -25,13 +25,12 @@ final class DeclarationNames {
             .owner()
             .flatMap(snapshot.semanticModel()::symbol)
             .map(owner -> name(owner, signature))
-            .orElseGet(
-                () ->
-                    symbol
-                        .declaration()
-                        .flatMap(location -> snapshot.document(location.document()))
-                        .map(document -> document.syntax().packageName())
-                        .orElse(""));
+            .orElseGet(() ->
+                symbol
+                    .declaration()
+                    .flatMap(location -> snapshot.document(location.document()))
+                    .map(document -> document.syntax().packageName())
+                    .orElse(""));
     String result = (prefix.isEmpty() ? "" : prefix + ".") + symbol.name();
     if (signature
         && switch (symbol.kind()) {

@@ -79,10 +79,8 @@ final class PersistentCompilationTest {
       assertEquals(1, output.state().buildReport().convertedDefinitions());
       assertTrue(
           output.artifact().metadata().annotations().stream()
-              .anyMatch(
-                  annotation ->
-                      annotation.target()
-                          instanceof dev.w0fv1.norm.core.CoreAnnotationTarget.Local));
+              .anyMatch(annotation ->
+                  annotation.target() instanceof dev.w0fv1.norm.core.CoreAnnotationTarget.Local));
       var expected = fresh.compile(request.apply(edited)).output().orElseThrow();
       assertEquals(
           dev.w0fv1.norm.core.ArtifactId.forArtifact(expected.artifact(), "test"),

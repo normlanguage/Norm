@@ -139,96 +139,92 @@ final class OpenAiClientTest {
         var server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
       server.setSoTimeout(30_000);
       var exchange =
-          executor.submit(
-              () -> {
-                try (var socket = server.accept()) {
-                  socket.setSoTimeout(15_000);
-                  var input = socket.getInputStream();
-                  var headerBytes = new ByteArrayOutputStream();
-                  int matched = 0;
-                  while (matched < 4) {
-                    int next = input.read();
-                    if (next < 0) throw new java.io.EOFException();
-                    headerBytes.write(next);
-                    matched = next == (matched % 2 == 0 ? '\r' : '\n') ? matched + 1 : 0;
-                  }
-                  String headers = headerBytes.toString(StandardCharsets.UTF_8);
-                  assertTrue(headers.startsWith("POST /v1/responses HTTP/1.1"), headers);
-                  assertTrue(headers.toLowerCase().contains("authorization: bearer test-key"));
-                  assertTrue(headers.toLowerCase().contains("x-opencode-session: client-session"));
-                  assertTrue(headers.toLowerCase().contains("user-agent: norm-test/1.0"));
-                  int length =
-                      headers
-                          .lines()
-                          .filter(line -> line.toLowerCase().startsWith("content-length:"))
-                          .mapToInt(line -> Integer.parseInt(line.substring(15).trim()))
-                          .findFirst()
-                          .orElseThrow();
-                  var body =
-                      JsonParser.parseString(
-                              new String(input.readNBytes(length), StandardCharsets.UTF_8))
-                          .getAsJsonObject();
-                  assertEquals("test-model", body.get("model").getAsString());
-                  assertEquals("创建分支", body.get("input").getAsString());
-                  assertFalse(body.get("store").getAsBoolean());
-                  if (scenario.equals("json_object")) {
-                    assertEquals(
-                        "json_object",
-                        body.getAsJsonObject("text")
-                            .getAsJsonObject("format")
-                            .get("type")
-                            .getAsString());
-                    assertEquals(1, body.getAsJsonObject("text").getAsJsonObject("format").size());
-                    assertTrue(
-                        body.get("instructions").getAsString().contains("JSON schema action:"));
-                  } else {
-                    assertTrue(
-                        body.getAsJsonObject("text")
-                            .getAsJsonObject("format")
-                            .get("strict")
-                            .getAsBoolean());
-                    assertEquals(
-                        "object",
-                        body.getAsJsonObject("text")
-                            .getAsJsonObject("format")
-                            .getAsJsonObject("schema")
-                            .get("type")
-                            .getAsString());
-                  }
-                  String content =
-                      scenario.equals("refusal")
-                          ? "{\"type\":\"refusal\",\"refusal\":\"declined\"}"
-                          : "{\"type\":\"output_text\",\"text\":\"{\\\"branch\\\":\\\"demo\\\"}\"}";
-                  String response =
-                      "{\"id\":\"resp_test\",\"status\":\""
-                          + (scenario.equals("incomplete") ? "incomplete" : "completed")
-                          + "\",\"output\":[{\"type\":\"reasoning\",\"summary\":[]},{\"type\":\"message\",\"content\":["
-                          + content
-                          + "]}],\"usage\":{\"input_tokens\":12,\"output_tokens\":5,\"total_tokens\":17},\"incomplete_details\":"
-                          + (scenario.equals("incomplete")
-                              ? "{\"reason\":\"max_output_tokens\"}"
-                              : "null")
-                          + ",\"future_field\":true}";
-                  if (scenario.equals("http_error"))
-                    response =
-                        "{\"error\":{\"code\":\"rate_limit_exceeded\",\"message\":\"try later\"}}";
-                  if (scenario.equals("malformed")) response = "{\"status\":123}";
-                  byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
-                  socket
-                      .getOutputStream()
-                      .write(
-                          ("HTTP/1.1 "
-                                  + (scenario.equals("http_error")
-                                      ? "429 Too Many Requests"
-                                      : "200 OK")
-                                  + "\r\nContent-Type: application/json\r\nx-request-id: req_test\r\nContent-Length: "
-                                  + bytes.length
-                                  + "\r\nConnection: close\r\n\r\n")
-                              .getBytes(StandardCharsets.US_ASCII));
-                  socket.getOutputStream().write(bytes);
-                  return null;
-                }
-              });
+          executor.submit(() -> {
+            try (var socket = server.accept()) {
+              socket.setSoTimeout(15_000);
+              var input = socket.getInputStream();
+              var headerBytes = new ByteArrayOutputStream();
+              int matched = 0;
+              while (matched < 4) {
+                int next = input.read();
+                if (next < 0) throw new java.io.EOFException();
+                headerBytes.write(next);
+                matched = next == (matched % 2 == 0 ? '\r' : '\n') ? matched + 1 : 0;
+              }
+              String headers = headerBytes.toString(StandardCharsets.UTF_8);
+              assertTrue(headers.startsWith("POST /v1/responses HTTP/1.1"), headers);
+              assertTrue(headers.toLowerCase().contains("authorization: bearer test-key"));
+              assertTrue(headers.toLowerCase().contains("x-opencode-session: client-session"));
+              assertTrue(headers.toLowerCase().contains("user-agent: norm-test/1.0"));
+              int length =
+                  headers
+                      .lines()
+                      .filter(line -> line.toLowerCase().startsWith("content-length:"))
+                      .mapToInt(line -> Integer.parseInt(line.substring(15).trim()))
+                      .findFirst()
+                      .orElseThrow();
+              var body =
+                  JsonParser.parseString(
+                          new String(input.readNBytes(length), StandardCharsets.UTF_8))
+                      .getAsJsonObject();
+              assertEquals("test-model", body.get("model").getAsString());
+              assertEquals("创建分支", body.get("input").getAsString());
+              assertFalse(body.get("store").getAsBoolean());
+              if (scenario.equals("json_object")) {
+                assertEquals(
+                    "json_object",
+                    body.getAsJsonObject("text")
+                        .getAsJsonObject("format")
+                        .get("type")
+                        .getAsString());
+                assertEquals(1, body.getAsJsonObject("text").getAsJsonObject("format").size());
+                assertTrue(body.get("instructions").getAsString().contains("JSON schema action:"));
+              } else {
+                assertTrue(
+                    body.getAsJsonObject("text")
+                        .getAsJsonObject("format")
+                        .get("strict")
+                        .getAsBoolean());
+                assertEquals(
+                    "object",
+                    body.getAsJsonObject("text")
+                        .getAsJsonObject("format")
+                        .getAsJsonObject("schema")
+                        .get("type")
+                        .getAsString());
+              }
+              String content =
+                  scenario.equals("refusal")
+                      ? "{\"type\":\"refusal\",\"refusal\":\"declined\"}"
+                      : "{\"type\":\"output_text\",\"text\":\"{\\\"branch\\\":\\\"demo\\\"}\"}";
+              String response =
+                  "{\"id\":\"resp_test\",\"status\":\""
+                      + (scenario.equals("incomplete") ? "incomplete" : "completed")
+                      + "\",\"output\":[{\"type\":\"reasoning\",\"summary\":[]},{\"type\":\"message\",\"content\":["
+                      + content
+                      + "]}],\"usage\":{\"input_tokens\":12,\"output_tokens\":5,\"total_tokens\":17},\"incomplete_details\":"
+                      + (scenario.equals("incomplete")
+                          ? "{\"reason\":\"max_output_tokens\"}"
+                          : "null")
+                      + ",\"future_field\":true}";
+              if (scenario.equals("http_error"))
+                response =
+                    "{\"error\":{\"code\":\"rate_limit_exceeded\",\"message\":\"try later\"}}";
+              if (scenario.equals("malformed")) response = "{\"status\":123}";
+              byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+              socket
+                  .getOutputStream()
+                  .write(
+                      ("HTTP/1.1 "
+                              + (scenario.equals("http_error") ? "429 Too Many Requests" : "200 OK")
+                              + "\r\nContent-Type: application/json\r\nx-request-id: req_test\r\nContent-Length: "
+                              + bytes.length
+                              + "\r\nConnection: close\r\n\r\n")
+                          .getBytes(StandardCharsets.US_ASCII));
+              socket.getOutputStream().write(bytes);
+              return null;
+            }
+          });
       Path application = Files.createDirectories(directory.resolve("app"));
       Files.writeString(
           application.resolve("module.norm"),

@@ -143,13 +143,12 @@ final class CoreAnnotationVerifier {
     }
     var configured =
         interceptor.values().stream()
-            .map(
-                value ->
-                    CoreRewriter.resolveAnnotationValue(
-                        value,
-                        link ->
-                            new DefinitionReference.External(
-                                resolve(program, owner.representative(), link))))
+            .map(value ->
+                CoreRewriter.resolveAnnotationValue(
+                    value,
+                    link ->
+                        new DefinitionReference.External(
+                            resolve(program, owner.representative(), link))))
             .toList();
     if (application == null || !application.values().equals(configured)) {
       throw new IllegalArgumentException(
@@ -165,20 +164,18 @@ final class CoreAnnotationVerifier {
       throw new IllegalArgumentException(
           "annotation and interceptor declaration bindings disagree");
     CoreAnnotationSites.references(interceptor.values())
-        .forEach(
-            (valuePath, ignored) -> {
-              var steps = new ArrayList<>(path.steps());
-              steps.addAll(valuePath.steps());
-              if (!authoring
-                  .annotationTarget(
-                      new CoreAnnotationReferenceSite(
-                          definitionOwner, new CoreAnnotationPath(steps)))
-                  .equals(
-                      authoring.annotationTarget(
-                          new CoreAnnotationReferenceSite(metadataOwner, valuePath))))
-                throw new IllegalArgumentException(
-                    "annotation and interceptor value bindings disagree");
-            });
+        .forEach((valuePath, ignored) -> {
+          var steps = new ArrayList<>(path.steps());
+          steps.addAll(valuePath.steps());
+          if (!authoring
+              .annotationTarget(
+                  new CoreAnnotationReferenceSite(definitionOwner, new CoreAnnotationPath(steps)))
+              .equals(
+                  authoring.annotationTarget(
+                      new CoreAnnotationReferenceSite(metadataOwner, valuePath))))
+            throw new IllegalArgumentException(
+                "annotation and interceptor value bindings disagree");
+        });
     matched.add(key);
   }
 

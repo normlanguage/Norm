@@ -44,12 +44,11 @@ public final class CoreExecutionLayout extends CoreWalker {
     return route != null
         && candidate.routes.containsKey(key)
         && route.stream()
-            .allMatch(
-                group ->
-                    siblings.get(group).size()
-                            == candidate.siblings.getOrDefault(group, java.util.List.of()).size()
-                        && (siblings.get(group).size() == 1
-                            || siblings.get(group).equals(candidate.siblings.get(group))));
+            .allMatch(group ->
+                siblings.get(group).size()
+                        == candidate.siblings.getOrDefault(group, java.util.List.of()).size()
+                    && (siblings.get(group).size() == 1
+                        || siblings.get(group).equals(candidate.siblings.get(group))));
   }
 
   public String block(int index) {
@@ -163,11 +162,10 @@ public final class CoreExecutionLayout extends CoreWalker {
       for (Scope scope : scopes)
         tried
             .catches()
-            .forEach(
-                clause ->
-                    declarations
-                        .computeIfAbsent(scope.key, ignored -> new LinkedHashSet<>())
-                        .add(clause.localIndex()));
+            .forEach(clause ->
+                declarations
+                    .computeIfAbsent(scope.key, ignored -> new LinkedHashSet<>())
+                    .add(clause.localIndex()));
       for (int index = 0; index < tried.catches().size(); index++)
         locals.put(tried.catches().get(index).localIndex(), key + "/catch:" + index);
     }

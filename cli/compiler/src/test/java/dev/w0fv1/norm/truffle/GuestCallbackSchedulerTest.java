@@ -31,39 +31,34 @@ final class GuestCallbackSchedulerTest {
     try (var scheduler = new GuestCallbackScheduler()) {
       Thread outer =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    try {
-                      scheduler.invoke(
-                          () ->
-                              scheduler.hostCall(
-                                  () -> {
-                                    Thread hostCaller = Thread.currentThread();
-                                    var completed = new CompletableFuture<Void>();
-                                    Thread inner =
-                                        Thread.ofVirtual()
-                                            .start(
-                                                () -> {
-                                                  scheduler.invoke(
-                                                      () -> {
-                                                        nestedExecution.set(Thread.currentThread());
-                                                        return null;
-                                                      });
-                                                  completed.complete(null);
-                                                });
-                                    try {
-                                      completed.get(500, TimeUnit.MILLISECONDS);
-                                      assertSame(inner, nestedExecution.get());
-                                      assertSame(hostCaller, Thread.currentThread());
-                                    } catch (Exception exception) {
-                                      throw new IllegalStateException(exception);
-                                    }
+              .start(() -> {
+                try {
+                  scheduler.invoke(() ->
+                      scheduler.hostCall(() -> {
+                        Thread hostCaller = Thread.currentThread();
+                        var completed = new CompletableFuture<Void>();
+                        Thread inner =
+                            Thread.ofVirtual()
+                                .start(() -> {
+                                  scheduler.invoke(() -> {
+                                    nestedExecution.set(Thread.currentThread());
                                     return null;
-                                  }));
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    }
-                  });
+                                  });
+                                  completed.complete(null);
+                                });
+                        try {
+                          completed.get(500, TimeUnit.MILLISECONDS);
+                          assertSame(inner, nestedExecution.get());
+                          assertSame(hostCaller, Thread.currentThread());
+                        } catch (Exception exception) {
+                          throw new IllegalStateException(exception);
+                        }
+                        return null;
+                      }));
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                }
+              });
       scheduler.runUntil(() -> !outer.isAlive());
       outer.join();
       assertNull(failure.get());
@@ -78,11 +73,10 @@ final class GuestCallbackSchedulerTest {
     try (GuestCallbackScheduler scheduler = new GuestCallbackScheduler()) {
       Thread callback =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    result.set(scheduler.invoke(() -> "handled"));
-                    owner.interrupt();
-                  });
+              .start(() -> {
+                result.set(scheduler.invoke(() -> "handled"));
+                owner.interrupt();
+              });
 
       scheduler.runUntilCancellation();
       callback.join(2_000);
@@ -102,15 +96,13 @@ final class GuestCallbackSchedulerTest {
     try (GuestCallbackScheduler scheduler = new GuestCallbackScheduler()) {
       Thread callback =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    scheduler.invoke(
-                        () -> {
-                          callbackThread.set(Thread.currentThread());
-                          return null;
-                        });
-                    owner.interrupt();
-                  });
+              .start(() -> {
+                scheduler.invoke(() -> {
+                  callbackThread.set(Thread.currentThread());
+                  return null;
+                });
+                owner.interrupt();
+              });
 
       scheduler.runUntilCancellation();
       callback.join(2_000);
@@ -131,27 +123,23 @@ final class GuestCallbackSchedulerTest {
     try (GuestCallbackScheduler scheduler = new GuestCallbackScheduler()) {
       Thread outer =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    scheduler.invoke(
-                        () -> {
-                          outerExecution.set(Thread.currentThread());
-                          Thread inner =
-                              Thread.ofVirtual()
-                                  .start(
-                                      () -> {
-                                        innerCaller.set(Thread.currentThread());
-                                        scheduler.invoke(
-                                            () -> {
-                                              innerExecution.set(Thread.currentThread());
-                                              return null;
-                                            });
-                                      });
-                          scheduler.runUntil(() -> !inner.isAlive());
-                          return null;
-                        });
-                    owner.interrupt();
-                  });
+              .start(() -> {
+                scheduler.invoke(() -> {
+                  outerExecution.set(Thread.currentThread());
+                  Thread inner =
+                      Thread.ofVirtual()
+                          .start(() -> {
+                            innerCaller.set(Thread.currentThread());
+                            scheduler.invoke(() -> {
+                              innerExecution.set(Thread.currentThread());
+                              return null;
+                            });
+                          });
+                  scheduler.runUntil(() -> !inner.isAlive());
+                  return null;
+                });
+                owner.interrupt();
+              });
 
       scheduler.runUntilCancellation();
       outer.join(2_000);
@@ -171,22 +159,20 @@ final class GuestCallbackSchedulerTest {
     try (GuestCallbackScheduler scheduler = new GuestCallbackScheduler()) {
       Thread callback =
           Thread.ofPlatform()
-              .start(
-                  () -> {
-                    try {
-                      for (int invocation = 0; invocation < 1_000; invocation++) {
-                        scheduler.invoke(() -> null);
-                        if (scheduler.isBorrowedExecution()) {
-                          throw new AssertionError(
-                              "callback returned before ownership was reclaimed");
-                        }
-                      }
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    } finally {
-                      owner.interrupt();
+              .start(() -> {
+                try {
+                  for (int invocation = 0; invocation < 1_000; invocation++) {
+                    scheduler.invoke(() -> null);
+                    if (scheduler.isBorrowedExecution()) {
+                      throw new AssertionError("callback returned before ownership was reclaimed");
                     }
-                  });
+                  }
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                } finally {
+                  owner.interrupt();
+                }
+              });
 
       scheduler.runUntilCancellation();
       callback.join(2_000);
@@ -205,11 +191,10 @@ final class GuestCallbackSchedulerTest {
     scheduler.close();
 
     assertFalse(
-        scheduler.tryInvoke(
-            () -> {
-              executed.set(true);
-              return null;
-            }));
+        scheduler.tryInvoke(() -> {
+          executed.set(true);
+          return null;
+        }));
     assertFalse(executed.get());
   }
 
@@ -219,11 +204,10 @@ final class GuestCallbackSchedulerTest {
     var executed = new AtomicBoolean();
 
     assertTrue(
-        scheduler.tryInvoke(
-            () -> {
-              executed.set(true);
-              return null;
-            }));
+        scheduler.tryInvoke(() -> {
+          executed.set(true);
+          return null;
+        }));
     assertTrue(executed.get());
 
     scheduler.close();

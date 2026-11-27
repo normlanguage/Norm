@@ -43,13 +43,12 @@ final class JvmJarBindingRuntimeTest {
             new dev.w0fv1.norm.runtime.NormRuntime())) {
       javaBaseOwners =
           environment.javaBindings().stream()
-              .flatMap(
-                  binding ->
-                      binding
-                          .generated()
-                          .exportedClasses(binding.generated().exports())
-                          .entrySet()
-                          .stream())
+              .flatMap(binding ->
+                  binding
+                      .generated()
+                      .exportedClasses(binding.generated().exports())
+                      .entrySet()
+                      .stream())
               .collect(
                   java.util.stream.Collectors.toUnmodifiableMap(
                       Map.Entry::getKey, Map.Entry::getValue));
@@ -489,13 +488,12 @@ final class JvmJarBindingRuntimeTest {
                       "org.apache.commons.lang3.StringUtils", List.of("reverse"))));
       String reverseCall =
           generated.calls().entrySet().stream()
-              .filter(
-                  entry ->
-                      entry.getValue().name().equals("reverse")
-                          && entry
-                              .getValue()
-                              .descriptor()
-                              .equals("(Ljava/lang/String;)Ljava/lang/String;"))
+              .filter(entry ->
+                  entry.getValue().name().equals("reverse")
+                      && entry
+                          .getValue()
+                          .descriptor()
+                          .equals("(Ljava/lang/String;)Ljava/lang/String;"))
               .map(java.util.Map.Entry::getKey)
               .findFirst()
               .orElseThrow();
@@ -930,16 +928,15 @@ final class JvmJarBindingRuntimeTest {
     CompletableFuture<Class<?>> loaded = new CompletableFuture<>();
     Thread frameworkThread =
         Thread.ofPlatform()
-            .unstarted(
-                () -> {
-                  try {
-                    closeStarted.await();
-                    loaded.complete(
-                        Class.forName("sample.LateFrameworkClass", true, applicationLoader));
-                  } catch (Throwable failure) {
-                    loaded.completeExceptionally(failure);
-                  }
-                });
+            .unstarted(() -> {
+              try {
+                closeStarted.await();
+                loaded.complete(
+                    Class.forName("sample.LateFrameworkClass", true, applicationLoader));
+              } catch (Throwable failure) {
+                loaded.completeExceptionally(failure);
+              }
+            });
     frameworkThread.setContextClassLoader(applicationLoader);
     frameworkThread.start();
 
@@ -1043,15 +1040,14 @@ final class JvmJarBindingRuntimeTest {
         .generateSurface(
             new ModuleCoordinate("commons.lang", 1),
             api.stream()
-                .map(
-                    type ->
-                        new dev.w0fv1.norm.value.JarBindingType(
-                            type.name(),
-                            type.members(),
-                            type.overloads(),
-                            type.borrowed(),
-                            java.util.Optional.of(
-                                type.name().substring("org.apache.commons.lang3.".length()))))
+                .map(type ->
+                    new dev.w0fv1.norm.value.JarBindingType(
+                        type.name(),
+                        type.members(),
+                        type.overloads(),
+                        type.borrowed(),
+                        java.util.Optional.of(
+                            type.name().substring("org.apache.commons.lang3.".length()))))
                 .toList(),
             graph.contentId(),
             schema,
@@ -1060,10 +1056,9 @@ final class JvmJarBindingRuntimeTest {
 
   private static String call(GeneratedJarBinding generated, String name, String descriptor) {
     return generated.calls().entrySet().stream()
-        .filter(
-            entry ->
-                entry.getValue().name().equals(name)
-                    && entry.getValue().descriptor().equals(descriptor))
+        .filter(entry ->
+            entry.getValue().name().equals(name)
+                && entry.getValue().descriptor().equals(descriptor))
         .map(java.util.Map.Entry::getKey)
         .findFirst()
         .orElseThrow();
@@ -1186,11 +1181,10 @@ final class JvmJarBindingRuntimeTest {
   private static String call(
       GeneratedJarBinding generated, JavaCallableKind kind, String name, String descriptor) {
     return generated.calls().entrySet().stream()
-        .filter(
-            entry ->
-                entry.getValue().kind() == kind
-                    && entry.getValue().name().equals(name)
-                    && entry.getValue().descriptor().equals(descriptor))
+        .filter(entry ->
+            entry.getValue().kind() == kind
+                && entry.getValue().name().equals(name)
+                && entry.getValue().descriptor().equals(descriptor))
         .map(java.util.Map.Entry::getKey)
         .findFirst()
         .orElseThrow();
@@ -1203,12 +1197,11 @@ final class JvmJarBindingRuntimeTest {
       String name,
       String descriptor) {
     return generated.calls().entrySet().stream()
-        .filter(
-            entry ->
-                entry.getValue().kind() == kind
-                    && entry.getValue().owner().equals(owner)
-                    && entry.getValue().name().equals(name)
-                    && entry.getValue().descriptor().equals(descriptor))
+        .filter(entry ->
+            entry.getValue().kind() == kind
+                && entry.getValue().owner().equals(owner)
+                && entry.getValue().name().equals(name)
+                && entry.getValue().descriptor().equals(descriptor))
         .map(java.util.Map.Entry::getKey)
         .findFirst()
         .orElseThrow();

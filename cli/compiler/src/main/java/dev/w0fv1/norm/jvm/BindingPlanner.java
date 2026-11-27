@@ -106,14 +106,13 @@ public final class BindingPlanner {
       if (matching.size() > 1) {
         List<JavaApiType> localMatching =
             matching.stream()
-                .filter(
-                    type -> {
-                      String binaryName = type.binaryName();
-                      return binaryName
-                          .substring(binaryName.lastIndexOf('.') + 1)
-                          .replace('$', '.')
-                          .equals(selectedName);
-                    })
+                .filter(type -> {
+                  String binaryName = type.binaryName();
+                  return binaryName
+                      .substring(binaryName.lastIndexOf('.') + 1)
+                      .replace('$', '.')
+                      .equals(selectedName);
+                })
                 .toList();
         if (localMatching.size() == 1) matching = localMatching;
       }
@@ -134,12 +133,11 @@ public final class BindingPlanner {
           selection
               .exportName()
               .map(path -> selection.members().isPresent() ? path : exportPath(path, owner))
-              .orElseGet(
-                  () ->
-                      owner
-                          .binaryName()
-                          .substring(owner.binaryName().lastIndexOf('.') + 1)
-                          .replace("$", ""));
+              .orElseGet(() ->
+                  owner
+                      .binaryName()
+                      .substring(owner.binaryName().lastIndexOf('.') + 1)
+                      .replace("$", ""));
       String exportedName = allocateTypePath(requestedName, owner.binaryName(), referencePaths);
       if (selection.members().isPresent()
           && selection.exportName().isPresent()
@@ -176,21 +174,17 @@ public final class BindingPlanner {
         validateSelectedMembers(exportedName, owner, availableBindings, selection.orElseThrow());
       List<JavaBindingCallable> ownerBindings =
           availableBindings.stream()
-              .filter(
-                  callable ->
-                      selection.isEmpty()
-                          || selection.orElseThrow().matches(callable)
-                          || enumConstant(owner, callable)
-                          || resourceTypes.contains(owner.binaryName())
-                              && callable.kind() == JavaCallableKind.INSTANCE_METHOD
-                              && callable.name().equals("close")
-                              && callable.descriptor().equals("()V"))
+              .filter(callable ->
+                  selection.isEmpty()
+                      || selection.orElseThrow().matches(callable)
+                      || enumConstant(owner, callable)
+                      || resourceTypes.contains(owner.binaryName())
+                          && callable.kind() == JavaCallableKind.INSTANCE_METHOD
+                          && callable.name().equals("close")
+                          && callable.descriptor().equals("()V"))
               .map(callable -> markResources(callable, resourceTypes))
-              .map(
-                  callable ->
-                      selection.isPresent()
-                          ? selection.orElseThrow().ownership(callable)
-                          : callable)
+              .map(callable ->
+                  selection.isPresent() ? selection.orElseThrow().ownership(callable) : callable)
               .toList();
       exportedTypeParameters.put(exportedName, typeParameters);
       exportedBindings.put(exportedName, ownerBindings);
@@ -200,20 +194,18 @@ public final class BindingPlanner {
       exportedSuperclasses.put(exportedName, superclass);
       ownerBindings.forEach(callable -> collectArrays(callable, arrays));
       Set<String> referencedTypes = new java.util.LinkedHashSet<>();
-      typeParameters.forEach(
-          parameter ->
-              parameter.bound().ifPresent(type -> collectReferences(type, referencedTypes)));
+      typeParameters.forEach(parameter ->
+          parameter.bound().ifPresent(type -> collectReferences(type, referencedTypes)));
       ownerBindings.forEach(callable -> collectReferences(callable, referencedTypes));
       interfaces.forEach(type -> collectReferences(type, referencedTypes));
       superclass.ifPresent(type -> collectReferences(type, referencedTypes));
       if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
         annotationBinding(owner, ownerBindings)
             .elements()
-            .forEach(
-                element ->
-                    element
-                        .defaultValue()
-                        .ifPresent(value -> collectReferences(value, referencedTypes)));
+            .forEach(element ->
+                element
+                    .defaultValue()
+                    .ifPresent(value -> collectReferences(value, referencedTypes)));
       }
       for (String binaryName : referencedTypes) {
         JavaApiType referenced = apiTypes.get(binaryName);
@@ -275,91 +267,89 @@ public final class BindingPlanner {
                         JavaApiType::binaryName, type -> type.signature().typeParameters().size())),
             usedImports);
     Map<String, JavaAnnotationBinding> annotationBindings = new LinkedHashMap<>();
-    exportedTypes.forEach(
-        (exportedName, owner) -> {
-          if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
-            annotationBindings.put(
-                exportedName,
-                annotationBinding(owner, exportedBindings.getOrDefault(exportedName, List.of())));
-          }
-        });
+    exportedTypes.forEach((exportedName, owner) -> {
+      if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
+        annotationBindings.put(
+            exportedName,
+            annotationBinding(owner, exportedBindings.getOrDefault(exportedName, List.of())));
+      }
+    });
     Map<String, JavaBindingCallable> calls = new LinkedHashMap<>();
     List<BindingPlan.Declaration> declarations = new ArrayList<>();
-    exportedTypes.forEach(
-        (exportedName, owner) -> {
-          List<JavaBindingCallable> ownerBindings = exportedBindings.get(exportedName);
-          List<BindingPlan.Call> functions = new ArrayList<>();
-          List<BindingPlan.Call> members = new ArrayList<>();
-          Map<JavaAnnotationElementBinding, String> annotationNames = Map.of();
-          if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
-            JavaAnnotationBinding annotation = annotationBindings.get(exportedName);
-            if (annotation.contract().normTargetInterfaces().isEmpty())
-              throw new IllegalArgumentException(
-                  "Java annotation has no Norm declaration target: " + owner.binaryName());
-            annotationNames = annotationElementNames(annotation.elements());
-          } else {
-            boolean javaEnum = owner.kind() == JavaApiTypeKind.ENUM;
-            String prefix = lowerCamel(simpleName(exportedName));
-            List<JavaBindingCallable> functionBindings =
-                ownerBindings.stream()
-                    .filter(callable -> javaEnum || !callable.kind().requiresReceiver())
-                    .filter(callable -> !javaEnum || !enumConstant(owner, callable))
-                    .toList();
-            Map<JavaBindingCallable, String> functionNames =
-                javaEnum
-                    ? allocateEnumNames(functionBindings, prefix, normTypes)
-                    : allocateNames(
-                        functionBindings, callable -> functionName(prefix, callable), normTypes);
-            Map<String, JavaBindingCallable> signatures = new LinkedHashMap<>();
-            for (JavaBindingCallable callable : functionBindings) {
-              String name = functionNames.get(callable);
-              if (javaEnum) addEnumSignature(signatures, name, callable, normTypes);
-              else addSignature(signatures, name, callable, normTypes);
-              String id = callId(graphId, callable);
-              registerCall(calls, id, callable);
-              functions.add(
-                  new BindingPlan.Call(
-                      name,
-                      id,
-                      callable,
-                      callable.kind() == JavaCallableKind.CONSTRUCTOR
-                          ? constructorTypeParameters(
-                              exportedTypeParameters.get(exportedName), callable)
-                          : callable.typeParameters()));
-            }
-            if (!javaEnum) {
-              List<JavaBindingCallable> memberBindings =
-                  ownerBindings.stream()
-                      .filter(callable -> callable.kind().requiresReceiver())
-                      .toList();
-              Map<JavaBindingCallable, String> memberNames =
-                  allocateNames(memberBindings, BindingNames::memberName, normTypes);
-              signatures.clear();
-              for (JavaBindingCallable callable : memberBindings) {
-                String name = memberNames.get(callable);
-                addSignature(signatures, name, callable, normTypes);
-                String id = callId(graphId, callable);
-                registerCall(calls, id, callable);
-                members.add(new BindingPlan.Call(name, id, callable, callable.typeParameters()));
-              }
-            }
+    exportedTypes.forEach((exportedName, owner) -> {
+      List<JavaBindingCallable> ownerBindings = exportedBindings.get(exportedName);
+      List<BindingPlan.Call> functions = new ArrayList<>();
+      List<BindingPlan.Call> members = new ArrayList<>();
+      Map<JavaAnnotationElementBinding, String> annotationNames = Map.of();
+      if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
+        JavaAnnotationBinding annotation = annotationBindings.get(exportedName);
+        if (annotation.contract().normTargetInterfaces().isEmpty())
+          throw new IllegalArgumentException(
+              "Java annotation has no Norm declaration target: " + owner.binaryName());
+        annotationNames = annotationElementNames(annotation.elements());
+      } else {
+        boolean javaEnum = owner.kind() == JavaApiTypeKind.ENUM;
+        String prefix = lowerCamel(simpleName(exportedName));
+        List<JavaBindingCallable> functionBindings =
+            ownerBindings.stream()
+                .filter(callable -> javaEnum || !callable.kind().requiresReceiver())
+                .filter(callable -> !javaEnum || !enumConstant(owner, callable))
+                .toList();
+        Map<JavaBindingCallable, String> functionNames =
+            javaEnum
+                ? allocateEnumNames(functionBindings, prefix, normTypes)
+                : allocateNames(
+                    functionBindings, callable -> functionName(prefix, callable), normTypes);
+        Map<String, JavaBindingCallable> signatures = new LinkedHashMap<>();
+        for (JavaBindingCallable callable : functionBindings) {
+          String name = functionNames.get(callable);
+          if (javaEnum) addEnumSignature(signatures, name, callable, normTypes);
+          else addSignature(signatures, name, callable, normTypes);
+          String id = callId(graphId, callable);
+          registerCall(calls, id, callable);
+          functions.add(
+              new BindingPlan.Call(
+                  name,
+                  id,
+                  callable,
+                  callable.kind() == JavaCallableKind.CONSTRUCTOR
+                      ? constructorTypeParameters(
+                          exportedTypeParameters.get(exportedName), callable)
+                      : callable.typeParameters()));
+        }
+        if (!javaEnum) {
+          List<JavaBindingCallable> memberBindings =
+              ownerBindings.stream()
+                  .filter(callable -> callable.kind().requiresReceiver())
+                  .toList();
+          Map<JavaBindingCallable, String> memberNames =
+              allocateNames(memberBindings, BindingNames::memberName, normTypes);
+          signatures.clear();
+          for (JavaBindingCallable callable : memberBindings) {
+            String name = memberNames.get(callable);
+            addSignature(signatures, name, callable, normTypes);
+            String id = callId(graphId, callable);
+            registerCall(calls, id, callable);
+            members.add(new BindingPlan.Call(name, id, callable, callable.typeParameters()));
           }
-          declarations.add(
-              new BindingPlan.Declaration(
-                  exportedName,
-                  owner.binaryName(),
-                  owner.kind(),
-                  exportedTypeParameters.get(exportedName),
-                  ownerBindings,
-                  exportedSuperclasses.get(exportedName),
-                  exportedInterfaces.get(exportedName),
-                  resourceTypes.contains(owner.binaryName()),
-                  enumVariants.getOrDefault(owner.binaryName(), Map.of()),
-                  Optional.ofNullable(annotationBindings.get(exportedName)),
-                  annotationNames,
-                  functions,
-                  members));
-        });
+        }
+      }
+      declarations.add(
+          new BindingPlan.Declaration(
+              exportedName,
+              owner.binaryName(),
+              owner.kind(),
+              exportedTypeParameters.get(exportedName),
+              ownerBindings,
+              exportedSuperclasses.get(exportedName),
+              exportedInterfaces.get(exportedName),
+              resourceTypes.contains(owner.binaryName()),
+              enumVariants.getOrDefault(owner.binaryName(), Map.of()),
+              Optional.ofNullable(annotationBindings.get(exportedName)),
+              annotationNames,
+              functions,
+              members));
+    });
     List<BindingPlan.Array> plannedArrays = new ArrayList<>();
     Set<String> arrayClasses = new java.util.LinkedHashSet<>();
     for (JavaArrayType exposedArray : arrays) {
@@ -384,47 +374,42 @@ public final class BindingPlanner {
               arrayCalls.get(3)));
     }
     Map<JarBindingClassReference.Nominal, String> classDescriptors = new LinkedHashMap<>();
-    exportedTypes.forEach(
-        (exportedName, owner) ->
-            classDescriptors.put(
-                new JarBindingClassReference.Nominal(
-                    module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
-                "L" + owner.binaryName().replace('.', '/') + ";"));
-    exportedTypes.forEach(
-        (exportedName, owner) -> {
-          if (owner.kind() != JavaApiTypeKind.INTERFACE) return;
-          classDescriptors.put(
-              new JarBindingClassReference.Nominal(
-                  module,
-                  module.name() + exportPackage(exportedName),
-                  simpleName(exportedName) + "BindingValue"),
-              "L" + owner.binaryName().replace('.', '/') + ";");
-        });
-    arrays.forEach(
-        array ->
-            classDescriptors.put(
-                new JarBindingClassReference.Nominal(
-                    module, module.name(), normTypes.arrays().get(array)),
-                array.descriptor()));
+    exportedTypes.forEach((exportedName, owner) ->
+        classDescriptors.put(
+            new JarBindingClassReference.Nominal(
+                module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
+            "L" + owner.binaryName().replace('.', '/') + ";"));
+    exportedTypes.forEach((exportedName, owner) -> {
+      if (owner.kind() != JavaApiTypeKind.INTERFACE) return;
+      classDescriptors.put(
+          new JarBindingClassReference.Nominal(
+              module,
+              module.name() + exportPackage(exportedName),
+              simpleName(exportedName) + "BindingValue"),
+          "L" + owner.binaryName().replace('.', '/') + ";");
+    });
+    arrays.forEach(array ->
+        classDescriptors.put(
+            new JarBindingClassReference.Nominal(
+                module, module.name(), normTypes.arrays().get(array)),
+            array.descriptor()));
     Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants =
         new LinkedHashMap<>();
-    exportedTypes.forEach(
-        (exportedName, owner) -> {
-          Map<String, String> constants = enumVariants.get(owner.binaryName());
-          if (constants == null) return;
-          enumConstants.put(
-              new JarBindingClassReference.Nominal(
-                  module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
-              constants);
-        });
+    exportedTypes.forEach((exportedName, owner) -> {
+      Map<String, String> constants = enumVariants.get(owner.binaryName());
+      if (constants == null) return;
+      enumConstants.put(
+          new JarBindingClassReference.Nominal(
+              module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
+          constants);
+    });
     Map<JarBindingClassReference.Nominal, JavaAnnotationBinding> annotations =
         new LinkedHashMap<>();
-    annotationBindings.forEach(
-        (exportedName, binding) ->
-            annotations.put(
-                new JarBindingClassReference.Nominal(
-                    module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
-                binding));
+    annotationBindings.forEach((exportedName, binding) ->
+        annotations.put(
+            new JarBindingClassReference.Nominal(
+                module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
+            binding));
     return new BindingPlan(
         module,
         module.name().equals("java.base") ? List.copyOf(exportedTypes.keySet()) : rootExports,
@@ -558,14 +543,12 @@ public final class BindingPlanner {
 
   private static String javaPackagePrefix(Map<String, JavaApiType> exportedTypes) {
     List<String> prefixes = new ArrayList<>();
-    exportedTypes.forEach(
-        (exportedName, type) -> {
-          String suffix = "." + exportedName;
-          if (type.binaryName().endsWith(suffix)) {
-            prefixes.add(
-                type.binaryName().substring(0, type.binaryName().length() - suffix.length()));
-          }
-        });
+    exportedTypes.forEach((exportedName, type) -> {
+      String suffix = "." + exportedName;
+      if (type.binaryName().endsWith(suffix)) {
+        prefixes.add(type.binaryName().substring(0, type.binaryName().length() - suffix.length()));
+      }
+    });
     if (prefixes.isEmpty()) return "";
     String[] shared = prefixes.getFirst().split("\\.");
     int length = shared.length;

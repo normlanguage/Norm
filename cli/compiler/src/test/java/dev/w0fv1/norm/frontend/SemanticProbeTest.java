@@ -34,13 +34,13 @@ final class SemanticProbeTest {
         SourceFile.of(
             Path.of("invariant-overloads.norm"),
             """
-        String accept(List<Any> values) { return "list" }
-        String accept(Any values) { return "any" }
-        Void main() {
-          List<Integer> values = [42]
-          printLine(accept(values))
-        }
-        """);
+            String accept(List<Any> values) { return "list" }
+            String accept(Any values) { return "any" }
+            Void main() {
+              List<Integer> values = [42]
+              printLine(accept(values))
+            }
+            """);
     try (var compiler = new CompilerSession()) {
       var result = compiler.compile(source);
       assertTrue(result.isSuccess(), result.diagnostics().toString());
@@ -53,21 +53,20 @@ final class SemanticProbeTest {
         SourceFile.of(
             Path.of("constructor-probe.norm"),
             """
-      class Box {
-        Box(Function<Integer(Integer)> action) {}
-        Box(Function<String(String)> action) {}
-      }
-      Void main() { Box value = Box((candidate) { candidate + 1 }) }
-      """);
+            class Box {
+              Box(Function<Integer(Integer)> action) {}
+              Box(Function<String(String)> action) {}
+            }
+            Void main() { Box value = Box((candidate) { candidate + 1 }) }
+            """);
     try (var compiler = new CompilerSession()) {
       var analysis = compiler.analyze(source);
       assertFalse(analysis.hasErrors(), analysis.diagnostics().toString());
       assertEquals(
           1,
           analysis.semanticModel().symbols().stream()
-              .filter(
-                  symbol ->
-                      symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
+              .filter(symbol ->
+                  symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
               .count());
     }
   }
@@ -78,22 +77,21 @@ final class SemanticProbeTest {
         SourceFile.of(
             Path.of("interface-probe.norm"),
             """
-      interface Transformer {
-        T apply<T>(Function<T(Integer)> action)
-        String apply(Function<String(String)> action)
-      }
-      Integer transform(Transformer value) { return value.apply((candidate) { candidate + 1 }) }
-      Void main() {}
-      """);
+            interface Transformer {
+              T apply<T>(Function<T(Integer)> action)
+              String apply(Function<String(String)> action)
+            }
+            Integer transform(Transformer value) { return value.apply((candidate) { candidate + 1 }) }
+            Void main() {}
+            """);
     try (var compiler = new CompilerSession()) {
       var analysis = compiler.analyze(source);
       assertFalse(analysis.hasErrors(), analysis.diagnostics().toString());
       assertEquals(
           1,
           analysis.semanticModel().symbols().stream()
-              .filter(
-                  symbol ->
-                      symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
+              .filter(symbol ->
+                  symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
               .count());
     }
   }
@@ -104,9 +102,9 @@ final class SemanticProbeTest {
         SourceFile.of(
             Path.of("capture-probe.norm"),
             """
-        Integer use(Function<Integer()> action) { return action() }
-        Void main() { Integer value = 1 value = 2 Integer result = use(() { value }) }
-        """);
+            Integer use(Function<Integer()> action) { return action() }
+            Void main() { Integer value = 1 value = 2 Integer result = use(() { value }) }
+            """);
     try (var compiler = new CompilerSession()) {
       var analysis = compiler.analyze(source);
       assertTrue(
@@ -122,19 +120,18 @@ final class SemanticProbeTest {
         SourceFile.of(
             Path.of("probe.norm"),
             """
-        Integer apply(Function<Integer(Integer)> action) { return action(1) }
-        String apply(Function<String(String)> action) { return action("value") }
-        Void main() { Integer result = apply((candidate) { candidate + 1 }) }
-        """);
+            Integer apply(Function<Integer(Integer)> action) { return action(1) }
+            String apply(Function<String(String)> action) { return action("value") }
+            Void main() { Integer result = apply((candidate) { candidate + 1 }) }
+            """);
     try (var compiler = new CompilerSession()) {
       var analysis = compiler.analyze(source);
       assertFalse(analysis.hasErrors(), analysis.diagnostics().toString());
       assertEquals(
           1,
           analysis.semanticModel().symbols().stream()
-              .filter(
-                  symbol ->
-                      symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
+              .filter(symbol ->
+                  symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("candidate"))
               .count());
     }
   }

@@ -97,14 +97,13 @@ final class JarTaskIntrinsicDispatcher {
                     () ->
                         execution
                             .callbacks()
-                            .invoke(
-                                () -> {
-                                  try {
-                                    return RuntimeInvocation.invoke(execution, work, new Object[0]);
-                                  } catch (RuntimeException failure) {
-                                    throw new JarBindingCallbackException(failure);
-                                  }
-                                });
+                            .invoke(() -> {
+                              try {
+                                return RuntimeInvocation.invoke(execution, work, new Object[0]);
+                              } catch (RuntimeException failure) {
+                                throw new JarBindingCallbackException(failure);
+                              }
+                            });
                 FutureBindingTask created;
                 if (intrinsic == IntrinsicId.TASK_CONTINUE) {
                   var parent = task(arguments[0]);

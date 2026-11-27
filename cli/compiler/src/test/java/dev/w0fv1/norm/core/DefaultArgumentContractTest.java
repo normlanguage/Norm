@@ -29,10 +29,10 @@ final class DefaultArgumentContractTest {
     var library =
         compile(
             """
-        Integer defaultNumber() { printLine("unused"); 42 }
-        Integer number(Integer value = defaultNumber()) { value }
-        Void main() { printLine(number(7)) }
-        """);
+            Integer defaultNumber() { printLine("unused"); 42 }
+            Integer number(Integer value = defaultNumber()) { value }
+            Void main() { printLine(number(7)) }
+            """);
     var artifact = library.withEntryPoint(library.namespace().occurrence("", "main").orElseThrow());
     var analysis = CoreReachability.analyze(artifact, Set.of());
     var reduced = analysis.artifact();
@@ -63,15 +63,14 @@ final class DefaultArgumentContractTest {
     var second = compile("public Integer number(Integer value = 42) { value }");
     assertEquals(PublicAbiId.forArtifact(first), PublicAbiId.forArtifact(second));
     assertNotEquals(CoreCodeId.forArtifact(first), CoreCodeId.forArtifact(second));
-    assertDoesNotThrow(
-        () ->
-            compile(
-                """
-        public interface Value {}
-        public class Empty implements Value {}
-        public T? optional<T extends Value = Empty>(T? value = null) { value }
-        public class Box<T extends Value = Empty> { T? item = null T? read(T? value = item) { value } }
-        """));
+    assertDoesNotThrow(() ->
+        compile(
+            """
+            public interface Value {}
+            public class Empty implements Value {}
+            public T? optional<T extends Value = Empty>(T? value = null) { value }
+            public class Box<T extends Value = Empty> { T? item = null T? read(T? value = item) { value } }
+            """));
   }
 
   @Test
@@ -79,11 +78,11 @@ final class DefaultArgumentContractTest {
     var artifact =
         compile(
             """
-        public Integer number(Integer value = 42) { value }
-        public class Box<T> { T? value = null T? read(T? input = value) { input } }
-        public enum Choice<T> { Value(T? value = null) }
-        public interface Reader<T> { T? read(T? value = null) T? other(T? value = null) { value } }
-        """);
+            public Integer number(Integer value = 42) { value }
+            public class Box<T> { T? value = null T? read(T? input = value) { input } }
+            public enum Choice<T> { Value(T? value = null) }
+            public interface Reader<T> { T? read(T? value = null) T? other(T? value = null) { value } }
+            """);
     artifact = PortableObjectCodec.decode(PortableObjectCodec.encode(artifact), CoreArtifact.class);
     int defaults = 0;
     for (var binding : artifact.namespace().bindings()) {

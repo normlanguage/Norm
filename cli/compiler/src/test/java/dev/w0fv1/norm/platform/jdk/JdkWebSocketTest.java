@@ -299,20 +299,17 @@ final class JdkWebSocketTest {
         var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
       var cancelled = new AtomicBoolean();
       var pending =
-          executor.submit(
-              () ->
-                  assertThrows(
-                      PlatformWebSocketException.class,
-                      () ->
-                          connection.receive(
-                              new OperationControl(cancelled::get, new PlatformDuration(5, 0)))));
+          executor.submit(() ->
+              assertThrows(
+                  PlatformWebSocketException.class,
+                  () ->
+                      connection.receive(
+                          new OperationControl(cancelled::get, new PlatformDuration(5, 0)))));
       cancelled.set(true);
       assertEquals(WebSocketFailure.CANCELLED, pending.get(5, TimeUnit.SECONDS).reason());
       var receiving =
-          executor.submit(
-              () ->
-                  assertThrows(
-                      PlatformWebSocketException.class, () -> connection.receive(budget())));
+          executor.submit(() ->
+              assertThrows(PlatformWebSocketException.class, () -> connection.receive(budget())));
       connection.close();
       assertEquals(WebSocketFailure.CLOSED, receiving.get(5, TimeUnit.SECONDS).reason());
     }

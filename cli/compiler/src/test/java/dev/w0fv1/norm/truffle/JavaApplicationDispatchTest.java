@@ -18,22 +18,21 @@ final class JavaApplicationDispatchTest {
     var artifact =
         NormTestKit.compile(
                 """
-        import java.base.io.InputStream
-        Any? relay(Any? bridgeAny) { return bridgeAny }
-        Integer read(InputStream bridgeInput) { return bridgeInput.read() }
-        Void close(InputStream bridgeClose) { bridgeClose.close() }
-        Void main() {}
-        """)
+                import java.base.io.InputStream
+                Any? relay(Any? bridgeAny) { return bridgeAny }
+                Integer read(InputStream bridgeInput) { return bridgeInput.read() }
+                Void close(InputStream bridgeClose) { bridgeClose.close() }
+                Void main() {}
+                """)
             .output()
             .orElseThrow()
             .artifact();
     var methods =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    record.definition() instanceof CoreDefinition.Callable callable
-                        && callable.parameters().size() == 1
-                        && callable.parameters().getFirst().name().startsWith("bridge"))
+            .filter(record ->
+                record.definition() instanceof CoreDefinition.Callable callable
+                    && callable.parameters().size() == 1
+                    && callable.parameters().getFirst().name().startsWith("bridge"))
             .collect(
                 java.util.stream.Collectors.toMap(
                     record ->
@@ -106,13 +105,13 @@ final class JavaApplicationDispatchTest {
     var artifact =
         NormTestKit.compile(
                 """
-        import std.concurrent.Task
-        import std.concurrent.startTask
-        Task<Integer> produce(Integer bridgeSeed) { return startTask { bridgeSeed } }
-        Task<Integer> relay(Task<Integer> bridgeTask) { return bridgeTask }
-        Integer read(Task<Integer> bridgeAwait) { return bridgeAwait.await() }
-        Void main() { printLine(read(relay(produce(7)))) }
-        """)
+                import std.concurrent.Task
+                import std.concurrent.startTask
+                Task<Integer> produce(Integer bridgeSeed) { return startTask { bridgeSeed } }
+                Task<Integer> relay(Task<Integer> bridgeTask) { return bridgeTask }
+                Integer read(Task<Integer> bridgeAwait) { return bridgeAwait.await() }
+                Void main() { printLine(read(relay(produce(7)))) }
+                """)
             .output()
             .orElseThrow()
             .artifact();
@@ -128,11 +127,10 @@ final class JavaApplicationDispatchTest {
               runtime);
       var methods =
           artifact.program().definitions().stream()
-              .filter(
-                  record ->
-                      record.definition() instanceof CoreDefinition.Callable callable
-                          && callable.parameters().size() == 1
-                          && callable.parameters().getFirst().name().startsWith("bridge"))
+              .filter(record ->
+                  record.definition() instanceof CoreDefinition.Callable callable
+                      && callable.parameters().size() == 1
+                      && callable.parameters().getFirst().name().startsWith("bridge"))
               .collect(
                   java.util.stream.Collectors.toMap(
                       record ->
@@ -161,12 +159,11 @@ final class JavaApplicationDispatchTest {
             .artifact();
     var target =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    record.definition() instanceof CoreDefinition.Callable callable
-                        && callable.returnType().equals(CoreType.CODE_POINT)
-                        && callable.parameters().size() == 1
-                        && callable.parameters().getFirst().name().equals("bridgeCharacter"))
+            .filter(record ->
+                record.definition() instanceof CoreDefinition.Callable callable
+                    && callable.returnType().equals(CoreType.CODE_POINT)
+                    && callable.parameters().size() == 1
+                    && callable.parameters().getFirst().name().equals("bridgeCharacter"))
             .findFirst()
             .orElseThrow()
             .id();

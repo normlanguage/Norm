@@ -217,21 +217,21 @@ final class JavaStubPlannerTest {
         SourceFile.of(
             Path.of("native-annotation.norm"),
             """
-        package annotation.shape
-        import std.annotation.TypeTarget
-        import std.annotation.RuntimeRetention
-        annotation NativeOnly implements TypeTarget, RuntimeRetention {
-          String? note
-        }
-        annotation JavaVisible implements TypeTarget, RuntimeRetention {
-          String text
-          List<String> tags
-        }
-        @NativeOnly()
-        @JavaVisible(text: "visible", tags: ["a", "b"])
-        class Example { NativeOnly? nativeNote }
-        Void main() {}
-        """);
+            package annotation.shape
+            import std.annotation.TypeTarget
+            import std.annotation.RuntimeRetention
+            annotation NativeOnly implements TypeTarget, RuntimeRetention {
+              String? note
+            }
+            annotation JavaVisible implements TypeTarget, RuntimeRetention {
+              String text
+              List<String> tags
+            }
+            @NativeOnly()
+            @JavaVisible(text: "visible", tags: ["a", "b"])
+            class Example { NativeOnly? nativeNote }
+            Void main() {}
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(nativeSource);
@@ -253,10 +253,9 @@ final class JavaStubPlannerTest {
       assertTrue(
           nativeArtifact.metadata().annotations().stream()
               .filter(application -> application.annotation().equals(nativeId))
-              .anyMatch(
-                  application ->
-                      application.values().getFirst().value()
-                          == dev.w0fv1.norm.core.CoreAnnotationValue.Null.INSTANCE));
+              .anyMatch(application ->
+                  application.values().getFirst().value()
+                      == dev.w0fv1.norm.core.CoreAnnotationValue.Null.INSTANCE));
       var plan =
           new JavaStubPlanner()
               .plan(
@@ -296,28 +295,28 @@ final class JavaStubPlannerTest {
         SourceFile.of(
             Path.of("java-contract-roots.norm"),
             """
-        package contract.roots
-        import std.concurrent.Task
-        import java.base.util.function.Supplier
-        import java.base.util.optionalOf
-        import java.base.util.JavaList
-        import java.base.util.arrayListNew
-        interface Unused<T> { Boolean equals(T other) }
-        class IntegerSupplier implements Supplier<Integer> {
-          Task<Integer>? work = null
-          Integer get() { 42 }
-        }
-        class Reflected { String name }
-        class NativeReflection { String name }
-        class InterfaceReflected { String name }
-        Void inspect<T>(Class<T> type) { var value = optionalOf(arg0: type) }
-        Void main() {
-          inspect(type: Reflected.class)
-          JavaList<Class<InterfaceReflected>> tokens = arrayListNew<Class<InterfaceReflected>>()
-          tokens.add(arg0: InterfaceReflected.class)
-          var nativeType = NativeReflection.class
-        }
-        """);
+            package contract.roots
+            import std.concurrent.Task
+            import java.base.util.function.Supplier
+            import java.base.util.optionalOf
+            import java.base.util.JavaList
+            import java.base.util.arrayListNew
+            interface Unused<T> { Boolean equals(T other) }
+            class IntegerSupplier implements Supplier<Integer> {
+              Task<Integer>? work = null
+              Integer get() { 42 }
+            }
+            class Reflected { String name }
+            class NativeReflection { String name }
+            class InterfaceReflected { String name }
+            Void inspect<T>(Class<T> type) { var value = optionalOf(arg0: type) }
+            Void main() {
+              inspect(type: Reflected.class)
+              JavaList<Class<InterfaceReflected>> tokens = arrayListNew<Class<InterfaceReflected>>()
+              tokens.add(arg0: InterfaceReflected.class)
+              var nativeType = NativeReflection.class
+            }
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(contractSource);

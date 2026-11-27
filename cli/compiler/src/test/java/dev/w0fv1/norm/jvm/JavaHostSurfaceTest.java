@@ -18,19 +18,19 @@ final class JavaHostSurfaceTest {
         SourceFile.of(
             Path.of("class-return-flow.norm"),
             """
-        package classreturnflow
-        import java.base.util.optionalOf
-        class HostVisible { String value }
-        class ReflectionOnly { String value }
-        Class<T> identity<T>(Class<T> type) { return type }
-        Void sink<T, U>(Class<T> host, Class<U> reflected) {
-          var returned = identity(type: host)
-          var value = optionalOf(arg0: returned)
-        }
-        Void main() {
-          sink(reflected: ReflectionOnly.class, host: HostVisible.class)
-        }
-        """);
+            package classreturnflow
+            import java.base.util.optionalOf
+            class HostVisible { String value }
+            class ReflectionOnly { String value }
+            Class<T> identity<T>(Class<T> type) { return type }
+            Void sink<T, U>(Class<T> host, Class<U> reflected) {
+              var returned = identity(type: host)
+              var value = optionalOf(arg0: returned)
+            }
+            Void main() {
+              sink(reflected: ReflectionOnly.class, host: HostVisible.class)
+            }
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(source);
@@ -54,19 +54,19 @@ final class JavaHostSurfaceTest {
         SourceFile.of(
             Path.of("class-alias-flow.norm"),
             """
-        package classaliasflow
-        import java.base.util.optionalOf
-        class HostVisible { String value }
-        class ReflectionOnly { String value }
-        Void sink<T, U>(Class<T> host, Class<U> reflected) {
-          var alias = host
-          var secondAlias = alias
-          var value = optionalOf(arg0: secondAlias)
-        }
-        Void main() {
-          sink(reflected: ReflectionOnly.class, host: HostVisible.class)
-        }
-        """);
+            package classaliasflow
+            import java.base.util.optionalOf
+            class HostVisible { String value }
+            class ReflectionOnly { String value }
+            Void sink<T, U>(Class<T> host, Class<U> reflected) {
+              var alias = host
+              var secondAlias = alias
+              var value = optionalOf(arg0: secondAlias)
+            }
+            Void main() {
+              sink(reflected: ReflectionOnly.class, host: HostVisible.class)
+            }
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(source);
@@ -90,20 +90,20 @@ final class JavaHostSurfaceTest {
         SourceFile.of(
             Path.of("class-parameter-flow.norm"),
             """
-        package classflow
-        import java.base.util.optionalOf
-        class HostVisible { String value }
-        class ReflectionOnly { String value }
-        Void sink<T, U>(Class<T> host, Class<U> reflected) {
-          var value = optionalOf(arg0: host)
-        }
-        Void forward<T, U>(Class<T> host, Class<U> reflected) {
-          sink(reflected: reflected, host: host)
-        }
-        Void main() {
-          forward(reflected: ReflectionOnly.class, host: HostVisible.class)
-        }
-        """);
+            package classflow
+            import java.base.util.optionalOf
+            class HostVisible { String value }
+            class ReflectionOnly { String value }
+            Void sink<T, U>(Class<T> host, Class<U> reflected) {
+              var value = optionalOf(arg0: host)
+            }
+            Void forward<T, U>(Class<T> host, Class<U> reflected) {
+              sink(reflected: reflected, host: host)
+            }
+            Void main() {
+              forward(reflected: ReflectionOnly.class, host: HostVisible.class)
+            }
+            """);
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
       var result = compiler.compile(source);

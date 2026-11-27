@@ -87,19 +87,18 @@ final class GuestCallbackScheduler implements AutoCloseable {
   }
 
   void runUntil(BooleanSupplier completed) {
-    hostCall(
-        () -> {
-          while (!completed.getAsBoolean()) {
-            try {
-              Thread.sleep(10);
-            } catch (InterruptedException failure) {
-              Thread.currentThread().interrupt();
-              if (completed.getAsBoolean()) return null;
-              throw new IllegalStateException("Norm callback wait was interrupted", failure);
-            }
-          }
-          return null;
-        });
+    hostCall(() -> {
+      while (!completed.getAsBoolean()) {
+        try {
+          Thread.sleep(10);
+        } catch (InterruptedException failure) {
+          Thread.currentThread().interrupt();
+          if (completed.getAsBoolean()) return null;
+          throw new IllegalStateException("Norm callback wait was interrupted", failure);
+        }
+      }
+      return null;
+    });
   }
 
   void runUntilCancellation() {

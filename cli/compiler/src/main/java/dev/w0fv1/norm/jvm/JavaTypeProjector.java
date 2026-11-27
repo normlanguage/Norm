@@ -44,13 +44,12 @@ public final class JavaTypeProjector {
 
   public static JavaTypeProjector forSchema(Map<String, JavaApiType> types) {
     Map<String, JavaReferenceKind> kinds = new LinkedHashMap<>();
-    types.forEach(
-        (name, type) ->
-            kinds.put(
-                name,
-                type.kind() == JavaApiTypeKind.ENUM
-                    ? JavaReferenceKind.ENUM
-                    : JavaReferenceKind.OPAQUE));
+    types.forEach((name, type) ->
+        kinds.put(
+            name,
+            type.kind() == JavaApiTypeKind.ENUM
+                ? JavaReferenceKind.ENUM
+                : JavaReferenceKind.OPAQUE));
     return new JavaTypeProjector(kinds, Map.of());
   }
 
@@ -184,12 +183,11 @@ public final class JavaTypeProjector {
       case JavaCallbackType ignored -> false;
       case JavaReferenceType reference ->
           reference.arguments().stream()
-              .allMatch(
-                  argument ->
-                      (reference.kind() == JavaReferenceKind.CLASS
-                              && argument.variance() == JavaTypeVariance.UNBOUNDED)
-                          || (argument.variance() == JavaTypeVariance.EXACT
-                              && concrete(argument.type().orElseThrow())));
+              .allMatch(argument ->
+                  (reference.kind() == JavaReferenceKind.CLASS
+                          && argument.variance() == JavaTypeVariance.UNBOUNDED)
+                      || (argument.variance() == JavaTypeVariance.EXACT
+                          && concrete(argument.type().orElseThrow())));
       case JavaBoxedType ignored -> true;
       case JavaPrimitiveType ignored -> true;
     };

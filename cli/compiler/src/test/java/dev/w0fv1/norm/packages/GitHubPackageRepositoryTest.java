@@ -20,8 +20,8 @@ final class GitHubPackageRepositoryTest {
         Files.writeString(
             directory.resolve("registry.json"),
             """
-        {"formatVersion":1,"packages":[{"name":"agent","owner":"normlanguage","repository":"agent"}]}
-        """);
+            {"formatVersion":1,"packages":[{"name":"agent","owner":"normlanguage","repository":"agent"}]}
+            """);
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     var calls = new AtomicInteger();
     server.createContext(
@@ -37,12 +37,12 @@ final class GitHubPackageRepositoryTest {
                               100, "{\"tag_name\":\"v1\",\"draft\":false,\"prerelease\":false}"))
                       + "]"
                   : """
-          [{"tag_name":"v3","draft":false,"prerelease":false},
-           {"tag_name":"v2","draft":false,"prerelease":false},
-           {"tag_name":"v10","draft":false,"prerelease":true},
-           {"tag_name":"v11","draft":true,"prerelease":false},
-           {"tag_name":"v12-beta","draft":false,"prerelease":false}]
-          """;
+                  [{"tag_name":"v3","draft":false,"prerelease":false},
+                   {"tag_name":"v2","draft":false,"prerelease":false},
+                   {"tag_name":"v10","draft":false,"prerelease":true},
+                   {"tag_name":"v11","draft":true,"prerelease":false},
+                   {"tag_name":"v12-beta","draft":false,"prerelease":false}]
+                  """;
           byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
           exchange.sendResponseHeaders(200, bytes.length);
           try (var out = exchange.getResponseBody()) {

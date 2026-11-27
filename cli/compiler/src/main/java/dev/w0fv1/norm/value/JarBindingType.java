@@ -31,13 +31,12 @@ public record JarBindingType(
   public JarBindingType {
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(alias, "alias");
-    alias.ifPresent(
-        value -> {
-          for (String segment : value.split("\\.", -1)) {
-            if (!LanguageSyntax.isIdentifier(segment))
-              throw new IllegalArgumentException("invalid JAR binding alias '" + value + "'");
-          }
-        });
+    alias.ifPresent(value -> {
+      for (String segment : value.split("\\.", -1)) {
+        if (!LanguageSyntax.isIdentifier(segment))
+          throw new IllegalArgumentException("invalid JAR binding alias '" + value + "'");
+      }
+    });
     members = List.copyOf(members);
     overloads = List.copyOf(overloads);
     borrowed = List.copyOf(borrowed);

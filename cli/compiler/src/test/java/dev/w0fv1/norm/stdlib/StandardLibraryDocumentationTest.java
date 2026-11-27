@@ -29,15 +29,14 @@ final class StandardLibraryDocumentationTest {
       int publicDeclarations = 0;
       var standardDocuments =
           snapshot.documentIds().stream()
-              .filter(
-                  document ->
-                      snapshot
-                          .semanticModel()
-                          .compilationScope()
-                          .coordinate(document)
-                          .module()
-                          .name()
-                          .equals("std"))
+              .filter(document ->
+                  snapshot
+                      .semanticModel()
+                      .compilationScope()
+                      .coordinate(document)
+                      .module()
+                      .name()
+                      .equals("std"))
               .toList();
       for (var document : standardDocuments) {
         Syntax.Program program = snapshot.document(document).orElseThrow().syntax();
@@ -47,10 +46,9 @@ final class StandardLibraryDocumentationTest {
         }
         publicDeclarations += inspect(program, document.uri().toString(), missing);
       }
-      packageDocuments.forEach(
-          (packageName, count) -> {
-            if (count > 1) missing.add("package " + packageName + " has duplicate @Document");
-          });
+      packageDocuments.forEach((packageName, count) -> {
+        if (count > 1) missing.add("package " + packageName + " has duplicate @Document");
+      });
       standardDocuments.stream()
           .map(snapshot::document)
           .flatMap(java.util.Optional::stream)
@@ -161,9 +159,8 @@ final class StandardLibraryDocumentationTest {
     return annotations.stream()
         .filter(annotation -> annotation.name().equals("Document"))
         .flatMap(annotation -> annotation.arguments().stream())
-        .filter(
-            argument ->
-                argument.label().map(Syntax.ArgumentLabel::name).orElse("").equals("description"))
+        .filter(argument ->
+            argument.label().map(Syntax.ArgumentLabel::name).orElse("").equals("description"))
         .map(Syntax.CallArgument::value)
         .filter(Syntax.StringLiteralExpr.class::isInstance)
         .map(Syntax.StringLiteralExpr.class::cast)

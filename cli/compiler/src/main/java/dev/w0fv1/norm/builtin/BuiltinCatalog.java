@@ -196,11 +196,10 @@ public final class BuiltinCatalog {
     for (TypeDefinition type : types.values()) {
       type.iterable().map(IterableCapability::intrinsic).ifPresent(result::add);
       type.index()
-          .ifPresent(
-              index -> {
-                result.add(index.readIntrinsic());
-                index.writeIntrinsic().ifPresent(result::add);
-              });
+          .ifPresent(index -> {
+            result.add(index.readIntrinsic());
+            index.writeIntrinsic().ifPresent(result::add);
+          });
       type.members().stream()
           .map(MemberDefinition::writeIntrinsic)
           .flatMap(Optional::stream)
@@ -235,16 +234,14 @@ public final class BuiltinCatalog {
     return protocolConformances.stream()
         .filter(conformance -> conformance.concreteType().identity().equals(type.identity()))
         .filter(conformance -> conformance.typeParameters().size() == type.arguments().size())
-        .map(
-            conformance -> {
-              Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-              for (int index = 0; index < type.arguments().size(); index++) {
-                substitutions.put(
-                    conformance.typeParameters().get(index).identity(),
-                    type.arguments().get(index));
-              }
-              return conformance.interfaceType().substitute(substitutions);
-            })
+        .map(conformance -> {
+          Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+          for (int index = 0; index < type.arguments().size(); index++) {
+            substitutions.put(
+                conformance.typeParameters().get(index).identity(), type.arguments().get(index));
+          }
+          return conformance.interfaceType().substitute(substitutions);
+        })
         .toList();
   }
 

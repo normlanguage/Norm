@@ -58,15 +58,14 @@ public final class CoreCanonicalizer {
       groups.putIfAbsent(canonical.group().id(), canonical.group());
       canonical
           .memberOrbits()
-          .forEach(
-              (declaration, memberIndices) -> {
-                Set<DefinitionId> orbit =
-                    memberIndices.stream()
-                        .map(canonical.group()::definitionId)
-                        .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
-                definitionOrbits.put(declaration, Set.copyOf(orbit));
-                definitionIds.put(declaration, orbit.iterator().next());
-              });
+          .forEach((declaration, memberIndices) -> {
+            Set<DefinitionId> orbit =
+                memberIndices.stream()
+                    .map(canonical.group()::definitionId)
+                    .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
+            definitionOrbits.put(declaration, Set.copyOf(orbit));
+            definitionIds.put(declaration, orbit.iterator().next());
+          });
     }
     var required =
         new ArrayDeque<>(
@@ -82,11 +81,10 @@ public final class CoreCanonicalizer {
             input
                 .dependencies()
                 .group(external.definition().group())
-                .ifPresent(
-                    group -> {
-                      groups.put(group.id(), group);
-                      required.addLast(group);
-                    });
+                .ifPresent(group -> {
+                  groups.put(group.id(), group);
+                  required.addLast(group);
+                });
           }
         }
       }
@@ -122,21 +120,20 @@ public final class CoreCanonicalizer {
     Map<Integer, Integer> memberIndices = new HashMap<>();
     for (int index = 0; index < order.size(); index++) memberIndices.put(order.get(index), index);
     return order.stream()
-        .map(
-            declaration ->
-                CoreTree.resolve(
-                    definitions.get(declaration),
-                    pending -> {
-                      Integer member = memberIndices.get(pending.declarationIndex());
-                      if (member != null) {
-                        return new DefinitionReference.RecursiveMember(member);
-                      }
-                      DefinitionId external = definitionIds.get(pending.declarationIndex());
-                      if (external == null) {
-                        throw new IllegalStateException("external definition is unresolved");
-                      }
-                      return new DefinitionReference.External(external);
-                    }))
+        .map(declaration ->
+            CoreTree.resolve(
+                definitions.get(declaration),
+                pending -> {
+                  Integer member = memberIndices.get(pending.declarationIndex());
+                  if (member != null) {
+                    return new DefinitionReference.RecursiveMember(member);
+                  }
+                  DefinitionId external = definitionIds.get(pending.declarationIndex());
+                  if (external == null) {
+                    throw new IllegalStateException("external definition is unresolved");
+                  }
+                  return new DefinitionReference.External(external);
+                }))
         .toList();
   }
 
@@ -195,10 +192,9 @@ public final class CoreCanonicalizer {
     for (int candidate : cell) {
       SearchedBranch equivalent =
           searched.stream()
-              .filter(
-                  branch ->
-                      isTranspositionAutomorphism(
-                          component, definitions, definitionIds, branch.candidate(), candidate))
+              .filter(branch ->
+                  isTranspositionAutomorphism(
+                      component, definitions, definitionIds, branch.candidate(), candidate))
               .findFirst()
               .orElse(null);
       CanonicalLabeling current;
@@ -404,23 +400,21 @@ public final class CoreCanonicalizer {
     List<byte[]> distinct = new ArrayList<>();
     labels.values().stream()
         .sorted(Arrays::compareUnsigned)
-        .forEach(
-            label -> {
-              if (distinct.isEmpty() || Arrays.compareUnsigned(distinct.getLast(), label) != 0) {
-                distinct.add(label);
-              }
-            });
-    Map<Integer, Integer> colors = new HashMap<>();
-    labels.forEach(
-        (declaration, label) -> {
-          for (int index = 0; index < distinct.size(); index++) {
-            if (Arrays.compareUnsigned(distinct.get(index), label) == 0) {
-              colors.put(declaration, index);
-              return;
-            }
+        .forEach(label -> {
+          if (distinct.isEmpty() || Arrays.compareUnsigned(distinct.getLast(), label) != 0) {
+            distinct.add(label);
           }
-          throw new IllegalStateException("definition color is absent");
         });
+    Map<Integer, Integer> colors = new HashMap<>();
+    labels.forEach((declaration, label) -> {
+      for (int index = 0; index < distinct.size(); index++) {
+        if (Arrays.compareUnsigned(distinct.get(index), label) == 0) {
+          colors.put(declaration, index);
+          return;
+        }
+      }
+      throw new IllegalStateException("definition color is absent");
+    });
     return colors;
   }
 
@@ -500,9 +494,8 @@ public final class CoreCanonicalizer {
       Map<Integer, Set<Integer>> merged = new HashMap<>();
       memberOrbits.forEach(
           (declaration, orbit) -> merged.put(declaration, new LinkedHashSet<>(orbit)));
-      other.memberOrbits.forEach(
-          (declaration, orbit) ->
-              merged.computeIfAbsent(declaration, ignored -> new LinkedHashSet<>()).addAll(orbit));
+      other.memberOrbits.forEach((declaration, orbit) ->
+          merged.computeIfAbsent(declaration, ignored -> new LinkedHashSet<>()).addAll(orbit));
       return new CanonicalLabeling(order, canonicalBytes, merged);
     }
 
@@ -512,9 +505,8 @@ public final class CoreCanonicalizer {
               .map(declaration -> CoreCanonicalizer.transpose(declaration, first, second))
               .toList();
       Map<Integer, Set<Integer>> transposedOrbits = new HashMap<>();
-      memberOrbits.forEach(
-          (declaration, orbit) ->
-              transposedOrbits.put(CoreCanonicalizer.transpose(declaration, first, second), orbit));
+      memberOrbits.forEach((declaration, orbit) ->
+          transposedOrbits.put(CoreCanonicalizer.transpose(declaration, first, second), orbit));
       return new CanonicalLabeling(transposedOrder, canonicalBytes, transposedOrbits);
     }
   }

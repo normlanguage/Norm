@@ -34,16 +34,15 @@ final class RuntimeUpdateEventsTest {
                 message -> failure.set(new RuntimeException(message)))) {
       var execution =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    try {
-                      var result = session.execute();
-                      if (!result.isSuccess())
-                        failure.set(new RuntimeException(result.diagnostics().toString()));
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    }
-                  });
+              .start(() -> {
+                try {
+                  var result = session.execute();
+                  if (!result.isSuccess())
+                    failure.set(new RuntimeException(result.diagnostics().toString()));
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                }
+              });
       try {
         long ready = System.nanoTime() + Duration.ofSeconds(30).toNanos();
         while (!output.toString().contains("ready") && System.nanoTime() < ready) Thread.sleep(10);
@@ -71,26 +70,26 @@ final class RuntimeUpdateEventsTest {
 
   private static String source(int marker) {
     return """
-        import std.system.currentSystem
-        import std.concurrent.delay
-        import std.time.duration
-        class State { Boolean observed = false }
-        Integer marker() { %d }
-        Void main() {
-          var runtime = currentSystem().runtime()
-          var state = State()
-          var subscription = runtime.onUpdate {
-            if event.kind == "Published" {
-              state.observed = true
-              printLine(event.kind)
-              printLine(event.changes.size() > 0)
-            }
-          }
-          printLine("ready")
-          for !state.observed { delay(duration(seconds: 0, nanoseconds: 1000000)) }
-          subscription.close()
+    import std.system.currentSystem
+    import std.concurrent.delay
+    import std.time.duration
+    class State { Boolean observed = false }
+    Integer marker() { %d }
+    Void main() {
+      var runtime = currentSystem().runtime()
+      var state = State()
+      var subscription = runtime.onUpdate {
+        if event.kind == "Published" {
+          state.observed = true
+          printLine(event.kind)
+          printLine(event.changes.size() > 0)
         }
-        """
+      }
+      printLine("ready")
+      for !state.observed { delay(duration(seconds: 0, nanoseconds: 1000000)) }
+      subscription.close()
+    }
+    """
         .formatted(marker);
   }
 }

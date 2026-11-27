@@ -195,9 +195,8 @@ final class JdkHttpTransport implements HttpTransport {
       response
           .headers()
           .map()
-          .forEach(
-              (name, entries) ->
-                  entries.forEach(value -> values.add(new PlatformHttpHeader(name, value))));
+          .forEach((name, entries) ->
+              entries.forEach(value -> values.add(new PlatformHttpHeader(name, value))));
       headers = List.copyOf(values);
       body = response.body();
       this.control = control;
@@ -227,18 +226,17 @@ final class JdkHttpTransport implements HttpTransport {
       byte[] storage = new byte[Math.min(maximumBytes, PREFERRED_CHUNK_BYTES)];
       CompletableFuture<Integer> pending = new CompletableFuture<>();
       Thread reader =
-          Thread.startVirtualThread(
-              () -> {
-                try {
-                  int length;
-                  do {
-                    length = body.read(storage);
-                  } while (length == 0);
-                  pending.complete(length);
-                } catch (Throwable failure) {
-                  pending.completeExceptionally(failure);
-                }
-              });
+          Thread.startVirtualThread(() -> {
+            try {
+              int length;
+              do {
+                length = body.read(storage);
+              } while (length == 0);
+              pending.complete(length);
+            } catch (Throwable failure) {
+              pending.completeExceptionally(failure);
+            }
+          });
       for (; ; ) {
         if (control.isCancellationRequested()) {
           abort(reader);

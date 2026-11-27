@@ -44,16 +44,14 @@ record DeclarationAnalysis(
         new java.util.LinkedHashMap<
             dev.w0fv1.norm.source.SourceSpan, Map<SymbolId, DeclarationContract>>();
     roots.forEach(root -> selected.put(root, new java.util.LinkedHashMap<>()));
-    contracts.forEach(
-        (id, contract) ->
-            symbols
-                .get(id)
-                .declaration()
-                .ifPresent(
-                    location ->
-                        index
-                            .at(location.document(), location.startOffset())
-                            .ifPresent(root -> selected.get(root.value()).put(id, contract))));
+    contracts.forEach((id, contract) ->
+        symbols
+            .get(id)
+            .declaration()
+            .ifPresent(location ->
+                index
+                    .at(location.document(), location.startOffset())
+                    .ifPresent(root -> selected.get(root.value()).put(id, contract))));
     return selected.entrySet().stream()
         .collect(
             Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
@@ -66,16 +64,14 @@ record DeclarationAnalysis(
         new java.util.LinkedHashMap<
             dev.w0fv1.norm.value.ModuleCoordinate, Map<SymbolId, DeclarationContract>>();
     modules.forEach(module -> result.put(module, new java.util.LinkedHashMap<>()));
-    contracts.forEach(
-        (id, contract) ->
-            symbols
-                .get(id)
-                .declaration()
-                .ifPresent(
-                    location -> {
-                      var selected = result.get(scope.coordinate(location.document()).module());
-                      if (selected != null) selected.put(id, contract);
-                    }));
+    contracts.forEach((id, contract) ->
+        symbols
+            .get(id)
+            .declaration()
+            .ifPresent(location -> {
+              var selected = result.get(scope.coordinate(location.document()).module());
+              if (selected != null) selected.put(id, contract);
+            }));
     result.replaceAll((module, values) -> Map.copyOf(values));
     return Map.copyOf(result);
   }

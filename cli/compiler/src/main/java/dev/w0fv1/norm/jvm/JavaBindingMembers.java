@@ -77,10 +77,8 @@ final class JavaBindingMembers {
     return owner
         .signature()
         .superclass()
-        .flatMap(
-            relation ->
-                projector.project(
-                    relation, classVariables(owner), JavaTypeProjector.Position.VALUE))
+        .flatMap(relation ->
+            projector.project(relation, classVariables(owner), JavaTypeProjector.Position.VALUE))
         .filter(JavaReferenceType.class::isInstance)
         .map(JavaReferenceType.class::cast)
         .filter(type -> type.kind() == JavaReferenceKind.OPAQUE);
@@ -133,10 +131,9 @@ final class JavaBindingMembers {
                             new LinkedHashMap<>(variables),
                             JavaTypeProjector.Position.VALUE)
                         .orElse(null))
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "Java generic bound cannot be represented in Norm: " + owner.binaryName()))
+            .orElseThrow(() ->
+                new IllegalArgumentException(
+                    "Java generic bound cannot be represented in Norm: " + owner.binaryName()))
             .variables());
   }
 
@@ -179,10 +176,9 @@ final class JavaBindingMembers {
   static boolean enumConstant(JavaApiType owner, JavaBindingCallable callable) {
     return callable.kind() == JavaCallableKind.STATIC_FIELD_GET
         && owner.fields().stream()
-            .anyMatch(
-                field ->
-                    field.name().equals(callable.name())
-                        && (field.modifiers() & org.objectweb.asm.Opcodes.ACC_ENUM) != 0);
+            .anyMatch(field ->
+                field.name().equals(callable.name())
+                    && (field.modifiers() & org.objectweb.asm.Opcodes.ACC_ENUM) != 0);
   }
 
   List<JavaBindingTypeParameter> classTypeParameters(JavaApiType owner) {
@@ -194,10 +190,9 @@ final class JavaBindingMembers {
                     .project(
                         signature, new LinkedHashMap<>(variables), JavaTypeProjector.Position.VALUE)
                     .orElse(null))
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    "Java generic bound cannot be represented in Norm: " + owner.binaryName()))
+        .orElseThrow(() ->
+            new IllegalArgumentException(
+                "Java generic bound cannot be represented in Norm: " + owner.binaryName()))
         .parameters();
   }
 
@@ -242,11 +237,10 @@ final class JavaBindingMembers {
         callable.descriptor(),
         callable.kind(),
         callable.typeParameters().stream()
-            .map(
-                parameter ->
-                    new JavaBindingTypeParameter(
-                        parameter.name(),
-                        parameter.bound().map(type -> markResources(type, resources))))
+            .map(parameter ->
+                new JavaBindingTypeParameter(
+                    parameter.name(),
+                    parameter.bound().map(type -> markResources(type, resources))))
             .toList(),
         callable.parameters().stream().map(type -> markResources(type, resources)).toList(),
         markResources(callable.returnType(), resources),
@@ -275,14 +269,12 @@ final class JavaBindingMembers {
                   ? JavaReferenceKind.RESOURCE
                   : reference.kind(),
               reference.arguments().stream()
-                  .map(
-                      argument ->
-                          argument.type().isEmpty()
-                              ? argument
-                              : new JavaBindingTypeArgument(
-                                  argument.variance(),
-                                  Optional.of(
-                                      markResources(argument.type().orElseThrow(), resources))))
+                  .map(argument ->
+                      argument.type().isEmpty()
+                          ? argument
+                          : new JavaBindingTypeArgument(
+                              argument.variance(),
+                              Optional.of(markResources(argument.type().orElseThrow(), resources))))
                   .toList());
       case JavaBoxedType boxed -> boxed;
       case JavaPrimitiveType primitive -> primitive;

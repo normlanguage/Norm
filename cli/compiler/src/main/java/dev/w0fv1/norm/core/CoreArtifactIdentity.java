@@ -32,24 +32,21 @@ final class CoreArtifactIdentity {
             .writeBytes(artifact.namespace().id().hash().bytes());
     var bindings =
         artifact.namespace().bindings().stream()
-            .map(
-                binding ->
-                    new ArtifactBinding(CoreNamespace.linkedBinding(binding), binding.occurrence()))
-            .sorted(
-                (left, right) -> {
-                  int bindingOrder =
-                      Arrays.compareUnsigned(left.canonicalBinding(), right.canonicalBinding());
-                  return bindingOrder != 0
-                      ? bindingOrder
-                      : left.occurrence().compareTo(right.occurrence());
-                })
+            .map(binding ->
+                new ArtifactBinding(CoreNamespace.linkedBinding(binding), binding.occurrence()))
+            .sorted((left, right) -> {
+              int bindingOrder =
+                  Arrays.compareUnsigned(left.canonicalBinding(), right.canonicalBinding());
+              return bindingOrder != 0
+                  ? bindingOrder
+                  : left.occurrence().compareTo(right.occurrence());
+            })
             .toList();
     writer.writeInt(bindings.size());
-    bindings.forEach(
-        binding -> {
-          writer.writeBytes(binding.canonicalBinding());
-          writeOccurrence(writer, binding.occurrence());
-        });
+    bindings.forEach(binding -> {
+      writer.writeBytes(binding.canonicalBinding());
+      writeOccurrence(writer, binding.occurrence());
+    });
     return writer.toByteArray();
   }
 
@@ -71,22 +68,20 @@ final class CoreArtifactIdentity {
     artifact
         .authoring()
         .occurrences()
-        .forEach(
-            occurrence -> {
-              writeOccurrence(writer, occurrence.id());
-              writer.writeTag(occurrence.role().name());
-              writer.writeInt(occurrence.representedDefinitions().size());
-              occurrence.representedDefinitions().forEach(value -> writeDefinition(writer, value));
-              writer.writeBytes(encodeOrigin(occurrence.origin(), documentIndexes));
-              writer.writeInt(occurrence.references().size());
-              occurrence.references().entrySet().stream()
-                  .sorted(Map.Entry.comparingByKey())
-                  .forEach(
-                      reference -> {
-                        writer.writeInt(reference.getKey());
-                        writeOccurrence(writer, reference.getValue());
-                      });
-            });
+        .forEach(occurrence -> {
+          writeOccurrence(writer, occurrence.id());
+          writer.writeTag(occurrence.role().name());
+          writer.writeInt(occurrence.representedDefinitions().size());
+          occurrence.representedDefinitions().forEach(value -> writeDefinition(writer, value));
+          writer.writeBytes(encodeOrigin(occurrence.origin(), documentIndexes));
+          writer.writeInt(occurrence.references().size());
+          occurrence.references().entrySet().stream()
+              .sorted(Map.Entry.comparingByKey())
+              .forEach(reference -> {
+                writer.writeInt(reference.getKey());
+                writeOccurrence(writer, reference.getValue());
+              });
+        });
     return writer.toByteArray();
   }
 
@@ -116,34 +111,32 @@ final class CoreArtifactIdentity {
       writer.writeTag(occurrence.role().name()).writeInt(occurrence.references().size());
       occurrence.references().entrySet().stream()
           .sorted(Map.Entry.comparingByKey())
-          .forEach(
-              entry -> {
-                writer.writeInt(entry.getKey());
-                writeOccurrence(writer, entry.getValue());
-              });
+          .forEach(entry -> {
+            writer.writeInt(entry.getKey());
+            writeOccurrence(writer, entry.getValue());
+          });
     }
     var references =
         artifact.authoring().annotationReferences().entrySet().stream()
-            .map(
-                entry -> {
-                  var site = new CanonicalWriter();
-                  switch (entry.getKey().owner()) {
-                    case CoreAnnotationReferenceSite.Definition definition -> {
-                      site.writeTag("definition");
-                      writeOccurrence(site, definition.occurrence());
-                    }
-                    case CoreAnnotationReferenceSite.Metadata metadata -> {
-                      site.writeTag("metadata");
-                      var id = metadata.application();
-                      site.writeString(id.source().identity()).writeInt(id.ordinal());
-                    }
-                  }
-                  site.writeInt(entry.getKey().path().steps().size());
-                  for (var step : entry.getKey().path().steps())
-                    site.writeTag(step.kind().name()).writeInt(step.index());
-                  writeOccurrence(site, entry.getValue());
-                  return site.toByteArray();
-                })
+            .map(entry -> {
+              var site = new CanonicalWriter();
+              switch (entry.getKey().owner()) {
+                case CoreAnnotationReferenceSite.Definition definition -> {
+                  site.writeTag("definition");
+                  writeOccurrence(site, definition.occurrence());
+                }
+                case CoreAnnotationReferenceSite.Metadata metadata -> {
+                  site.writeTag("metadata");
+                  var id = metadata.application();
+                  site.writeString(id.source().identity()).writeInt(id.ordinal());
+                }
+              }
+              site.writeInt(entry.getKey().path().steps().size());
+              for (var step : entry.getKey().path().steps())
+                site.writeTag(step.kind().name()).writeInt(step.index());
+              writeOccurrence(site, entry.getValue());
+              return site.toByteArray();
+            })
             .sorted(Arrays::compareUnsigned)
             .toList();
     writer.writeInt(references.size());
@@ -176,12 +169,10 @@ final class CoreArtifactIdentity {
         .writeInt(origin.nodeSpans().size());
     origin.nodeSpans().entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
-        .forEach(
-            entry ->
-                writeSpanDocument(
-                        writer.writeInt(entry.getKey()), entry.getValue(), documentIndexes)
-                    .writeInt(entry.getValue().startOffset())
-                    .writeInt(entry.getValue().length()));
+        .forEach(entry ->
+            writeSpanDocument(writer.writeInt(entry.getKey()), entry.getValue(), documentIndexes)
+                .writeInt(entry.getValue().startOffset())
+                .writeInt(entry.getValue().length()));
     return writer.toByteArray();
   }
 
@@ -196,11 +187,10 @@ final class CoreArtifactIdentity {
     Map<String, SourceFile> documents = new TreeMap<>();
     artifact.authoring().occurrences().stream()
         .map(CoreDefinitionOccurrence::origin)
-        .forEach(
-            origin -> {
-              addDocument(documents, origin.rootSpan().source());
-              origin.nodeSpans().values().forEach(span -> addDocument(documents, span.source()));
-            });
+        .forEach(origin -> {
+          addDocument(documents, origin.rootSpan().source());
+          origin.nodeSpans().values().forEach(span -> addDocument(documents, span.source()));
+        });
     return documents;
   }
 

@@ -36,14 +36,12 @@ final class NormTestEngine implements TestEngine {
     tests =
         CoreTestIndex.from(application.result().output().orElseThrow().artifact()).tests().stream()
             .filter(test -> request.scope().coordinates().containsKey(test.source().source().id()))
-            .filter(
-                test ->
-                    request.scope().coordinate(test.source().source().id()).module().equals(root))
-            .filter(
-                test ->
-                    filter.isEmpty()
-                        || test.name().equals(filter.orElseThrow())
-                        || test.name().startsWith(filter.orElseThrow() + "."))
+            .filter(test ->
+                request.scope().coordinate(test.source().source().id()).module().equals(root))
+            .filter(test ->
+                filter.isEmpty()
+                    || test.name().equals(filter.orElseThrow())
+                    || test.name().startsWith(filter.orElseThrow() + "."))
             .toList();
   }
 

@@ -25,14 +25,13 @@ public record CoreTestIndex(List<Test> tests) {
     return new CoreTestIndex(
         artifact.namespace().bindings().stream()
             .filter(binding -> marked.contains(binding.occurrence()))
-            .map(
-                binding ->
-                    new Test(
-                        binding.occurrence(),
-                        binding.packageName().isEmpty()
-                            ? binding.name()
-                            : binding.packageName() + "." + binding.name(),
-                        artifact.authoring().origin(binding.occurrence()).rootSpan()))
+            .map(binding ->
+                new Test(
+                    binding.occurrence(),
+                    binding.packageName().isEmpty()
+                        ? binding.name()
+                        : binding.packageName() + "." + binding.name(),
+                    artifact.authoring().origin(binding.occurrence()).rootSpan()))
             .sorted(
                 Comparator.comparing(Test::name)
                     .thenComparing(test -> test.source().source().id().uri().toString()))

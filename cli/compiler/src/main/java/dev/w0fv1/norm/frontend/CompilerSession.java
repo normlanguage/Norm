@@ -307,31 +307,27 @@ public final class CompilerSession implements AutoCloseable {
 
   public void invalidate(DocumentId document) {
     java.util.Objects.requireNonNull(document, "document");
-    withExclusiveLifecycle(
-        () -> {
-          stateLock.lock();
-          try {
-            parsedDocuments.keySet().removeIf(key -> key.document().equals(document));
-            compilations
-                .values()
-                .removeIf(compilation -> compilation.documents().contains(document));
-          } finally {
-            stateLock.unlock();
-          }
-        });
+    withExclusiveLifecycle(() -> {
+      stateLock.lock();
+      try {
+        parsedDocuments.keySet().removeIf(key -> key.document().equals(document));
+        compilations.values().removeIf(compilation -> compilation.documents().contains(document));
+      } finally {
+        stateLock.unlock();
+      }
+    });
   }
 
   public void invalidate(CompilationUnitId unit) {
     java.util.Objects.requireNonNull(unit, "unit");
-    withExclusiveLifecycle(
-        () -> {
-          stateLock.lock();
-          try {
-            compilations.remove(unit);
-          } finally {
-            stateLock.unlock();
-          }
-        });
+    withExclusiveLifecycle(() -> {
+      stateLock.lock();
+      try {
+        compilations.remove(unit);
+      } finally {
+        stateLock.unlock();
+      }
+    });
   }
 
   public Optional<SourceFile> preludeSource(DocumentId document) {
@@ -417,10 +413,9 @@ public final class CompilerSession implements AutoCloseable {
     request
         .scope()
         .coordinates()
-        .forEach(
-            (id, coordinate) -> {
-              if (coordinate.module().name().equals("std")) standardDocuments.add(id);
-            });
+        .forEach((id, coordinate) -> {
+          if (coordinate.module().name().equals("std")) standardDocuments.add(id);
+        });
     LinkedHashMap<DocumentId, ParsedDocument> parsedByDocument = new LinkedHashMap<>();
     prelude.documents().forEach(parsed -> parsedByDocument.put(parsed.source().id(), parsed));
     for (SourceFile source : request.sources()) {

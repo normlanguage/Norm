@@ -27,12 +27,11 @@ final class CoreReachabilityTest {
                     .execute(
                         artifact,
                         ExecutionContext.builder()
-                            .jarBindingRuntime(
-                                (call, arguments) -> {
-                                  throw new dev.w0fv1.norm.execution.JarBindingInvocationException(
-                                      "host invocation",
-                                      new java.io.IOException("original host failure"));
-                                })
+                            .jarBindingRuntime((call, arguments) -> {
+                              throw new dev.w0fv1.norm.execution.JarBindingInvocationException(
+                                  "host invocation",
+                                  new java.io.IOException("original host failure"));
+                            })
                             .build()));
     assertTrue(failure.getMessage().contains("original host failure"), failure::toString);
   }
@@ -78,11 +77,10 @@ final class CoreReachabilityTest {
     var execution = CoreExecutionPlan.forArtifact(reduced);
     reduced.namespace().bindings().stream()
         .filter(binding -> binding.name().equals("dormantService") || binding.name().equals("name"))
-        .forEach(
-            binding -> {
-              assertFalse(execution.callables().contains(binding.definition()));
-              assertFalse(execution.dispatchSlots().contains(binding.definition()));
-            });
+        .forEach(binding -> {
+          assertFalse(execution.callables().contains(binding.definition()));
+          assertFalse(execution.dispatchSlots().contains(binding.definition()));
+        });
     var output = new StringWriter();
     new NormRuntime()
         .execute(
@@ -117,10 +115,8 @@ final class CoreReachabilityTest {
     assertTrue(rooted.metadata().annotations().size() > reduced.metadata().annotations().size());
     assertTrue(
         rooted.namespace().bindings().stream()
-            .anyMatch(
-                binding ->
-                    binding.ownerName().orElse("").equals("Host")
-                        && binding.name().equals("value")));
+            .anyMatch(binding ->
+                binding.ownerName().orElse("").equals("Host") && binding.name().equals("value")));
     var repeated = CoreReachability.retainApplication(rooted, java.util.Set.of(host));
     assertEquals(rooted.program().groups(), repeated.program().groups());
     assertEquals(rooted.metadata().annotations(), repeated.metadata().annotations());
@@ -143,12 +139,11 @@ final class CoreReachabilityTest {
     artifact.program().definitions().forEach(record -> walker.walk(record.definition()));
     assertFalse(
         ids.stream()
-            .anyMatch(
-                id ->
-                    id.name().startsWith("HTTP_")
-                        || id.name().startsWith("XML_")
-                        || id.name().startsWith("JSON_")
-                        || id.name().startsWith("YAML_")),
+            .anyMatch(id ->
+                id.name().startsWith("HTTP_")
+                    || id.name().startsWith("XML_")
+                    || id.name().startsWith("JSON_")
+                    || id.name().startsWith("YAML_")),
         ids.toString());
   }
 
@@ -257,34 +252,33 @@ final class CoreReachabilityTest {
             "reflection/reflect_class_annotation.norm",
             "reflection/reflect_fields.norm",
             "annotations/field_inheritance.norm")
-        .map(
-            path ->
-                org.junit.jupiter.api.DynamicTest.dynamicTest(
-                    path,
-                    () -> {
-                      String source =
-                          java.nio.file.Files.readString(
-                              java.nio.file.Path.of(
-                                  java.util.Objects.requireNonNull(
-                                          CoreReachabilityTest.class.getResource("/" + path))
-                                      .toURI()));
-                      var compiled = NormTestKit.compile(source);
-                      assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-                      var original = compiled.output().orElseThrow().artifact();
-                      var expected = new StringWriter();
-                      new NormRuntime()
-                          .execute(
-                              original,
-                              ExecutionContext.of(
-                                  new PrintWriter(expected), JdkSystemPlatform.standard()));
-                      var actual = new StringWriter();
-                      new NormRuntime()
-                          .execute(
-                              CoreReachability.retainApplication(original),
-                              ExecutionContext.of(
-                                  new PrintWriter(actual), JdkSystemPlatform.standard()));
-                      assertEquals(expected.toString(), actual.toString());
-                    }));
+        .map(path ->
+            org.junit.jupiter.api.DynamicTest.dynamicTest(
+                path,
+                () -> {
+                  String source =
+                      java.nio.file.Files.readString(
+                          java.nio.file.Path.of(
+                              java.util.Objects.requireNonNull(
+                                      CoreReachabilityTest.class.getResource("/" + path))
+                                  .toURI()));
+                  var compiled = NormTestKit.compile(source);
+                  assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
+                  var original = compiled.output().orElseThrow().artifact();
+                  var expected = new StringWriter();
+                  new NormRuntime()
+                      .execute(
+                          original,
+                          ExecutionContext.of(
+                              new PrintWriter(expected), JdkSystemPlatform.standard()));
+                  var actual = new StringWriter();
+                  new NormRuntime()
+                      .execute(
+                          CoreReachability.retainApplication(original),
+                          ExecutionContext.of(
+                              new PrintWriter(actual), JdkSystemPlatform.standard()));
+                  assertEquals(expected.toString(), actual.toString());
+                }));
   }
 
   @Test

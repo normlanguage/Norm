@@ -773,25 +773,23 @@ final class CliControllerTest {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<?> exchange =
-          executor.submit(
-              () -> {
-                try (var socket = server.accept()) {
-                  BufferedReader input =
-                      new BufferedReader(
-                          new InputStreamReader(
-                              socket.getInputStream(), StandardCharsets.US_ASCII));
-                  for (String line = input.readLine(); line != null && !line.isEmpty(); ) {
-                    line = input.readLine();
-                  }
-                  socket
-                      .getOutputStream()
-                      .write(
-                          ("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNorm HTTP")
-                              .getBytes(StandardCharsets.US_ASCII));
-                } catch (IOException failure) {
-                  throw new java.io.UncheckedIOException(failure);
-                }
-              });
+          executor.submit(() -> {
+            try (var socket = server.accept()) {
+              BufferedReader input =
+                  new BufferedReader(
+                      new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
+              for (String line = input.readLine(); line != null && !line.isEmpty(); ) {
+                line = input.readLine();
+              }
+              socket
+                  .getOutputStream()
+                  .write(
+                      ("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNorm HTTP")
+                          .getBytes(StandardCharsets.US_ASCII));
+            } catch (IOException failure) {
+              throw new java.io.UncheckedIOException(failure);
+            }
+          });
       Files.writeString(
           source,
           "import std.http.HttpRequest import std.http.HttpResponse import std.http.Uri "

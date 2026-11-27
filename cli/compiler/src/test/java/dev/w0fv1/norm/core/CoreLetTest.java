@@ -16,13 +16,12 @@ final class CoreLetTest {
             new CoreExpression.Literal(3, 7, CoreType.INTEGER),
             new CoreExpression.LocalRead(4, 0, CoreType.INTEGER));
     var locals = List.of(new CoreLocal(0, CoreType.INTEGER, CoreLocal.Kind.VARIABLE));
-    assertDoesNotThrow(
-        () ->
-            program(
-                CoreType.INTEGER,
-                locals,
-                List.of(),
-                List.of(new CoreStatement.ReturnStatement(1, Optional.of(value)))));
+    assertDoesNotThrow(() ->
+        program(
+            CoreType.INTEGER,
+            locals,
+            List.of(),
+            List.of(new CoreStatement.ReturnStatement(1, Optional.of(value)))));
     assertThrows(
         IllegalArgumentException.class,
         () ->

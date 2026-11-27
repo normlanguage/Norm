@@ -44,28 +44,25 @@ class JavaApplicationBridgeTest {
     var failure = new AtomicReference<Throwable>();
     var creator =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try {
-                    ClassLoader loader =
-                        new URLClassLoader(new URL[0], getClass().getClassLoader());
-                    JavaApplicationBridge.Handler handler =
-                        (JavaApplicationBridge.Handler)
-                            Proxy.newProxyInstance(
-                                getClass().getClassLoader(),
-                                new Class<?>[] {JavaApplicationBridge.Handler.class},
-                                (proxy, method, arguments) ->
-                                    arguments == null ? null : arguments[0]);
-                    var registration = JavaApplicationBridge.install(loader, handler);
-                    Object value = new Object();
-                    assertSame(value, JavaApplicationBridge.toJava(loader, value));
-                    realm.set(new WeakReference<>(loader));
-                    callback.set(new WeakReference<>(handler));
-                    java.lang.ref.Reference.reachabilityFence(registration);
-                  } catch (Throwable exception) {
-                    failure.set(exception);
-                  }
-                });
+            .start(() -> {
+              try {
+                ClassLoader loader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+                JavaApplicationBridge.Handler handler =
+                    (JavaApplicationBridge.Handler)
+                        Proxy.newProxyInstance(
+                            getClass().getClassLoader(),
+                            new Class<?>[] {JavaApplicationBridge.Handler.class},
+                            (proxy, method, arguments) -> arguments == null ? null : arguments[0]);
+                var registration = JavaApplicationBridge.install(loader, handler);
+                Object value = new Object();
+                assertSame(value, JavaApplicationBridge.toJava(loader, value));
+                realm.set(new WeakReference<>(loader));
+                callback.set(new WeakReference<>(handler));
+                java.lang.ref.Reference.reachabilityFence(registration);
+              } catch (Throwable exception) {
+                failure.set(exception);
+              }
+            });
     creator.join();
     if (failure.get() != null) throw new AssertionError(failure.get());
     assertTimeoutPreemptively(

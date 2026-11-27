@@ -130,12 +130,11 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
       var names = new com.google.gson.JsonArray();
       analysis.artifact().namespace().bindings().stream()
           .filter(binding -> binding.definition().group().equals(group.id()))
-          .map(
-              binding ->
-                  binding.packageName()
-                      + "."
-                      + binding.ownerName().map(owner -> owner + ".").orElse("")
-                      + binding.name())
+          .map(binding ->
+              binding.packageName()
+                  + "."
+                  + binding.ownerName().map(owner -> owner + ".").orElse("")
+                  + binding.name())
           .distinct()
           .sorted()
           .forEach(names::add);
@@ -188,14 +187,13 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
     if (!detailed) return;
     var mapping = new JsonObject();
     new java.util.TreeMap<>(methods)
-        .forEach(
-            (id, target) -> {
-              var value = new JsonObject();
-              value.addProperty("owner", target.owner());
-              value.addProperty("name", target.name());
-              value.addProperty("descriptor", target.descriptor());
-              mapping.add(id.toString(), value);
-            });
+        .forEach((id, target) -> {
+          var value = new JsonObject();
+          value.addProperty("owner", target.owner());
+          value.addProperty("name", target.name());
+          value.addProperty("descriptor", target.descriptor());
+          mapping.add(id.toString(), value);
+        });
     Files.writeString(
         directory.resolve("application-methods.json"),
         new GsonBuilder().setPrettyPrinting().create().toJson(mapping) + "\n");

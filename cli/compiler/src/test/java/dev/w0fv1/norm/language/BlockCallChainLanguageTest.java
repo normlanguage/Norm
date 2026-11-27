@@ -295,10 +295,8 @@ final class BlockCallChainLanguageTest {
     return completions.stream()
         .filter(c -> c.label().equals("map"))
         .findFirst()
-        .orElseThrow(
-            () ->
-                new AssertionError(
-                    completions.stream().map(Completion::label).toList().toString()));
+        .orElseThrow(() ->
+            new AssertionError(completions.stream().map(Completion::label).toList().toString()));
   }
 
   private static SourceFile source(String text) {

@@ -36,28 +36,26 @@ final class DefaultValueDeclarations {
         for (var field : owner.fields()) {
           field
               .defaultValue()
-              .ifPresent(
-                  expression -> {
-                    var fieldSymbol = semantics.symbolOf(field.nameSpan()).orElseThrow();
-                    initializers.put(
-                        fieldSymbol.id(),
-                        new Factory(
-                            new BoundCallableId(fieldSymbol.id().value() + "/initializer"),
-                            field.name() + "/initializer",
-                            owner.typeParameters(),
-                            Optional.of(receiver),
-                            fieldSymbol.type(),
-                            expression));
-                  });
+              .ifPresent(expression -> {
+                var fieldSymbol = semantics.symbolOf(field.nameSpan()).orElseThrow();
+                initializers.put(
+                    fieldSymbol.id(),
+                    new Factory(
+                        new BoundCallableId(fieldSymbol.id().value() + "/initializer"),
+                        field.name() + "/initializer",
+                        owner.typeParameters(),
+                        Optional.of(receiver),
+                        fieldSymbol.type(),
+                        expression));
+              });
         }
         if (owner.constructors().isEmpty()) {
           constructionDefaults.put(
               symbol.id(),
               owner.fields().stream()
-                  .filter(
-                      field ->
-                          symbol.parameters().stream()
-                              .anyMatch(parameter -> parameter.name().equals(field.name())))
+                  .filter(field ->
+                      symbol.parameters().stream()
+                          .anyMatch(parameter -> parameter.name().equals(field.name())))
                   .map(
                       field -> initializer(semantics.symbolOf(field.nameSpan()).orElseThrow().id()))
                   .toList());

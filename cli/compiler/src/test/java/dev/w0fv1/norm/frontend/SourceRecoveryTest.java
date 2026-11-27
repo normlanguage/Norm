@@ -37,10 +37,9 @@ final class SourceRecoveryTest {
   @TestFactory
   Stream<DynamicTest> reportsDamageAndPreservesFollowingStatements() {
     return CASES.stream()
-        .map(
-            recoveryCase ->
-                DynamicTest.dynamicTest(
-                    recoveryCase.fixture(), () -> assertRecoveryCase(recoveryCase)));
+        .map(recoveryCase ->
+            DynamicTest.dynamicTest(
+                recoveryCase.fixture(), () -> assertRecoveryCase(recoveryCase)));
   }
 
   private static void assertRecoveryCase(RecoveryCase recoveryCase) {
@@ -56,18 +55,16 @@ final class SourceRecoveryTest {
     assertTrue(parsed.diagnostics().size() <= 3, () -> parsed.diagnostics().toString());
     assertTrue(
         parsed.diagnostics().stream()
-            .allMatch(
-                diagnostic ->
-                    diagnostic.primarySpan().startOffset() >= 0
-                        && diagnostic.primarySpan().endOffset() <= source.length()));
+            .allMatch(diagnostic ->
+                diagnostic.primarySpan().startOffset() >= 0
+                    && diagnostic.primarySpan().endOffset() <= source.length()));
     assertTrue(
         parsed.syntax().functions().stream()
             .filter(function -> function.name().equals("main"))
             .flatMap(function -> function.body().stream())
-            .anyMatch(
-                statement ->
-                    statement instanceof Syntax.VariableDecl variable
-                        && variable.name().equals("last")));
+            .anyMatch(statement ->
+                statement instanceof Syntax.VariableDecl variable
+                    && variable.name().equals("last")));
 
     try (CompilerSession compiler = new CompilerSession()) {
       CompilationResult result = compiler.compile(source);

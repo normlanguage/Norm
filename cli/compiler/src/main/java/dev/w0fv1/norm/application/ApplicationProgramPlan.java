@@ -35,11 +35,10 @@ public record ApplicationProgramPlan(
     var entryPoints = applicationIndex.sourceEntryPoints(original);
     var applicationEntries = new LinkedHashSet<>(entryPoints);
     if (compilation.javaClasspath().artifacts().stream()
-        .anyMatch(
-            artifact ->
-                artifact.identity() instanceof dev.w0fv1.norm.jvm.MavenJarIdentity maven
-                    && maven.coordinate().group().equals("org.slf4j")
-                    && maven.coordinate().artifact().equals("slf4j-api"))) {
+        .anyMatch(artifact ->
+            artifact.identity() instanceof dev.w0fv1.norm.jvm.MavenJarIdentity maven
+                && maven.coordinate().group().equals("org.slf4j")
+                && maven.coordinate().artifact().equals("slf4j-api"))) {
       original
           .namespace()
           .definition("std.logging", "startApplicationLogs")

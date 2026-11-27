@@ -51,15 +51,15 @@ final class NativeToolchainClasspathTest {
         "dependencies",
         com.google.gson.JsonParser.parseString(
             """
-        {"sample:runtime:1":["sample:metadata:1"], "sample:metadata:1":["sample:shared:1"], "sample:hosted:1":["sample:shared:1"],
-         "sample:shared:1":[], "sample:tool:1":["sample:shared:1"], "sample:embedded:1":[]}
-        """));
+            {"sample:runtime:1":["sample:metadata:1"], "sample:metadata:1":["sample:shared:1"], "sample:hosted:1":["sample:shared:1"],
+             "sample:shared:1":[], "sample:tool:1":["sample:shared:1"], "sample:embedded:1":[]}
+            """));
     manifest.add(
         "purposes",
         com.google.gson.JsonParser.parseString(
             """
-        {"execution":["sample:runtime:1"], "hosted":["sample:hosted:1"], "tooling":["sample:tool:1"]}
-        """));
+            {"execution":["sample:runtime:1"], "hosted":["sample:hosted:1"], "tooling":["sample:tool:1"]}
+            """));
     Path catalog = Files.writeString(directory.resolve("catalog.json"), manifest.toString());
     var paths = List.of(application, runtime, hosted, shared, tooling);
     var plan = NativeToolchainClasspath.plan(catalog, paths);
@@ -73,10 +73,9 @@ final class NativeToolchainClasspathTest {
             .orElseThrow();
     assertTrue(
         runtimeGraph.edges().stream()
-            .anyMatch(
-                edge ->
-                    edge.from().equals(runtimeGraph.root().identity())
-                        && edge.to().canonical().equals("maven:sample:shared:1")));
+            .anyMatch(edge ->
+                edge.from().equals(runtimeGraph.root().identity())
+                    && edge.to().canonical().equals("maven:sample:shared:1")));
     assertThrows(
         java.io.IOException.class,
         () ->
@@ -141,23 +140,21 @@ final class NativeToolchainClasspathTest {
         .descriptor()
         .requires()
         .stream()
-        .filter(
-            requirement ->
-                !requirement
-                    .modifiers()
-                    .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC))
+        .filter(requirement ->
+            !requirement
+                .modifiers()
+                .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC))
         .sorted(java.util.Comparator.comparing(java.lang.module.ModuleDescriptor.Requires::name))
-        .forEach(
-            requirement -> {
-              var entry = new com.google.gson.JsonObject();
-              entry.addProperty("name", requirement.name());
-              entry.addProperty(
-                  "transitive",
-                  requirement
-                      .modifiers()
-                      .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.TRANSITIVE));
-              moduleRequires.add(entry);
-            });
+        .forEach(requirement -> {
+          var entry = new com.google.gson.JsonObject();
+          entry.addProperty("name", requirement.name());
+          entry.addProperty(
+              "transitive",
+              requirement
+                  .modifiers()
+                  .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.TRANSITIVE));
+          moduleRequires.add(entry);
+        });
     storage.add("moduleRequires", moduleRequires);
     artifact.add("storage", storage);
     var artifacts = new com.google.gson.JsonArray();
