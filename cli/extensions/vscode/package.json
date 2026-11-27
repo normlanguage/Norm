@@ -172,7 +172,7 @@
     "package:local": "node scripts/package-local.mjs"
   },
   "dependencies": {
-    "vscode-languageclient": "11.0.0"
+    "vscode-languageclient": "11.0.1"
   },
   "overrides": {
     "diff": "8.0.3",
