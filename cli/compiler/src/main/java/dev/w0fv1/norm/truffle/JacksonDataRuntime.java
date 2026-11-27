@@ -1,19 +1,18 @@
 package dev.w0fv1.norm.truffle;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonLocation;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.core.CoreEnumVariant;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.Predicate;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.TokenStreamFactory;
+import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 final class JacksonDataRuntime {
   private static final StructuredValueAccess VALUES = new StructuredValueAccess();
@@ -24,13 +23,13 @@ final class JacksonDataRuntime {
 
   private final String format;
   private final String codePrefix;
-  private final JsonFactory factory;
+  private final TokenStreamFactory factory;
   private final Predicate<JsonParser> unsupportedToken;
   private final FailureFactory failures;
 
   JacksonDataRuntime(
       String format,
-      JsonFactory factory,
+      TokenStreamFactory factory,
       Predicate<JsonParser> unsupportedToken,
       FailureFactory failures) {
     this.format = java.util.Objects.requireNonNull(format, "format");
@@ -50,12 +49,12 @@ final class JacksonDataRuntime {
       return output.toString();
     } catch (Failure failure) {
       throw failure(failure, execution, location);
-    } catch (IOException failure) {
+    } catch (JacksonException failure) {
       throw failure(
           code("WRITE"),
           message(failure, "cannot write " + format),
           "$",
-          location(failure),
+          location(failure.getLocation()),
           execution,
           location);
     }
@@ -91,12 +90,12 @@ final class JacksonDataRuntime {
           location(failure.getLocation()),
           execution,
           location);
-    } catch (IOException failure) {
+    } catch (JacksonException failure) {
       throw failure(
           code("SYNTAX"),
           message(failure, "invalid " + format),
           "$",
-          location(failure),
+          location(failure.getLocation()),
           execution,
           location);
     }
@@ -116,8 +115,11 @@ final class JacksonDataRuntime {
   }
 
   private void write(
-      JsonGenerator writer, SerializationRuntime.Shape shape, Object value, String path, int depth)
-      throws IOException {
+      JsonGenerator writer,
+      SerializationRuntime.Shape shape,
+      Object value,
+      String path,
+      int depth) {
     shape = SerializationRuntime.resolved(shape);
     requireDepth(path, depth);
     if (shape instanceof SerializationRuntime.NullableShape nullable) {
@@ -151,7 +153,7 @@ final class JacksonDataRuntime {
           if (!(entry.key() instanceof String name)) {
             throw new Failure(code("MAP-KEY"), path, format + " mapping key must be String");
           }
-          writer.writeFieldName(name);
+          writer.writeName(name);
           write(writer, map.value(), entry.value(), field(path, name), depth + 1);
         }
         writer.writeEndObject();
@@ -163,7 +165,7 @@ final class JacksonDataRuntime {
         writer.writeStartObject();
         for (SerializationRuntime.FieldShape field : aggregate.fields()) {
           if (field.ignored()) continue;
-          writer.writeFieldName(field.name());
+          writer.writeName(field.name());
           write(
               writer,
               field.shape(),
@@ -185,8 +187,7 @@ final class JacksonDataRuntime {
       SerializationRuntime.Shape shape,
       String path,
       int depth,
-      ExecutionState execution)
-      throws IOException {
+      ExecutionState execution) {
     shape = SerializationRuntime.resolved(shape);
     requireDepth(path, depth);
     rejectNativeMetadata(reader, path);
@@ -215,7 +216,7 @@ final class JacksonDataRuntime {
         int count = 0;
         while (reader.nextToken() != JsonToken.END_OBJECT) {
           requireElements(++count, path);
-          requireToken(reader, JsonToken.FIELD_NAME, path);
+          requireToken(reader, JsonToken.PROPERTY_NAME, path);
           rejectNativeMetadata(reader, path);
           String name = reader.currentName();
           if (VALUES.contains(value, name)) {
@@ -233,9 +234,8 @@ final class JacksonDataRuntime {
             enumeration.declaration().variants().stream()
                 .filter(candidate -> candidate.key().equals(variant))
                 .findFirst()
-                .orElseThrow(
-                    () ->
-                        new Failure(code("ENUM"), path, "unknown enum variant '" + variant + "'"));
+                .orElseThrow(() ->
+                    new Failure(code("ENUM"), path, "unknown enum variant '" + variant + "'"));
         yield VALUES.enumeration(enumeration, declaration);
       }
       case SerializationRuntime.AggregateShape aggregate ->
@@ -252,15 +252,14 @@ final class JacksonDataRuntime {
       SerializationRuntime.AggregateShape aggregate,
       String path,
       int depth,
-      ExecutionState execution)
-      throws IOException {
+      ExecutionState execution) {
     requireToken(reader, JsonToken.START_OBJECT, path);
     Object[] fields = new Object[aggregate.fields().size()];
     boolean[] seen = new boolean[aggregate.fields().size()];
     int count = 0;
     while (reader.nextToken() != JsonToken.END_OBJECT) {
       requireElements(++count, path);
-      requireToken(reader, JsonToken.FIELD_NAME, path);
+      requireToken(reader, JsonToken.PROPERTY_NAME, path);
       rejectNativeMetadata(reader, path);
       String name = reader.currentName();
       Integer ordinal = aggregate.names().get(name);
@@ -293,8 +292,7 @@ final class JacksonDataRuntime {
   }
 
   private void writeScalar(
-      JsonGenerator writer, SerializationRuntime.ScalarShape shape, Object value, String path)
-      throws IOException {
+      JsonGenerator writer, SerializationRuntime.ScalarShape shape, Object value, String path) {
     switch (shape.kind()) {
       case STRING -> {
         if (!(value instanceof String string)) throw typeMismatch(path, "String");
@@ -334,8 +332,8 @@ final class JacksonDataRuntime {
     }
   }
 
-  private Object readScalar(JsonParser reader, SerializationRuntime.ScalarShape shape, String path)
-      throws IOException {
+  private Object readScalar(
+      JsonParser reader, SerializationRuntime.ScalarShape shape, String path) {
     return switch (shape.kind()) {
       case STRING -> string(reader, path);
       case BOOLEAN -> {
@@ -402,19 +400,19 @@ final class JacksonDataRuntime {
     }
   }
 
-  private String string(JsonParser reader, String path) throws IOException {
+  private String string(JsonParser reader, String path) {
     requireToken(reader, JsonToken.VALUE_STRING, path);
-    String value = reader.getText();
+    String value = reader.getString();
     requireString(value, path);
     return value;
   }
 
-  private String number(JsonParser reader, String path) throws IOException {
+  private String number(JsonParser reader, String path) {
     JsonToken token = reader.currentToken();
     if (token != JsonToken.VALUE_NUMBER_INT && token != JsonToken.VALUE_NUMBER_FLOAT) {
       throw typeMismatch(path, "number");
     }
-    return reader.getText();
+    return reader.getString();
   }
 
   private int parseInteger(String value, String path) {
@@ -466,7 +464,7 @@ final class JacksonDataRuntime {
     }
   }
 
-  private void rejectNativeMetadata(JsonParser reader, String path) throws IOException {
+  private void rejectNativeMetadata(JsonParser reader, String path) {
     if (unsupportedToken.test(reader)
         || (reader.canReadObjectId() && reader.getObjectId() != null)
         || (reader.canReadTypeId() && reader.getTypeId() != null)) {
@@ -536,14 +534,7 @@ final class JacksonDataRuntime {
     return failure.getMessage() == null ? fallback : failure.getMessage();
   }
 
-  private static Location location(IOException failure) {
-    if (failure instanceof JsonProcessingException processing) {
-      return location(processing.getLocation());
-    }
-    return Location.START;
-  }
-
-  private static Location location(JsonLocation position) {
+  private static Location location(TokenStreamLocation position) {
     if (position == null) return Location.START;
     long measured = position.getByteOffset();
     if (measured < 0) measured = position.getCharOffset();

@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: 25.0.5.1
       - uses: gradle/actions/setup-gradle@v6
       - uses: actions/setup-node@v7
         with:

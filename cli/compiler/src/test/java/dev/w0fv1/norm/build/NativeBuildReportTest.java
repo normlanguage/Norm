@@ -207,9 +207,8 @@ final class NativeBuildReportTest {
       var provider =
           manifest.getAsJsonArray("artifacts").asList().stream()
               .map(com.google.gson.JsonElement::getAsJsonObject)
-              .filter(
-                  artifact ->
-                      artifact.get("artifact").getAsString().equals("maven-resolver-provider"))
+              .filter(artifact ->
+                  artifact.get("artifact").getAsString().equals("maven-resolver-provider"))
               .findFirst()
               .orElseThrow();
       assertEquals(6, provider.getAsJsonArray("components").size());
@@ -309,13 +308,13 @@ final class NativeBuildReportTest {
       String yaml =
           reachable.stream()
               .filter(
-                  value ->
-                      value.startsWith("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:"))
+                  value -> value.startsWith("tools.jackson.dataformat:jackson-dataformat-yaml:"))
               .findFirst()
               .orElseThrow();
       assertTrue(
           graph.getAsJsonArray(yaml).asList().stream()
-              .anyMatch(value -> value.getAsString().startsWith("org.yaml:snakeyaml:")));
+              .anyMatch(
+                  value -> value.getAsString().startsWith("org.snakeyaml:snakeyaml-engine:")));
     }
   }
 
@@ -405,8 +404,8 @@ final class NativeBuildReportTest {
 
   private static String statistics() {
     return """
-        {"image_details":{"total_bytes":150,"code_area":{"bytes":70},"image_heap":{"bytes":60}},
-         "analysis_results":{"methods":{"reachable":123,"reflection":12},"types":{"reachable":30,"reflection":5}}}
-        """;
+    {"image_details":{"total_bytes":150,"code_area":{"bytes":70},"image_heap":{"bytes":60}},
+     "analysis_results":{"methods":{"reachable":123,"reflection":12},"types":{"reachable":30,"reflection":5}}}
+    """;
   }
 }

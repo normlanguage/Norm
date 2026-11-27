@@ -28,7 +28,8 @@ public final class RuntimeModuleAssembler {
   public static void main(String[] arguments) throws IOException {
     if (arguments.length != 4)
       throw new IllegalArgumentException(
-          "Expected compiler JAR or --dependencies-only, runtime classpath, output directory and storage");
+          "Expected compiler JAR or --dependencies-only, runtime classpath, output directory and"
+              + " storage");
     List<Path> dependencies =
         Arrays.stream(arguments[1].split(Pattern.quote(File.pathSeparator)))
             .filter(value -> !value.isBlank())
@@ -125,9 +126,10 @@ public final class RuntimeModuleAssembler {
         ownership.put(
             destination.resolve("lib").resolve(input.getKey() + ".jar"), List.of(input.getValue()));
       }
-      merge(components, lib.resolve("maven.resolver.provider.jar"), version);
+      merge(components, lib.resolve("org.apache.maven.v3.resolver.provider.jar"), version);
       ownership.put(
-          destination.resolve("lib/maven.resolver.provider.jar"), List.copyOf(components.values()));
+          destination.resolve("lib/org.apache.maven.v3.resolver.provider.jar"),
+          List.copyOf(components.values()));
       if (Files.exists(destination)) deleteTree(destination);
       Files.move(staged, destination);
     } finally {
@@ -185,9 +187,8 @@ public final class RuntimeModuleAssembler {
         var lines = new LinkedHashSet<String>();
         entry
             .getValue()
-            .forEach(
-                value ->
-                    value.lines().map(String::strip).filter(s -> !s.isEmpty()).forEach(lines::add));
+            .forEach(value ->
+                value.lines().map(String::strip).filter(s -> !s.isEmpty()).forEach(lines::add));
         text = String.join("\n", lines) + "\n";
       } else {
         text = String.join("\n\n", entry.getValue()) + "\n";
@@ -195,7 +196,7 @@ public final class RuntimeModuleAssembler {
       entries.put(name, text.getBytes(StandardCharsets.UTF_8));
     }
     String manifest =
-        "Manifest-Version: 1.0\r\nAutomatic-Module-Name: maven.resolver.provider\r\n"
+        "Manifest-Version: 1.0\r\nAutomatic-Module-Name: org.apache.maven.v3.resolver.provider\r\n"
             + "Implementation-Version: "
             + version
             + "\r\n"

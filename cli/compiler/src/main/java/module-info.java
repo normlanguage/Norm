@@ -2,8 +2,8 @@
 module dev.w0fv1.norm {
   exports dev.w0fv1.norm.bridge;
 
-  requires com.fasterxml.jackson.core;
-  requires com.fasterxml.jackson.dataformat.yaml;
+  requires tools.jackson.core;
+  requires tools.jackson.dataformat.yaml;
   requires com.ctc.wstx;
   requires com.google.gson;
   requires org.commonmark;
@@ -18,7 +18,7 @@ module dev.w0fv1.norm {
   requires org.apache.maven.resolver.connector.basic;
   requires org.apache.maven.resolver.impl;
   requires org.apache.maven.resolver.named.locks;
-  requires maven.resolver.provider;
+  requires org.apache.maven.v3.resolver.provider;
   requires org.apache.maven.resolver.spi;
   requires org.apache.maven.resolver.supplier;
   requires org.apache.maven.resolver.transport.apache;

@@ -24,14 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class RuntimeModuleAssemblerTest {
-  private static final List<String> COMPONENTS =
-      List.of(
-          "maven-resolver-provider",
-          "maven-model-builder",
-          "maven-model",
-          "maven-repository-metadata",
-          "maven-artifact",
-          "maven-builder-support");
+  private static final List<MavenProviderModules.Component> COMPONENTS =
+      MavenProviderModules.COMPONENTS;
 
   @TempDir Path directory;
 
@@ -47,8 +41,8 @@ final class RuntimeModuleAssemblerTest {
       if (i < 2) entries.put("META-INF/sisu/javax.inject.Named", "example.Part" + i + "\n");
       dependencies.add(
           jar(
-              COMPONENTS.get(i) + "-3.9.16.jar",
-              COMPONENTS.get(i).replace('-', '.'),
+              COMPONENTS.get(i).artifact() + "-3.9.16.jar",
+              COMPONENTS.get(i).moduleName(),
               "3.9.16",
               entries));
     }
@@ -65,7 +59,7 @@ final class RuntimeModuleAssemblerTest {
     RuntimeModuleAssembler.assemble(compiler, dependencies, first, RuntimeStorage.SEALED);
     RuntimeModuleAssembler.assemble(compiler, dependencies, second, RuntimeStorage.SEALED);
 
-    Path merged = first.resolve("lib/maven.resolver.provider.jar");
+    Path merged = first.resolve("lib/org.apache.maven.v3.resolver.provider.jar");
     assertTrue(Files.isRegularFile(merged));
     assertArrayEquals(
         Files.readAllBytes(merged),
@@ -84,7 +78,7 @@ final class RuntimeModuleAssemblerTest {
     assertFalse(Files.exists(first.resolve("lib/maven-model-3.9.16.jar")));
     try (var archive = new JarFile(merged.toFile())) {
       assertEquals(
-          "maven.resolver.provider",
+          "org.apache.maven.v3.resolver.provider",
           archive.getManifest().getMainAttributes().getValue("Automatic-Module-Name"));
       assertEquals(
           "3.9.16", archive.getManifest().getMainAttributes().getValue("Implementation-Version"));
@@ -101,13 +95,13 @@ final class RuntimeModuleAssemblerTest {
   void rejectsConflictingClassesWithoutPublishingAnOutput() throws Exception {
     Path compiler = compiler();
     List<Path> dependencies = new ArrayList<>();
-    for (String component : COMPONENTS) {
+    for (var component : COMPONENTS) {
       dependencies.add(
           jar(
-              component + "-3.9.16.jar",
-              component.replace('-', '.'),
+              component.artifact() + "-3.9.16.jar",
+              component.moduleName(),
               "3.9.16",
-              Map.of("example/Duplicate.class", component)));
+              Map.of("example/Duplicate.class", component.artifact())));
     }
     Path output = directory.resolve("output");
 
@@ -123,13 +117,13 @@ final class RuntimeModuleAssemblerTest {
     Path compiler = compiler();
     List<Path> dependencies = new ArrayList<>();
     for (int i = 0; i < COMPONENTS.size(); i++) {
-      String component = COMPONENTS.get(i);
+      var component = COMPONENTS.get(i);
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               "3.9.11",
-              Map.of("example/Component" + i + ".class", component)));
+              Map.of("example/Component" + i + ".class", component.artifact())));
     }
     Path plexus =
         jar(
@@ -153,7 +147,8 @@ final class RuntimeModuleAssemblerTest {
     Path output = directory.resolve("output");
     RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED);
 
-    assertTrue(Files.isRegularFile(output.resolve("lib/maven.resolver.provider.jar")));
+    assertTrue(
+        Files.isRegularFile(output.resolve("lib/org.apache.maven.v3.resolver.provider.jar")));
     assertTrue(Files.isRegularFile(output.resolve("lib/org.codehaus.plexus.util.jar")));
     assertTrue(Files.isRegularFile(output.resolve("lib/org.graalvm.buildtools.utils.jar")));
   }
@@ -161,35 +156,37 @@ final class RuntimeModuleAssemblerTest {
   @Test
   void assemblesDependenciesBeforeCompilerJarExists() throws Exception {
     List<Path> dependencies = new ArrayList<>();
-    for (String component : COMPONENTS) {
+    for (var component : COMPONENTS) {
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               "3.9.11",
-              Map.of("example/" + component + ".class", component)));
+              Map.of("example/" + component.artifact() + ".class", component.artifact())));
     }
     Path output = directory.resolve("dependencies");
 
     Map<Path, List<Path>> ownership =
         RuntimeModuleAssembler.assembleDependencies(dependencies, output, RuntimeStorage.SEALED);
 
-    assertTrue(Files.isRegularFile(output.resolve("lib/maven.resolver.provider.jar")));
+    assertTrue(
+        Files.isRegularFile(output.resolve("lib/org.apache.maven.v3.resolver.provider.jar")));
     assertFalse(Files.exists(output.resolve("lib/compiler-0.24.0.jar")));
-    assertEquals(6, ownership.get(output.resolve("lib/maven.resolver.provider.jar")).size());
+    assertEquals(
+        6, ownership.get(output.resolve("lib/org.apache.maven.v3.resolver.provider.jar")).size());
   }
 
   @Test
   void switchesStorageModesWithoutChangingSystemInputs() throws Exception {
     Path compiler = compiler();
     List<Path> dependencies = new ArrayList<>();
-    for (String component : COMPONENTS)
+    for (var component : COMPONENTS)
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               "3.9.11",
-              Map.of("example/" + component + ".class", component)));
+              Map.of("example/" + component.artifact() + ".class", component.artifact())));
     Path system =
         jar("system.jar", "example.system", null, Map.of("example/System.class", "system"));
     dependencies.add(system);
@@ -223,7 +220,8 @@ final class RuntimeModuleAssemblerTest {
     RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SYSTEM);
     assertTrue(Files.isSymbolicLink(installed));
     assertEquals(system.toAbsolutePath().normalize(), Files.readSymbolicLink(installed));
-    assertFalse(Files.isSymbolicLink(output.resolve("lib/maven.resolver.provider.jar")));
+    assertFalse(
+        Files.isSymbolicLink(output.resolve("lib/org.apache.maven.v3.resolver.provider.jar")));
     assertArrayEquals(original, Files.readAllBytes(system));
     ToolchainArtifactCatalogGenerator.generate(catalogInput, catalog);
     var systemStorage =
@@ -256,13 +254,13 @@ final class RuntimeModuleAssemblerTest {
   void rejectsDifferentJarsWithTheSameModuleName() throws Exception {
     Path compiler = compiler();
     List<Path> dependencies = new ArrayList<>();
-    for (String component : COMPONENTS) {
+    for (var component : COMPONENTS) {
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               "3.9.11",
-              Map.of("example/Component.class", component)));
+              Map.of("example/Component.class", component.artifact())));
     }
     dependencies.add(
         jar("first.jar", "example.shared", null, Map.of("example/First.class", "first")));
@@ -282,13 +280,13 @@ final class RuntimeModuleAssemblerTest {
     Path compiler = compiler();
     List<Path> dependencies = new ArrayList<>();
     for (int i = 0; i < COMPONENTS.size(); i++) {
-      String component = COMPONENTS.get(i);
+      var component = COMPONENTS.get(i);
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               i == 0 ? "3.9.12" : "3.9.11",
-              Map.of("example/Component" + i + ".class", component)));
+              Map.of("example/Component" + i + ".class", component.artifact())));
     }
     Path output = directory.resolve("output");
 
@@ -304,13 +302,13 @@ final class RuntimeModuleAssemblerTest {
     Path compiler =
         jar("compiler-0.24.0.jar", null, null, Map.of("compiler/Main.class", "compiler"));
     List<Path> dependencies = new ArrayList<>();
-    for (String component : COMPONENTS) {
+    for (var component : COMPONENTS) {
       dependencies.add(
           jar(
-              component + ".jar",
-              component.replace('-', '.'),
+              component.artifact() + ".jar",
+              component.moduleName(),
               "3.9.11",
-              Map.of("example/Component" + component + ".class", component)));
+              Map.of("example/Component" + component.artifact() + ".class", component.artifact())));
     }
     Path output = directory.resolve("output");
 

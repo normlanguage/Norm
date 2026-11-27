@@ -71,7 +71,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: 25.0.5.1
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -203,7 +203,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: 25.0.5.1
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -281,7 +281,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: 25.0.5.1
       - uses: actions/setup-node@v7
         with:
           node-version: '24'

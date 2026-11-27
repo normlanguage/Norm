@@ -46,7 +46,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: 25.0.5.1
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6

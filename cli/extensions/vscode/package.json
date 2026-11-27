@@ -12,7 +12,7 @@
   "private": true,
   "license": "MPL-2.0",
   "engines": {
-    "vscode": "^1.145.0"
+    "vscode": "^1.146.0"
   },
   "categories": [
     "Programming Languages",
@@ -172,19 +172,19 @@
     "package:local": "node scripts/package-local.mjs"
   },
   "dependencies": {
-    "vscode-languageclient": "11.0.0"
+    "vscode-languageclient": "12.0.0"
   },
   "overrides": {
-    "diff": "8.0.3",
-    "serialize-javascript": "7.1.0"
+    "diff": "9.0.0",
+    "serialize-javascript": "7.1.4"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",
-    "@types/node": "^26.6.6",
-    "@types/vscode": "1.145.0",
+    "@types/node": "^26.6.11",
+    "@types/vscode": "1.146.0",
     "@vscode/test-cli": "0.0.15",
     "@vscode/test-electron": "3.1.0",
-    "@vscode/vsce": "4.1.0",
+    "@vscode/vsce": "4.1.1",
     "esbuild": "0.28.2",
     "js-yaml": "5.5.0",
     "mocha": "12.0.3",
