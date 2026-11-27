@@ -27,7 +27,7 @@ main() {
 ## Start here
 
 - **Learn the language:** follow the [learning path](https://normlanguage.github.io/Norm/learn/).
-- **Get the tools:** download the CLI and matching VS Code extension from [releases](https://github.com/normlanguage/Norm/releases). See the [distribution guide](docs/design/distribution-source-build.md) for source builds.
+- **Get the tools:** On Windows, install the Norm CLI with WinGet. The [installation guide](docs/guide/vscode.md#installation) covers the command, manual downloads, and the VS Code extension. See the [distribution guide](docs/design/distribution-source-build.md) for source builds.
 - **Build an application:** use [examples](https://github.com/normlanguage/examples) and discover packages through the [registry](https://github.com/normlanguage/registry).
 
 **Active development.** Check the [current status](https://normlanguage.github.io/Norm/status) and [version index](https://normlanguage.github.io/Norm/versions/) for delivered capabilities and implementation boundaries.

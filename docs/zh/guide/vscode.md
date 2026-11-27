@@ -4,14 +4,28 @@ Norm 的官方 VS Code 扩展包含当前版本的自包含 `norm` CLI。安装�
 
 ## 安装
 
-1. 打开 [Norm 最新 Release](https://github.com/normlanguage/Norm/releases/latest)。
+### Windows 终端
+
+在 PowerShell 中首选 WinGet 安装 Norm CLI：
+
+```powershell
+winget install --id NormLanguage.Norm --exact --source winget
+```
+
+新开一个终端，运行 `norm --version` 确认安装的版本。
+
+如果无法使用 WinGet，或需要 WinGet 尚未提供的版本，可从 [Norm 发行页面](https://github.com/normlanguage/Norm/releases)下载对应版本的 `norm.exe`。在下载目录运行 `.\norm.exe setup`，即可安装到当前用户并配置 `PATH`。新开终端后运行 `norm --version` 验证。
+
+Linux 和 macOS 的 CLI 压缩包也可在发行页面下载。
+
+### VS Code 扩展
+
+1. 打开 [Norm 发行页面](https://github.com/normlanguage/Norm/releases)。若已安装终端 CLI，选择与 `norm --version` 一致的版本。
 2. 下载唯一的 `norm-language-support-vMAJOR.MINOR.PATCH.vsix`。
 3. 在 VS Code 命令面板执行 **Extensions: Install from VSIX...**。
 4. 选择下载的文件，重新加载窗口。
 
 通用 VSIX 同时包含 Windows x64、Linux x64 与 macOS ARM64 的同版本 CLI，扩展会根据当前平台选择正确的可执行文件。
-
-如果还需要在 Windows 终端运行 `norm`，从同一 Release 下载 `norm.exe`。它可以直接执行；运行一次 `norm.exe setup` 会安装到当前用户并自动配置 `PATH`，新开终端后即可使用 `norm`。Linux 与 macOS 仍使用对应平台的 CLI 压缩包。不要混用不同 Release 的扩展和 CLI。
 
 ## 第一个文件
 

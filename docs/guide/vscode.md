@@ -4,14 +4,28 @@ Norm's official VS Code extension includes the current version's self-contained 
 
 ## Installation
 
-1. Open the [latest Norm release](https://github.com/normlanguage/Norm/releases/latest).
+### Windows terminal
+
+Use WinGet to install the Norm CLI from PowerShell:
+
+```powershell
+winget install --id NormLanguage.Norm --exact --source winget
+```
+
+Open a new terminal and run `norm --version` to verify the installation.
+
+If WinGet is unavailable or does not yet offer the version you need, download `norm.exe` from the corresponding [Norm release](https://github.com/normlanguage/Norm/releases). Run `.\norm.exe setup` from the download directory to install it for your user and configure `PATH`. Open a new terminal and run `norm --version` to verify.
+
+Linux and macOS CLI archives are also available on the releases page.
+
+### VS Code extension
+
+1. Open the [Norm releases page](https://github.com/normlanguage/Norm/releases). If you have installed the terminal CLI, select the version shown by `norm --version`.
 2. Download the single `norm-language-support-vMAJOR.MINOR.PATCH.vsix` file.
 3. Run **Extensions: Install from VSIX...** in the VS Code command palette.
 4. Select the downloaded file and reload the window.
 
 The universal VSIX contains same-version CLIs for Windows x64, Linux x64, and macOS ARM64. The extension selects the executable for the current platform.
-
-To also run `norm` in a Windows terminal, download `norm.exe` from the same release. It runs directly; running `norm.exe setup` once installs it for the current user and configures `PATH`. Open a new terminal to use `norm`. Linux and macOS use their platform-specific CLI archives. Do not mix extensions and CLIs from different releases.
 
 ## Your first file
 

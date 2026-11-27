@@ -27,7 +27,7 @@ main() {
 ## 从这里开始
 
 - **学习语言：** 按照[学习路径](https://normlanguage.github.io/Norm/zh/learn/)上手。
-- **获取工具：** 在[发行页面](https://github.com/normlanguage/Norm/releases)获取 CLI 和配套 VS Code 扩展。源码构建见[发行与构建指南](docs/zh/design/distribution-source-build.md)。
+- **获取工具：** Windows 首选 WinGet 安装 Norm CLI。命令、手动下载方式和 VS Code 扩展见[安装指南](docs/zh/guide/vscode.md#安装)。源码构建见[发行与构建指南](docs/zh/design/distribution-source-build.md)。
 - **开发应用：** 浏览[应用示例](https://github.com/normlanguage/examples)，通过[包注册表](https://github.com/normlanguage/registry)发现模块。
 
 **持续开发中。** 已交付能力与实现边界以[当前状态](https://normlanguage.github.io/Norm/zh/status)和[版本索引](https://normlanguage.github.io/Norm/zh/versions/)为准。
