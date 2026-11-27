@@ -129,10 +129,9 @@ final class FlowScopes {
   Checkpoint checkpoint() {
     return new Checkpoint(
         scopes.stream()
-            .map(
-                scope ->
-                    new ScopeState(
-                        scope, Map.copyOf(scope.symbols()), List.copyOf(scope.declarations())))
+            .map(scope ->
+                new ScopeState(
+                    scope, Map.copyOf(scope.symbols()), List.copyOf(scope.declarations())))
             .toList(),
         Map.copyOf(declarationRegions),
         snapshot(),

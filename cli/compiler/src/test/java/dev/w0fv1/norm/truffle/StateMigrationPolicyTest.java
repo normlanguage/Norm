@@ -11,19 +11,19 @@ final class StateMigrationPolicyTest {
     var compilation =
         NormTestKit.compile(
             """
-        import std.runtime.StateMigration
-        import std.runtime.MigrationState
-        @StateMigration(convert: convertState.function)
-        class State { Integer total = 0 }
-        Void convertState(MigrationState state) {
-          if (state.contains("count")) {
-            Integer previous = state.read<Integer>("count")
-            state.write(field: State.total.field, value: previous)
-            state.remove("count")
-          }
-        }
-        Void main() { printLine(State(total: 1).total) }
-        """);
+            import std.runtime.StateMigration
+            import std.runtime.MigrationState
+            @StateMigration(convert: convertState.function)
+            class State { Integer total = 0 }
+            Void convertState(MigrationState state) {
+              if (state.contains("count")) {
+                Integer previous = state.read<Integer>("count")
+                state.write(field: State.total.field, value: previous)
+                state.remove("count")
+              }
+            }
+            Void main() { printLine(State(total: 1).total) }
+            """);
     assertTrue(compilation.isSuccess(), compilation.diagnostics().toString());
   }
 
@@ -32,13 +32,13 @@ final class StateMigrationPolicyTest {
     var compilation =
         NormTestKit.compile(
             """
-        import std.runtime.StateMigration
-        import std.runtime.MigrationState
-        @StateMigration(convert: convertState.function)
-        class State { Integer total = 0 }
-        Void convertState(MigrationState state) { state.write(field: State.total.field, value: "wrong") }
-        Void main() { printLine(State().total) }
-        """);
+            import std.runtime.StateMigration
+            import std.runtime.MigrationState
+            @StateMigration(convert: convertState.function)
+            class State { Integer total = 0 }
+            Void convertState(MigrationState state) { state.write(field: State.total.field, value: "wrong") }
+            Void main() { printLine(State().total) }
+            """);
     assertFalse(compilation.isSuccess());
     assertTrue(
         compilation.diagnostics().stream()

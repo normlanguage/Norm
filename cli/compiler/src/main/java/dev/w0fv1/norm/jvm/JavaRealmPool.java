@@ -99,11 +99,10 @@ final class JavaRealmPool implements AutoCloseable {
           var linkedClasses = new LinkedHashMap<String, ComponentLoader>();
           dependencies
               .values()
-              .forEach(
-                  dependency ->
-                      dependency
-                          .classes()
-                          .forEach(name -> linkedClasses.put(name, dependency.loader())));
+              .forEach(dependency ->
+                  dependency
+                      .classes()
+                      .forEach(name -> linkedClasses.put(name, dependency.loader())));
           var loader =
               new ComponentLoader(
                   urls(paths.stream().filter(sources::contains).toList()),
@@ -251,11 +250,10 @@ final class JavaRealmPool implements AutoCloseable {
                 .component
                 .resources()
                 .acquire()
-                .orElseThrow(
-                    () ->
-                        new dev.w0fv1.norm.execution.JarBindingRuntimeException(
-                            dev.w0fv1.norm.execution.RuntimeErrorCode.JAVA_MIGRATION_REQUIRED,
-                            "MIGRATION_REQUIRED: Java value belongs to a retired linkage component"))) {
+                .orElseThrow(() ->
+                    new dev.w0fv1.norm.execution.JarBindingRuntimeException(
+                        dev.w0fv1.norm.execution.RuntimeErrorCode.JAVA_MIGRATION_REQUIRED,
+                        "MIGRATION_REQUIRED: Java value belongs to a retired linkage component"))) {
           lease.retain(value);
         }
       }

@@ -15,38 +15,35 @@ public final class SemanticQueryWriter {
     JsonArray inputs = new JsonArray();
     preview
         .inputs()
-        .forEach(
-            input -> {
-              JsonObject document = new JsonObject();
-              document.addProperty("uri", input.document().uri().toString());
-              document.addProperty("revision", input.content().value());
-              inputs.add(document);
-            });
+        .forEach(input -> {
+          JsonObject document = new JsonObject();
+          document.addProperty("uri", input.document().uri().toString());
+          document.addProperty("revision", input.content().value());
+          inputs.add(document);
+        });
     result.add("inputs", inputs);
     JsonArray changes = new JsonArray();
     preview
         .changes()
-        .forEach(
-            change -> {
-              JsonObject document = new JsonObject();
-              document.addProperty("uri", change.before().document().uri().toString());
-              document.addProperty("beforeRevision", change.before().content().value());
-              document.addProperty("afterRevision", change.after().content().value());
-              JsonArray edits = new JsonArray();
-              change
-                  .edits()
-                  .forEach(
-                      edit -> {
-                        JsonObject replacement = new JsonObject();
-                        replacement.addProperty("startOffset", edit.location().startOffset());
-                        replacement.addProperty("endOffset", edit.location().endOffset());
-                        replacement.addProperty("oldText", edit.oldText());
-                        replacement.addProperty("newText", edit.newText());
-                        edits.add(replacement);
-                      });
-              document.add("edits", edits);
-              changes.add(document);
-            });
+        .forEach(change -> {
+          JsonObject document = new JsonObject();
+          document.addProperty("uri", change.before().document().uri().toString());
+          document.addProperty("beforeRevision", change.before().content().value());
+          document.addProperty("afterRevision", change.after().content().value());
+          JsonArray edits = new JsonArray();
+          change
+              .edits()
+              .forEach(edit -> {
+                JsonObject replacement = new JsonObject();
+                replacement.addProperty("startOffset", edit.location().startOffset());
+                replacement.addProperty("endOffset", edit.location().endOffset());
+                replacement.addProperty("oldText", edit.oldText());
+                replacement.addProperty("newText", edit.newText());
+                edits.add(replacement);
+              });
+          document.add("edits", edits);
+          changes.add(document);
+        });
     result.add("changes", changes);
     return result;
   }
@@ -60,12 +57,11 @@ public final class SemanticQueryWriter {
     result.add("declaration", declaration(context.declaration()));
     context
         .source()
-        .ifPresent(
-            source -> {
-              JsonObject value = location(source.location());
-              value.addProperty("text", source.text());
-              result.add("source", value);
-            });
+        .ifPresent(source -> {
+          JsonObject value = location(source.location());
+          value.addProperty("text", source.text());
+          result.add("source", value);
+        });
     result.add("dependencies", symbols(context.dependencies()));
     result.add("references", page(context.references(), SemanticQueryWriter::location));
     result.add("tests", symbols(context.tests()));
@@ -92,31 +88,29 @@ public final class SemanticQueryWriter {
       JsonArray parameters = new JsonArray();
       symbol
           .parameters()
-          .forEach(
-              parameter -> {
-                JsonObject value = new JsonObject();
-                value.addProperty("name", parameter.name());
-                value.add("type", type(parameter.type()));
-                value.addProperty("hasDefault", parameter.policy().hasDefault());
-                parameters.add(value);
-              });
+          .forEach(parameter -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("name", parameter.name());
+            value.add("type", type(parameter.type()));
+            value.addProperty("hasDefault", parameter.policy().hasDefault());
+            parameters.add(value);
+          });
       result.add("parameters", parameters);
     }
     if (!symbol.typeParameters().isEmpty()) {
       JsonArray parameters = new JsonArray();
       symbol
           .typeParameters()
-          .forEach(
-              parameter -> {
-                JsonObject value = new JsonObject();
-                value.addProperty("name", parameter.name());
-                value.add("type", type(parameter.type()));
-                parameter.upperBound().ifPresent(bound -> value.add("upperBound", type(bound)));
-                parameter
-                    .defaultType()
-                    .ifPresent(defaultType -> value.add("defaultType", type(defaultType)));
-                parameters.add(value);
-              });
+          .forEach(parameter -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("name", parameter.name());
+            value.add("type", type(parameter.type()));
+            parameter.upperBound().ifPresent(bound -> value.add("upperBound", type(bound)));
+            parameter
+                .defaultType()
+                .ifPresent(defaultType -> value.add("defaultType", type(defaultType)));
+            parameters.add(value);
+          });
       result.add("typeParameters", parameters);
     }
     declaration

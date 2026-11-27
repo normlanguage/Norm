@@ -349,13 +349,11 @@ final class BodyAnalyzer {
             .forEach(inheritedFields::remove);
         List<ConstructorFlowAnalyzer.RequiredField> requiredFields =
             owner.fields().stream()
-                .filter(
-                    field ->
-                        field.defaultValue().isEmpty() && !declarationPolicies.managedField(field))
-                .map(
-                    field ->
-                        new ConstructorFlowAnalyzer.RequiredField(
-                            model.declarationSymbols().get(field), field.name(), field.nameSpan()))
+                .filter(field ->
+                    field.defaultValue().isEmpty() && !declarationPolicies.managedField(field))
+                .map(field ->
+                    new ConstructorFlowAnalyzer.RequiredField(
+                        model.declarationSymbols().get(field), field.name(), field.nameSpan()))
                 .toList();
         new ConstructorFlowAnalyzer(model.bindings(), model.symbols())
             .analyze(
@@ -387,17 +385,16 @@ final class BodyAnalyzer {
   void analyzeImplicitSuperCall(Syntax.AggregateDecl owner) {
     owner
         .implicitSuperCall()
-        .ifPresent(
-            call -> {
-              try (var constructorScope =
-                  resolution.enterParameters(
-                      typeResolver.aggregateTypeParameters(owner),
-                      typeResolver.typeParameterSymbols(owner.typeParameters()))) {
-                typeResolver
-                    .directParentType(owner, typeResolver.aggregateSelfType(owner))
-                    .ifPresent(parent -> resolveSuperCall(parent, call));
-              }
-            });
+        .ifPresent(call -> {
+          try (var constructorScope =
+              resolution.enterParameters(
+                  typeResolver.aggregateTypeParameters(owner),
+                  typeResolver.typeParameterSymbols(owner.typeParameters()))) {
+            typeResolver
+                .directParentType(owner, typeResolver.aggregateSelfType(owner))
+                .ifPresent(parent -> resolveSuperCall(parent, call));
+          }
+        });
   }
 
   private void analyzeSuperCall(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
@@ -456,11 +453,10 @@ final class BodyAnalyzer {
         SemanticType requested =
             variable
                 .type()
-                .map(
-                    type -> {
-                      typeResolver.validateReferenceCapableType(type);
-                      return typeResolver.resolveType(type, resolution.parameters());
-                    })
+                .map(type -> {
+                  typeResolver.validateReferenceCapableType(type);
+                  return typeResolver.resolveType(type, resolution.parameters());
+                })
                 .orElse(null);
         SemanticType actual = expressionChecker.typeOf(variable.initializer(), requested);
         if (requested != null)
@@ -690,11 +686,10 @@ final class BodyAnalyzer {
     SemanticType declaredVariable =
         forStatement
             .variableType()
-            .map(
-                explicitType -> {
-                  typeResolver.validateType(explicitType, false);
-                  return typeResolver.resolveType(explicitType, resolution.parameters());
-                })
+            .map(explicitType -> {
+              typeResolver.validateType(explicitType, false);
+              return typeResolver.resolveType(explicitType, resolution.parameters());
+            })
             .orElse(null);
     SemanticType expectedIterable = typeResolver.expectedIterable(declaredVariable);
     SemanticType iterableType =
@@ -712,10 +707,8 @@ final class BodyAnalyzer {
     SemanticType variableType;
     if (forStatement.variableType().isPresent()) {
       variableType = declaredVariable;
-      elementType.ifPresent(
-          itemType ->
-              typeResolver.requireAssignable(
-                  variableType, itemType, forStatement.variableNameSpan()));
+      elementType.ifPresent(itemType ->
+          typeResolver.requireAssignable(variableType, itemType, forStatement.variableNameSpan()));
     } else {
       if (elementType.isEmpty()) {
         diagnostics.error(
@@ -749,22 +742,21 @@ final class BodyAnalyzer {
     this.body.declareLambdaLocal(symbol.id());
     forStatement
         .index()
-        .ifPresent(
-            index -> {
-              Symbol indexSymbol =
-                  declarationAnalyzer.register(
-                      index,
-                      index.name(),
-                      SymbolKind.LOCAL_VARIABLE,
-                      SemanticType.INTEGER,
-                      index.nameSpan(),
-                      this.body.currentCallable(),
-                      List.of(),
-                      List.of());
-              flow.declareExisting(
-                  index.name(), SemanticType.INTEGER, index.nameSpan(), indexSymbol.id());
-              this.body.declareLambdaLocal(indexSymbol.id());
-            });
+        .ifPresent(index -> {
+          Symbol indexSymbol =
+              declarationAnalyzer.register(
+                  index,
+                  index.name(),
+                  SymbolKind.LOCAL_VARIABLE,
+                  SemanticType.INTEGER,
+                  index.nameSpan(),
+                  this.body.currentCallable(),
+                  List.of(),
+                  List.of());
+          flow.declareExisting(
+              index.name(), SemanticType.INTEGER, index.nameSpan(), indexSymbol.id());
+          this.body.declareLambdaLocal(indexSymbol.id());
+        });
     flow.analyzeLoop(bodyAnalysis, Map.of());
     flow.popScope();
   }

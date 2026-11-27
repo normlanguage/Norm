@@ -115,9 +115,8 @@ public final class Workspace implements AutoCloseable {
     synchronized (gate) {
       OpenDocument previous =
           open.values().stream()
-              .filter(
-                  value ->
-                      value.uri().equals(uri) || value.source().id().equals(DocumentId.of(uri)))
+              .filter(value ->
+                  value.uri().equals(uri) || value.source().id().equals(DocumentId.of(uri)))
               .findFirst()
               .orElse(null);
       if (previous == null) return;
@@ -157,9 +156,8 @@ public final class Workspace implements AutoCloseable {
     Map<Path, SourceFile> overlays = new LinkedHashMap<>();
     captured
         .values()
-        .forEach(
-            document ->
-                filePath(document.uri()).ifPresent(path -> overlays.put(path, document.source())));
+        .forEach(document ->
+            filePath(document.uri()).ifPresent(path -> overlays.put(path, document.source())));
     Map<String, Map<String, OpenDocument>> groups = new LinkedHashMap<>();
     Map<String, Path> roots = new LinkedHashMap<>();
     for (var document : captured.values()) {
@@ -185,21 +183,20 @@ public final class Workspace implements AutoCloseable {
           analyses.cancel(key);
         }
       }
-      groups.forEach(
-          (key, members) -> {
-            Batch previous = requests.get(key);
-            Path root = roots.get(key);
-            boolean invalidated =
-                members.keySet().stream().anyMatch(dirty::contains)
-                    || members.keySet().stream()
-                        .map(documents::get)
-                        .filter(java.util.Objects::nonNull)
-                        .anyMatch(document -> paths.stream().anyMatch(document.inputs()::affects));
-            if (previous != null && previous.members.equals(members) && !invalidated) return;
-            var batch = new Batch(key, root, Map.copyOf(members), Map.copyOf(overlays));
-            requests.put(key, batch);
-            batch.completion = analyses.submit(key, cancellation -> analyze(batch, cancellation));
-          });
+      groups.forEach((key, members) -> {
+        Batch previous = requests.get(key);
+        Path root = roots.get(key);
+        boolean invalidated =
+            members.keySet().stream().anyMatch(dirty::contains)
+                || members.keySet().stream()
+                    .map(documents::get)
+                    .filter(java.util.Objects::nonNull)
+                    .anyMatch(document -> paths.stream().anyMatch(document.inputs()::affects));
+        if (previous != null && previous.members.equals(members) && !invalidated) return;
+        var batch = new Batch(key, root, Map.copyOf(members), Map.copyOf(overlays));
+        requests.put(key, batch);
+        batch.completion = analyses.submit(key, cancellation -> analyze(batch, cancellation));
+      });
     }
   }
 
@@ -316,23 +313,21 @@ public final class Workspace implements AutoCloseable {
 
   private void publishInputs() {
     var current = watches();
-    publications.execute(
-        () -> {
-          synchronized (gate) {
-            if (closed || !current.equals(watches())) return;
-          }
-          inputListener.accept(current);
-        });
+    publications.execute(() -> {
+      synchronized (gate) {
+        if (closed || !current.equals(watches())) return;
+      }
+      inputListener.accept(current);
+    });
   }
 
   private void publish(Diagnostics diagnostics, java.util.function.BooleanSupplier current) {
-    publications.execute(
-        () -> {
-          synchronized (gate) {
-            if (closed || !current.getAsBoolean()) return;
-          }
-          listener.accept(diagnostics);
-        });
+    publications.execute(() -> {
+      synchronized (gate) {
+        if (closed || !current.getAsBoolean()) return;
+      }
+      listener.accept(diagnostics);
+    });
   }
 
   public CompletableFuture<Void> settled() {
@@ -343,64 +338,58 @@ public final class Workspace implements AutoCloseable {
     return planner
         .settled()
         .thenCompose(ignored -> analyses.settled())
-        .thenCompose(
-            ignored -> {
-              synchronized (gate) {
-                if (revision != epoch) return settled();
-                return CompletableFuture.allOf(
-                    requests.values().stream()
-                        .map(batch -> batch.completion)
-                        .toArray(CompletableFuture[]::new));
-              }
-            })
+        .thenCompose(ignored -> {
+          synchronized (gate) {
+            if (revision != epoch) return settled();
+            return CompletableFuture.allOf(
+                requests.values().stream()
+                    .map(batch -> batch.completion)
+                    .toArray(CompletableFuture[]::new));
+          }
+        })
         .thenCompose(ignored -> CompletableFuture.runAsync(() -> {}, publications))
-        .thenCompose(
-            ignored -> {
-              synchronized (gate) {
-                return revision == epoch ? CompletableFuture.completedFuture(null) : settled();
-              }
-            });
+        .thenCompose(ignored -> {
+          synchronized (gate) {
+            return revision == epoch ? CompletableFuture.completedFuture(null) : settled();
+          }
+        });
   }
 
   public CompletableFuture<WorkspaceDocument> document(String uri) {
     return planner
         .settled()
-        .thenCompose(
-            ignored -> {
-              Batch batch;
-              synchronized (gate) {
-                if (closed)
-                  return CompletableFuture.failedFuture(
-                      new IllegalStateException("workspace is closed"));
-                batch =
-                    requests.values().stream()
-                        .filter(
-                            value ->
-                                value.members.containsKey(uri)
-                                    || value.members.values().stream()
-                                        .anyMatch(
-                                            document ->
-                                                document.source().id().equals(DocumentId.of(uri))))
-                        .findFirst()
-                        .orElse(null);
-              }
-              if (batch == null) return CompletableFuture.completedFuture(state(uri));
-              return batch
-                  .completion
-                  .handle(
-                      (completed, failure) -> {
-                        synchronized (gate) {
-                          if (requests.get(batch.key) != batch
-                              || batch.members.entrySet().stream()
-                                  .anyMatch(entry -> open.get(entry.getKey()) != entry.getValue()))
-                            return document(uri);
-                        }
-                        if (failure != null)
-                          return CompletableFuture.<WorkspaceDocument>failedFuture(failure);
-                        return CompletableFuture.completedFuture(state(uri));
-                      })
-                  .thenCompose(java.util.function.Function.identity());
-            });
+        .thenCompose(ignored -> {
+          Batch batch;
+          synchronized (gate) {
+            if (closed)
+              return CompletableFuture.failedFuture(
+                  new IllegalStateException("workspace is closed"));
+            batch =
+                requests.values().stream()
+                    .filter(value ->
+                        value.members.containsKey(uri)
+                            || value.members.values().stream()
+                                .anyMatch(
+                                    document -> document.source().id().equals(DocumentId.of(uri))))
+                    .findFirst()
+                    .orElse(null);
+          }
+          if (batch == null) return CompletableFuture.completedFuture(state(uri));
+          return batch
+              .completion
+              .handle((completed, failure) -> {
+                synchronized (gate) {
+                  if (requests.get(batch.key) != batch
+                      || batch.members.entrySet().stream()
+                          .anyMatch(entry -> open.get(entry.getKey()) != entry.getValue()))
+                    return document(uri);
+                }
+                if (failure != null)
+                  return CompletableFuture.<WorkspaceDocument>failedFuture(failure);
+                return CompletableFuture.completedFuture(state(uri));
+              })
+              .thenCompose(java.util.function.Function.identity());
+        });
   }
 
   public CompletableFuture<String> source(String uri) {
@@ -408,10 +397,9 @@ public final class Workspace implements AutoCloseable {
       return language
           .standardLibrarySource(DocumentId.of(uri))
           .map(CompletableFuture::completedFuture)
-          .orElseGet(
-              () ->
-                  CompletableFuture.failedFuture(
-                      new IllegalArgumentException("unknown standard-library source " + uri)));
+          .orElseGet(() ->
+              CompletableFuture.failedFuture(
+                  new IllegalArgumentException("unknown standard-library source " + uri)));
     Optional<DocumentId> target = VirtualDocumentUri.decode(uri);
     if (target.isEmpty())
       return CompletableFuture.failedFuture(
@@ -419,26 +407,24 @@ public final class Workspace implements AutoCloseable {
     DocumentId document = target.orElseThrow();
     return planner
         .settled()
-        .thenCompose(
-            ignored -> {
-              Optional<WorkspaceDocument> owner = snapshotState(document);
-              if (owner.isEmpty())
-                return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("unknown virtual source " + uri));
-              return document(owner.orElseThrow().clientUri())
-                  .thenApply(
-                      current -> {
-                        if (current == null)
-                          throw new IllegalArgumentException("unknown virtual source " + uri);
-                        return current
-                            .snapshot()
-                            .document(document)
-                            .orElseThrow(
-                                () -> new IllegalArgumentException("unknown virtual source " + uri))
-                            .source()
-                            .text();
-                      });
-            });
+        .thenCompose(ignored -> {
+          Optional<WorkspaceDocument> owner = snapshotState(document);
+          if (owner.isEmpty())
+            return CompletableFuture.failedFuture(
+                new IllegalArgumentException("unknown virtual source " + uri));
+          return document(owner.orElseThrow().clientUri())
+              .thenApply(current -> {
+                if (current == null)
+                  throw new IllegalArgumentException("unknown virtual source " + uri);
+                return current
+                    .snapshot()
+                    .document(document)
+                    .orElseThrow(
+                        () -> new IllegalArgumentException("unknown virtual source " + uri))
+                    .source()
+                    .text();
+              });
+        });
   }
 
   public String clientUri(CompilationSnapshot snapshot, DocumentId document) {

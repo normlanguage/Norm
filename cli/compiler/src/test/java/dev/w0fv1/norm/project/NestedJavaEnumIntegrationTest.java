@@ -26,14 +26,14 @@ final class NestedJavaEnumIntegrationTest {
         Files.writeString(
             directory.resolve("Config.java"),
             """
-        package sample;
-        public final class Config {
-          public enum Density { COMPACT, DEFAULT }
-          private final Density density;
-          public Config(Density density) { this.density = density; }
-          public String label() { return density.name(); }
-        }
-        """);
+            package sample;
+            public final class Config {
+              public enum Density { COMPACT, DEFAULT }
+              private final Density density;
+              public Config(Density density) { this.density = density; }
+              public String label() { return density.name(); }
+            }
+            """);
     var classes = Files.createDirectories(directory.resolve("classes"));
     assertEquals(
         0,

@@ -102,19 +102,18 @@ public final class PreparedApplicationCache {
             captured.program(), captured.classes(), dependencies, captured.moduleRoots());
     var modulePrograms =
         modules.stream()
-            .map(
-                module -> {
-                  var retained =
-                      dev.w0fv1.norm.core.CoreReachability.analyze(
-                              module.artifact(), java.util.Set.of())
-                          .artifact();
-                  return new ModuleEvaluation(
-                      module.source(),
-                      retained,
-                      dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(retained),
-                      module.declaration(),
-                      module.bindings());
-                })
+            .map(module -> {
+              var retained =
+                  dev.w0fv1.norm.core.CoreReachability.analyze(
+                          module.artifact(), java.util.Set.of())
+                      .artifact();
+              return new ModuleEvaluation(
+                  module.source(),
+                  retained,
+                  dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(retained),
+                  module.declaration(),
+                  module.bindings());
+            })
             .toList();
     byte[] bytes = PortableObjectCodec.encode(content);
     var contentKey = Sha256Digest.compute(bytes);

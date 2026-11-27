@@ -94,16 +94,15 @@ public final class CompiledModule {
   void verifySources(Map<ModuleSourceCoordinate, SourceFile> sources) {
     payload
         .sources()
-        .forEach(
-            (coordinate, expected) -> {
-              var source = sources.get(coordinate);
-              if (source == null
-                  || !expected.equals(
-                      dev.w0fv1.norm.value.Sha256Digest.compute(
-                          source.text().getBytes(java.nio.charset.StandardCharsets.UTF_8))))
-                throw new IllegalArgumentException(
-                    "published Core source content does not match: " + coordinate);
-            });
+        .forEach((coordinate, expected) -> {
+          var source = sources.get(coordinate);
+          if (source == null
+              || !expected.equals(
+                  dev.w0fv1.norm.value.Sha256Digest.compute(
+                      source.text().getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+            throw new IllegalArgumentException(
+                "published Core source content does not match: " + coordinate);
+        });
   }
 
   synchronized Content content() {
@@ -186,42 +185,40 @@ public final class CompiledModule {
     var declarationDocuments = snapshot.declarations().sourceDocuments();
     scope
         .coordinates()
-        .forEach(
-            (document, coordinate) -> {
-              if (!coordinate.module().equals(module) || !declarationDocuments.contains(document))
-                return;
-              var source = snapshot.document(document).orElseThrow().source();
-              SourceFile canonical;
-              try {
-                canonical =
-                    SourceFile.of(
-                        new DocumentId(
-                            new java.net.URI(
-                                "norm-module",
-                                null,
-                                "/"
-                                    + module.name()
-                                    + "/"
-                                    + module.version()
-                                    + "/"
-                                    + coordinate.relativePath(),
-                                null)),
-                        source.text());
-              } catch (java.net.URISyntaxException exception) {
-                throw new IllegalArgumentException("invalid module source coordinate", exception);
-              }
-              sources.put(coordinate, canonical);
-              mappings.put(document, TokenSpanMapping.relocate(source, canonical));
-            });
+        .forEach((document, coordinate) -> {
+          if (!coordinate.module().equals(module) || !declarationDocuments.contains(document))
+            return;
+          var source = snapshot.document(document).orElseThrow().source();
+          SourceFile canonical;
+          try {
+            canonical =
+                SourceFile.of(
+                    new DocumentId(
+                        new java.net.URI(
+                            "norm-module",
+                            null,
+                            "/"
+                                + module.name()
+                                + "/"
+                                + module.version()
+                                + "/"
+                                + coordinate.relativePath(),
+                            null)),
+                    source.text());
+          } catch (java.net.URISyntaxException exception) {
+            throw new IllegalArgumentException("invalid module source coordinate", exception);
+          }
+          sources.put(coordinate, canonical);
+          mappings.put(document, TokenSpanMapping.relocate(source, canonical));
+        });
     var contributions = new LinkedHashMap<SourceSpan, SemanticContribution>();
     snapshot
         .history()
         .contributions(mappings.keySet())
-        .forEach(
-            (span, contribution) -> {
-              var mapping = mappings.get(span.source().id());
-              contributions.put(mapping.rebase(span), contribution.rebase(mapping));
-            });
+        .forEach((span, contribution) -> {
+          var mapping = mappings.get(span.source().id());
+          contributions.put(mapping.rebase(span), contribution.rebase(mapping));
+        });
     var readable = new LinkedHashSet<>(scope.modules().dependencies().get(module));
     readable.add(module);
     var contracts = snapshot.declarations().moduleContracts(scope, readable);

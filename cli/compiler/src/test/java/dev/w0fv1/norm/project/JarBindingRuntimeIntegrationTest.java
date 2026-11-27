@@ -66,26 +66,26 @@ final class JarBindingRuntimeIntegrationTest {
         Files.writeString(
             root.resolve("Main.norm"),
             """
-        package anonymous
-        import java.base.util.linkedHashMapNew
-        import java.base.util.Iterator
-        Void main() {
-          Any? value = hiddenApiCreate()
-          require(condition: value != null, message: "Anonymous Java interface was lost")
-          var values = linkedHashMapNew<String, Any?>()
-          values.put(arg0: "key", arg1: value)
-          require(condition: values.get(arg0: "key") == value,
-            message: "Anonymous Java interface changed during generic transport")
-          switch values.get(arg0: "key") {
-            case Iterator<?> iterator {
-              require(condition: iterator.hasNext(), message: "Anonymous iterator dispatch failed")
-              printLine(iterator.next())
+            package anonymous
+            import java.base.util.linkedHashMapNew
+            import java.base.util.Iterator
+            Void main() {
+              Any? value = hiddenApiCreate()
+              require(condition: value != null, message: "Anonymous Java interface was lost")
+              var values = linkedHashMapNew<String, Any?>()
+              values.put(arg0: "key", arg1: value)
+              require(condition: values.get(arg0: "key") == value,
+                message: "Anonymous Java interface changed during generic transport")
+              switch values.get(arg0: "key") {
+                case Iterator<?> iterator {
+                  require(condition: iterator.hasNext(), message: "Anonymous iterator dispatch failed")
+                  printLine(iterator.next())
+                }
+                case _ { require(condition: false, message: "Anonymous result lost its interface") }
+              }
+              printLine("ok")
             }
-            case _ { require(condition: false, message: "Anonymous result lost its interface") }
-          }
-          printLine("ok")
-        }
-        """);
+            """);
     var backend = new NormRuntime();
     var output = new StringWriter();
     try (var environment = ProjectEnvironment.bootstrap(backend);

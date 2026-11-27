@@ -26,13 +26,11 @@ final class JavaHostSurface {
     }
     var javaCalls =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    CoreReachability.intrinsics(record.definition()).stream()
-                        .anyMatch(
-                            intrinsic ->
-                                intrinsic == dev.w0fv1.norm.abi.IntrinsicId.JAR_INVOKE
-                                    || intrinsic == dev.w0fv1.norm.abi.IntrinsicId.JAR_INVOKE_VOID))
+            .filter(record ->
+                CoreReachability.intrinsics(record.definition()).stream()
+                    .anyMatch(intrinsic ->
+                        intrinsic == dev.w0fv1.norm.abi.IntrinsicId.JAR_INVOKE
+                            || intrinsic == dev.w0fv1.norm.abi.IntrinsicId.JAR_INVOKE_VOID))
             .map(CoreDefinitionRecord::id)
             .collect(java.util.stream.Collectors.toSet());
     for (var record : artifact.program().definitions()) {
@@ -43,10 +41,8 @@ final class JavaHostSurface {
               nominal.module(), nominal.packageName(), nominal.name()))) continue;
       contract
           .declaredMethods()
-          .forEach(
-              method ->
-                  javaCalls.add(
-                      artifact.program().resolve(record.id(), (DefinitionReference) method)));
+          .forEach(method ->
+              javaCalls.add(artifact.program().resolve(record.id(), (DefinitionReference) method)));
     }
     Map<DefinitionId, Set<Integer>> calls = new LinkedHashMap<>();
     for (var id : javaCalls) {
@@ -65,36 +61,30 @@ final class JavaHostSurface {
     do {
       int size = calls.values().stream().mapToInt(Set::size).sum();
       CoreReachability.callArgumentTypes(artifact.program(), calls)
-          .forEach(
-              (owner, types) -> {
-                var occurrences = artifact.authoring().occurrences(owner);
-                if (occurrences.stream()
-                    .noneMatch(
-                        occurrence -> {
-                          var document =
-                              artifact.authoring().origin(occurrence.id()).rootSpan().source().id();
-                          return scope.coordinates().containsKey(document)
-                              && !bindingDocuments.contains(document);
-                        })) return;
-                for (var argumentType : types) {
-                  if (argumentType.type() instanceof CoreType.Declared declared
-                      && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
-                      && builtin.id().value().equals("std.core.Class")) {
-                    calls
-                        .computeIfAbsent(owner, ignored -> new LinkedHashSet<>())
-                        .addAll(argumentType.callerParameters());
-                    for (var argument : declared.arguments()) {
-                      CoreTypes.links(argument)
-                          .forEach(
-                              link ->
-                                  roots.add(
-                                      artifact
-                                          .program()
-                                          .resolve(owner, (DefinitionReference) link)));
-                    }
-                  }
+          .forEach((owner, types) -> {
+            var occurrences = artifact.authoring().occurrences(owner);
+            if (occurrences.stream()
+                .noneMatch(occurrence -> {
+                  var document =
+                      artifact.authoring().origin(occurrence.id()).rootSpan().source().id();
+                  return scope.coordinates().containsKey(document)
+                      && !bindingDocuments.contains(document);
+                })) return;
+            for (var argumentType : types) {
+              if (argumentType.type() instanceof CoreType.Declared declared
+                  && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
+                  && builtin.id().value().equals("std.core.Class")) {
+                calls
+                    .computeIfAbsent(owner, ignored -> new LinkedHashSet<>())
+                    .addAll(argumentType.callerParameters());
+                for (var argument : declared.arguments()) {
+                  CoreTypes.links(argument)
+                      .forEach(link ->
+                          roots.add(artifact.program().resolve(owner, (DefinitionReference) link)));
                 }
-              });
+              }
+            }
+          });
       expanded = calls.values().stream().mapToInt(Set::size).sum() != size;
     } while (expanded);
     return Set.copyOf(roots);
@@ -104,17 +94,15 @@ final class JavaHostSurface {
     if (!(artifact.program().definition(binding.definition()).orElseThrow()
         instanceof CoreDefinition.Aggregate aggregate)) return false;
     return aggregate.dispatch().stream()
-        .anyMatch(
-            dispatch ->
-                artifact
-                        .program()
-                        .definition(
-                            artifact
-                                .program()
-                                .resolve(
-                                    binding.definition(), (DefinitionReference) dispatch.target()))
-                        .orElseThrow()
-                    instanceof CoreDefinition.MethodSignature);
+        .anyMatch(dispatch ->
+            artifact
+                    .program()
+                    .definition(
+                        artifact
+                            .program()
+                            .resolve(binding.definition(), (DefinitionReference) dispatch.target()))
+                    .orElseThrow()
+                instanceof CoreDefinition.MethodSignature);
   }
 
   private static boolean javaRelation(

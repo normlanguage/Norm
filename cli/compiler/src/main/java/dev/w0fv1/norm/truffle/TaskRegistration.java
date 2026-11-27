@@ -28,32 +28,26 @@ final class TaskRegistration implements JarBindingTask {
         registered = true;
       }
       task.completion()
-          .whenComplete(
-              (value, failure) -> {
-                finish();
-                if (failure != null
-                    && !(failure instanceof java.util.concurrent.CancellationException)
-                    && !observed
-                    && owner != null
-                    && owner.reportsFailures()) {
-                  owner.execute(
-                      () -> {
-                        if (observed) return;
-                        observed = true;
-                        owner.report(
-                            () -> {
-                              try {
-                                task.await();
-                              } catch (
-                                  dev.w0fv1.norm.execution.JarBindingInvocationException error) {
-                                throw execution
-                                    .values()
-                                    .javaException(error.failure(), execution, null);
-                              }
-                            });
-                      });
-                }
+          .whenComplete((value, failure) -> {
+            finish();
+            if (failure != null
+                && !(failure instanceof java.util.concurrent.CancellationException)
+                && !observed
+                && owner != null
+                && owner.reportsFailures()) {
+              owner.execute(() -> {
+                if (observed) return;
+                observed = true;
+                owner.report(() -> {
+                  try {
+                    task.await();
+                  } catch (dev.w0fv1.norm.execution.JarBindingInvocationException error) {
+                    throw execution.values().javaException(error.failure(), execution, null);
+                  }
+                });
               });
+            }
+          });
     } catch (RuntimeException | Error failure) {
       close();
       throw failure;
@@ -112,16 +106,15 @@ final class TaskRegistration implements JarBindingTask {
     }
     if (!execution
         .callbacks()
-        .tryInvoke(
-            () -> {
-              try {
-                task.close();
-                if (registered) owner.release(handle);
-              } finally {
-                if (handle != null) handle.resource.closedExternally();
-              }
-              return null;
-            })) {
+        .tryInvoke(() -> {
+          try {
+            task.close();
+            if (registered) owner.release(handle);
+          } finally {
+            if (handle != null) handle.resource.closedExternally();
+          }
+          return null;
+        })) {
       task.close();
       if (handle != null) handle.resource.closedExternally();
     }

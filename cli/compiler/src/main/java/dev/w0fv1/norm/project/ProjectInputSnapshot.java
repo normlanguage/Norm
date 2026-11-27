@@ -29,11 +29,10 @@ public record ProjectInputSnapshot(
   public static ProjectInputSnapshot sources(Collection<SourceFile> sources) {
     return new ProjectInputSnapshot(
         sources.stream()
-            .map(
-                source ->
-                    new FileSnapshot(
-                        source.path(),
-                        Sha256Digest.compute(source.text().getBytes(StandardCharsets.UTF_8))))
+            .map(source ->
+                new FileSnapshot(
+                    source.path(),
+                    Sha256Digest.compute(source.text().getBytes(StandardCharsets.UTF_8))))
             .toList(),
         List.of(),
         List.of());
@@ -44,29 +43,25 @@ public record ProjectInputSnapshot(
     if (files.stream().anyMatch(file -> file.path().startsWith(changed))
         || absent.stream().anyMatch(candidate -> candidate.startsWith(changed))) return true;
     return directories.stream()
-        .anyMatch(
-            directory ->
-                directory.root().startsWith(changed)
-                    || directory.files().stream().anyMatch(file -> file.path().startsWith(changed))
-                    || changed.startsWith(directory.root())
-                        && (!directory.normSourcesOnly()
-                            || changed.getFileName().toString().endsWith(".norm")));
+        .anyMatch(directory ->
+            directory.root().startsWith(changed)
+                || directory.files().stream().anyMatch(file -> file.path().startsWith(changed))
+                || changed.startsWith(directory.root())
+                    && (!directory.normSourcesOnly()
+                        || changed.getFileName().toString().endsWith(".norm")));
   }
 
   public List<InputWatch> watches() {
     Set<InputWatch> watches = new LinkedHashSet<>();
-    directories.forEach(
-        directory ->
-            watches.add(
-                new InputWatch(
-                    directory.root(), directory.normSourcesOnly() ? "**/*.norm" : "**/*")));
+    directories.forEach(directory ->
+        watches.add(
+            new InputWatch(directory.root(), directory.normSourcesOnly() ? "**/*.norm" : "**/*")));
     var paths = new LinkedHashSet<Path>();
     files.forEach(file -> paths.add(file.path()));
     paths.addAll(absent);
-    paths.forEach(
-        path -> {
-          if (path.getParent() != null) watches.add(InputWatch.file(path));
-        });
+    paths.forEach(path -> {
+      if (path.getParent() != null) watches.add(InputWatch.file(path));
+    });
     return List.copyOf(watches);
   }
 

@@ -52,28 +52,25 @@ public final class CompilerBenchmark {
     report.put("samples", SAMPLES);
     report.put(
         "compile",
-        measure(
-            () -> {
-              try (var session = environment.compilerSession()) {
-                requireCompilation(session.compile(source));
-              }
-            }));
+        measure(() -> {
+          try (var session = environment.compilerSession()) {
+            requireCompilation(session.compile(source));
+          }
+        }));
     try (var session = environment.compilerSession()) {
       if (session.analyze(source).hasErrors())
         throw new IllegalStateException("Initial analysis failed");
       int[] revision = {0};
       report.put(
           "incrementalAnalysis",
-          measure(
-              () -> {
-                String changed =
-                    (++revision[0] % 2 == 0)
-                        ? text
-                        : text.replace(
-                            "Integer bias() { return 1 }", "Integer bias() { return 2 }");
-                if (session.analyze(SourceFile.of(input, changed)).hasErrors())
-                  throw new IllegalStateException("Incremental analysis failed");
-              }));
+          measure(() -> {
+            String changed =
+                (++revision[0] % 2 == 0)
+                    ? text
+                    : text.replace("Integer bias() { return 1 }", "Integer bias() { return 2 }");
+            if (session.analyze(SourceFile.of(input, changed)).hasErrors())
+              throw new IllegalStateException("Incremental analysis failed");
+          }));
     }
     CompilationResult compiled;
     try (var session = environment.compilerSession()) {
@@ -83,13 +80,12 @@ public final class CompilerBenchmark {
     var artifact = compiled.output().orElseThrow().artifact();
     report.put(
         "execution",
-        measure(
-            () -> {
-              StringWriter output = new StringWriter();
-              runtime.run(artifact, ExecutionContext.of(new PrintWriter(output)));
-              if (!output.toString().equals("10000" + System.lineSeparator()))
-                throw new IllegalStateException("Unexpected execution output: " + output);
-            }));
+        measure(() -> {
+          StringWriter output = new StringWriter();
+          runtime.run(artifact, ExecutionContext.of(new PrintWriter(output)));
+          if (!output.toString().equals("10000" + System.lineSeparator()))
+            throw new IllegalStateException("Unexpected execution output: " + output);
+        }));
     System.out.println(new Gson().toJson(report));
   }
 

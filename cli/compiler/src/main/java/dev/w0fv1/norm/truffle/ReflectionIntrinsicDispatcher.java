@@ -173,9 +173,8 @@ final class ReflectionIntrinsicDispatcher {
             return new RuntimeValues.ListValue(
                 type,
                 result.values.stream()
-                    .map(
-                        constructor ->
-                            (Object) ((RuntimeValues.ConstructorValue) constructor).snapshot())
+                    .map(constructor ->
+                        (Object) ((RuntimeValues.ConstructorValue) constructor).snapshot())
                     .toList());
           };
       case FIELD_LITERAL ->

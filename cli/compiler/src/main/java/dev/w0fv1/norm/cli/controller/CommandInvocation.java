@@ -29,15 +29,14 @@ record CommandInvocation(List<String> arguments, boolean debug, boolean diagnost
 
   int execute(Command command, PrintWriter out, PrintWriter err) {
     return ScopedValue.where(CURRENT, this)
-        .call(
-            () ->
-                CommandJournal.withDependencyLogs(
-                    err,
-                    debug,
-                    () ->
-                        diagnostics
-                            ? CommandJournal.capture(
-                                command.name(), err, () -> command.execute(arguments, out, err))
-                            : command.execute(arguments, out, err)));
+        .call(() ->
+            CommandJournal.withDependencyLogs(
+                err,
+                debug,
+                () ->
+                    diagnostics
+                        ? CommandJournal.capture(
+                            command.name(), err, () -> command.execute(arguments, out, err))
+                        : command.execute(arguments, out, err)));
   }
 }

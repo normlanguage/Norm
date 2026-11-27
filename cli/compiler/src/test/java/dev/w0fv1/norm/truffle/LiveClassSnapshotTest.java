@@ -15,36 +15,36 @@ final class LiveClassSnapshotTest {
   void preservesTheOwningSchemaThroughFieldsAndTheirOwnerDescriptors() {
     String source =
         """
-      import std.runtime.StateMigration
-      import std.runtime.MigrationState
-      import std.annotation.FieldTarget
-      import std.annotation.RuntimeRetention
-      import std.core.Exception
-      annotation Label implements FieldTarget, RuntimeRetention { String text }
-      @StateMigration(convert: convertState.function)
-      class State {
-        @Label(text: "old") Integer first = 1
-        Integer method(Integer amount) { return amount + 1 }
-      }
-      Void convertState(MigrationState state) {}
-      Void main() {
-        var frozen = State.class.snapshot()
-        var live = State.class
-        var tick = 0
-        for tick < 3 {
-          var field = frozen.fields()[0]
-          var label = field.annotation<Label>() ?? throw Exception(message: "Missing field label")
-          var method = frozen.functions()[0]
-          var owner = method.owner() ?? throw Exception(message: "Missing method owner")
-          String visibility = if field.isPublic() { "public" } else { "private" }
-          printLine(field.name() + ":" + field.owner().fields()[0].name() + ":" + live.fields()[0].name()
-            + ":" + label.text + ":" + visibility + ":" + method.parameters()[1].type().name()
-            + ":" + live.functions()[0].parameters()[1].type().name()
-            + ":" + owner.fields()[0].name() + ":" + frozen.constructors()[0].owner().fields()[0].name())
-          tick = tick + 1
+        import std.runtime.StateMigration
+        import std.runtime.MigrationState
+        import std.annotation.FieldTarget
+        import std.annotation.RuntimeRetention
+        import std.core.Exception
+        annotation Label implements FieldTarget, RuntimeRetention { String text }
+        @StateMigration(convert: convertState.function)
+        class State {
+          @Label(text: "old") Integer first = 1
+          Integer method(Integer amount) { return amount + 1 }
         }
-      }
-      """;
+        Void convertState(MigrationState state) {}
+        Void main() {
+          var frozen = State.class.snapshot()
+          var live = State.class
+          var tick = 0
+          for tick < 3 {
+            var field = frozen.fields()[0]
+            var label = field.annotation<Label>() ?? throw Exception(message: "Missing field label")
+            var method = frozen.functions()[0]
+            var owner = method.owner() ?? throw Exception(message: "Missing method owner")
+            String visibility = if field.isPublic() { "public" } else { "private" }
+            printLine(field.name() + ":" + field.owner().fields()[0].name() + ":" + live.fields()[0].name()
+              + ":" + label.text + ":" + visibility + ":" + method.parameters()[1].type().name()
+              + ":" + live.functions()[0].parameters()[1].type().name()
+              + ":" + owner.fields()[0].name() + ":" + frozen.constructors()[0].owner().fields()[0].name())
+            tick = tick + 1
+          }
+        }
+        """;
     var before = NormTestKit.compile(source);
     var after =
         NormTestKit.compile(

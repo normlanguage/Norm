@@ -137,30 +137,30 @@ final class SelfMigratingApplicationTest {
           case 0 -> "";
           case 1 ->
               """
-          if (state.contains("count")) {
-            state.transfer(source: "count", target: "total")
-            state.remove("count")
-          }
-          """;
+              if (state.contains("count")) {
+                state.transfer(source: "count", target: "total")
+                state.remove("count")
+              }
+              """;
           case 2 ->
               """
-          if (state.contains("total")) {
-            state.write(field: State.total.field, value: "n:" + state.read<Integer>("total").toString())
-          }
-          """;
+              if (state.contains("total")) {
+                state.write(field: State.total.field, value: "n:" + state.read<Integer>("total").toString())
+              }
+              """;
           case 3 -> "if (state.contains(\"legacy\")) { state.remove(\"legacy\") }";
           default -> throw new IllegalArgumentException("Unknown source version");
         };
     if (fail)
       migrate +=
           """
-        markFailure(%d)
-        state.write(field: State.ticks.field, value: -999)
-        var audit = state.read<List<Integer>>("audits")
-        audit.add(999)
-        state.write(field: State.audits.field, value: audit)
-        throw Exception(message: "intentional-migration-failure-%d")
-        """
+          markFailure(%d)
+          state.write(field: State.ticks.field, value: -999)
+          var audit = state.read<List<Integer>>("audits")
+          audit.add(999)
+          state.write(field: State.audits.field, value: audit)
+          throw Exception(message: "intentional-migration-failure-%d")
+          """
               .formatted(version, version);
     String value =
         version == 0
@@ -173,104 +173,104 @@ final class SelfMigratingApplicationTest {
                 ? "state.total = state.ticks"
                 : "state.total = \"n:\" + state.ticks.toString()";
     return """
-        package agent
-        import std.application.applicationDirectory
-        import std.application.arguments
-        import std.filesystem.Path
-        import std.filesystem.readText
-        import std.filesystem.writeTextAtomic
-        import std.io.TextEncoding
-        import std.concurrent.delay
-        import std.time.duration
-        import std.core.Exception
-        import std.runtime.Runtime
-        import std.runtime.UpdateOutcome
-        import std.runtime.StateMigration
-        import std.runtime.MigrationState
-        @StateMigration(convert: migrateState.function)
-        class State {
-          %s
-          Integer ticks = 100
-          List<Integer> audits = [1]
-          %s
+    package agent
+    import std.application.applicationDirectory
+    import std.application.arguments
+    import std.filesystem.Path
+    import std.filesystem.readText
+    import std.filesystem.writeTextAtomic
+    import std.io.TextEncoding
+    import std.concurrent.delay
+    import std.time.duration
+    import std.core.Exception
+    import std.runtime.Runtime
+    import std.runtime.UpdateOutcome
+    import std.runtime.StateMigration
+    import std.runtime.MigrationState
+    @StateMigration(convert: migrateState.function)
+    class State {
+      %s
+      Integer ticks = 100
+      List<Integer> audits = [1]
+      %s
+    }
+    Void migrateState(MigrationState state) { %s }
+    Void markFailure(Integer version) {
+      var root = applicationDirectory().value
+      writeTextAtomic(path: Path(value: root + "/attempt-" + version.toString() + ".txt"), text: "attempted", encoding: TextEncoding.Utf8)
+      printLine("attempted:" + version.toString())
+    }
+    Boolean compileErrorObserved() {
+      var latest = Runtime().latestUpdate()
+      latest != null && latest.outcome == UpdateOutcome.Rejected
+    }
+    Boolean failureObserved(Integer version) {
+      var root = applicationDirectory().value
+      readText(path: Path(value: root + "/attempt-" + version.toString() + ".txt"), encoding: TextEncoding.Utf8, maximumBytes: 1024) == "attempted"
+    }
+    Void save(String file) {
+      var root = applicationDirectory().value
+      writeTextAtomic(path: Path(value: root + "/application.norm"),
+        text: readText(path: Path(value: root + "/" + file), encoding: TextEncoding.Utf8, maximumBytes: 1048576),
+        encoding: TextEncoding.Utf8)
+      printLine("saved:" + file)
+    }
+    Void main() {
+      printLine("boot")
+      var state = State()
+      var alias = state
+      List<State> retained = [state, state]
+      var phase = 0
+      var savedAt = 0
+      var tick = 0
+      for (arguments().isEmpty() && tick < 400) {
+        var version = %d
+        if (phase == 0 && tick >= 2) {
+          save("compile-error.txt")
+          phase = 1
+          savedAt = tick
+        } else if (phase == 1 && tick - savedAt >= 3 && compileErrorObserved()) {
+          save("failed-1.txt")
+          phase = 2
+          savedAt = tick
+        } else if (phase == 2 && tick - savedAt >= 3 && failureObserved(1)) {
+          save("next-1.txt")
+          phase = 3
+          savedAt = tick
+        } else if (phase == 3 && version == 1 && tick - savedAt >= 3) {
+          save("failed-2.txt")
+          phase = 4
+          savedAt = tick
+        } else if (phase == 4 && version == 1 && tick - savedAt >= 3 && failureObserved(2)) {
+          save("next-2.txt")
+          phase = 5
+          savedAt = tick
+        } else if (phase == 5 && version == 2 && tick - savedAt >= 3) {
+          save("failed-3.txt")
+          phase = 6
+          savedAt = tick
+        } else if (phase == 6 && version == 2 && tick - savedAt >= 3 && failureObserved(3)) {
+          save("next-3.txt")
+          phase = 7
+          savedAt = tick
         }
-        Void migrateState(MigrationState state) { %s }
-        Void markFailure(Integer version) {
-          var root = applicationDirectory().value
-          writeTextAtomic(path: Path(value: root + "/attempt-" + version.toString() + ".txt"), text: "attempted", encoding: TextEncoding.Utf8)
-          printLine("attempted:" + version.toString())
+        require(condition: alias == state, message: "alias identity changed")
+        require(condition: retained[0] == state && retained[1] == state, message: "retained graph identity changed")
+        require(condition: state.audits.size() == 1 && state.audits[0] == 1, message: "failed migration mutated retained state")
+        var hasLegacy = false
+        for Field<State, ?> field : State.class.fields() {
+          if (field.name() == "legacy") { hasLegacy = true }
         }
-        Boolean compileErrorObserved() {
-          var latest = Runtime().latestUpdate()
-          latest != null && latest.outcome == UpdateOutcome.Rejected
-        }
-        Boolean failureObserved(Integer version) {
-          var root = applicationDirectory().value
-          readText(path: Path(value: root + "/attempt-" + version.toString() + ".txt"), encoding: TextEncoding.Utf8, maximumBytes: 1024) == "attempted"
-        }
-        Void save(String file) {
-          var root = applicationDirectory().value
-          writeTextAtomic(path: Path(value: root + "/application.norm"),
-            text: readText(path: Path(value: root + "/" + file), encoding: TextEncoding.Utf8, maximumBytes: 1048576),
-            encoding: TextEncoding.Utf8)
-          printLine("saved:" + file)
-        }
-        Void main() {
-          printLine("boot")
-          var state = State()
-          var alias = state
-          List<State> retained = [state, state]
-          var phase = 0
-          var savedAt = 0
-          var tick = 0
-          for (arguments().isEmpty() && tick < 400) {
-            var version = %d
-            if (phase == 0 && tick >= 2) {
-              save("compile-error.txt")
-              phase = 1
-              savedAt = tick
-            } else if (phase == 1 && tick - savedAt >= 3 && compileErrorObserved()) {
-              save("failed-1.txt")
-              phase = 2
-              savedAt = tick
-            } else if (phase == 2 && tick - savedAt >= 3 && failureObserved(1)) {
-              save("next-1.txt")
-              phase = 3
-              savedAt = tick
-            } else if (phase == 3 && version == 1 && tick - savedAt >= 3) {
-              save("failed-2.txt")
-              phase = 4
-              savedAt = tick
-            } else if (phase == 4 && version == 1 && tick - savedAt >= 3 && failureObserved(2)) {
-              save("next-2.txt")
-              phase = 5
-              savedAt = tick
-            } else if (phase == 5 && version == 2 && tick - savedAt >= 3) {
-              save("failed-3.txt")
-              phase = 6
-              savedAt = tick
-            } else if (phase == 6 && version == 2 && tick - savedAt >= 3 && failureObserved(3)) {
-              save("next-3.txt")
-              phase = 7
-              savedAt = tick
-            }
-            require(condition: alias == state, message: "alias identity changed")
-            require(condition: retained[0] == state && retained[1] == state, message: "retained graph identity changed")
-            require(condition: state.audits.size() == 1 && state.audits[0] == 1, message: "failed migration mutated retained state")
-            var hasLegacy = false
-            for Field<State, ?> field : State.class.fields() {
-              if (field.name() == "legacy") { hasLegacy = true }
-            }
-            require(condition: hasLegacy == (version < 3), message: "field deletion reflection does not match revision")
-            printLine("v" + version.toString() + "|" + tick.toString() + "|" + state.ticks.toString() + "|" + %s + "|" + state.audits.size().toString())
-            state.ticks = state.ticks + 1
-            %s
-            tick = tick + 1
-            if (phase == 7 && version == 3 && tick - savedAt >= 3) { printLine("finished"); break }
-            delay(duration(seconds: 0, nanoseconds: 100000000))
-          }
-        }
-        """
+        require(condition: hasLegacy == (version < 3), message: "field deletion reflection does not match revision")
+        printLine("v" + version.toString() + "|" + tick.toString() + "|" + state.ticks.toString() + "|" + %s + "|" + state.audits.size().toString())
+        state.ticks = state.ticks + 1
+        %s
+        tick = tick + 1
+        if (phase == 7 && version == 3 && tick - savedAt >= 3) { printLine("finished"); break }
+        delay(duration(seconds: 0, nanoseconds: 100000000))
+      }
+    }
+    """
         .formatted(
             field, version < 3 ? "String legacy = \"kept\"" : "", migrate, version, value, advance);
   }

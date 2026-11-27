@@ -26,13 +26,9 @@ final class CoreAnnotationProgramTest {
                 + "@Marker(text: \"value\") value Point {} Void main() {}");
 
     assertEquals(1, artifact.metadata().annotations().size());
-    assertDoesNotThrow(
-        () ->
-            new CoreArtifact(
-                artifact.program(),
-                artifact.namespace(),
-                artifact.authoring(),
-                artifact.metadata()));
+    assertDoesNotThrow(() ->
+        new CoreArtifact(
+            artifact.program(), artifact.namespace(), artifact.authoring(), artifact.metadata()));
   }
 
   @Test

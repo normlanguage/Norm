@@ -50,14 +50,14 @@ final class CompilationPreludeTest {
         SourceFile.of(
             directory.resolve("Main.norm"),
             """
-        import java.base.lang.Readable
-        Integer measure<T extends Readable<String>>(T input) { return input.size() }
-        Void main() {
-          Readable<String> text = "hello"
-          printLine(measure("world"))
-          printLine(text.size())
-        }
-        """);
+            import java.base.lang.Readable
+            Integer measure<T extends Readable<String>>(T input) { return input.size() }
+            Void main() {
+              Readable<String> text = "hello"
+              printLine(measure("world"))
+              printLine(text.size())
+            }
+            """);
     try (var compiler = new CompilerSession(LanguageProfile.withPrelude(prelude))) {
       var result = compiler.snapshot(CompilationRequest.single(entry)).analysis();
       assertFalse(result.hasErrors(), () -> result.diagnostics().toString());

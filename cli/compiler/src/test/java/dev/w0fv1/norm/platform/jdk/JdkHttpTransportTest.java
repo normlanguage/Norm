@@ -37,13 +37,12 @@ final class JdkHttpTransportTest {
   void createsTheClientOnlyForTheFirstRealRequest() throws Exception {
     var created = new java.util.concurrent.atomic.AtomicInteger();
     var transport =
-        new JdkHttpTransport(
-            () -> {
-              created.incrementAndGet();
-              return java.net.http.HttpClient.newBuilder()
-                  .proxy(java.net.ProxySelector.of(null))
-                  .build();
-            });
+        new JdkHttpTransport(() -> {
+          created.incrementAndGet();
+          return java.net.http.HttpClient.newBuilder()
+              .proxy(java.net.ProxySelector.of(null))
+              .build();
+        });
     assertEquals(0, created.get());
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.createContext(

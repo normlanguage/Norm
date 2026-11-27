@@ -40,14 +40,12 @@ record ExecutionState(
   }
 
   void runCallbacksUntil(BooleanSupplier completed, Node location) {
-    callbacks.runUntil(
-        () -> {
-          if (context.cancellation().getAsBoolean()) {
-            throw new NormGuestException(
-                RuntimeErrorCode.CANCELLED, "execution cancelled", location);
-          }
-          return completed.getAsBoolean();
-        });
+    callbacks.runUntil(() -> {
+      if (context.cancellation().getAsBoolean()) {
+        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", location);
+      }
+      return completed.getAsBoolean();
+    });
   }
 
   void close(Throwable failure) {

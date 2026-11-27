@@ -277,10 +277,9 @@ final class JvmJarBindingTaskTest {
     var callbackFailure = new IllegalStateException("callback failed");
     var failedSubscription =
         task.completion()
-            .thenApply(
-                value -> {
-                  throw callbackFailure;
-                });
+            .thenApply(value -> {
+              throw callbackFailure;
+            });
     source.complete("任务");
     assertSame(
         callbackFailure,

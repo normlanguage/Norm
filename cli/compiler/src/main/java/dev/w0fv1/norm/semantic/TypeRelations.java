@@ -129,14 +129,12 @@ public final class TypeRelations {
               .toList();
       var specific =
           shared.stream()
-              .filter(
-                  candidate ->
-                      shared.stream()
-                          .noneMatch(
-                              other ->
-                                  !candidate.equals(other)
-                                      && isAssignable(candidate, other)
-                                      && !isAssignable(other, candidate)))
+              .filter(candidate ->
+                  shared.stream()
+                      .noneMatch(other ->
+                          !candidate.equals(other)
+                              && isAssignable(candidate, other)
+                              && !isAssignable(other, candidate)))
               .toList();
       if (specific.size() != 1) return Optional.empty();
       SemanticType result = specific.getFirst();

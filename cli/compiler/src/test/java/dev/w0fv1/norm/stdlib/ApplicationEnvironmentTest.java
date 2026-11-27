@@ -21,9 +21,9 @@ final class ApplicationEnvironmentTest {
     var compilation =
         compile(
             """
-        import std.logging.logInfo
-        Void main() { logInfo("guest") }
-        """);
+            import std.logging.logInfo
+            Void main() { logInfo("guest") }
+            """);
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     var errors = new StringWriter();
     var command = new StringWriter();
@@ -38,11 +38,10 @@ final class ApplicationEnvironmentTest {
               .error(new PrintWriter(errors))
               .environment(Map.of("NORM_LOG_LEVEL", "warn"))
               .platform(JdkSystemPlatform.standard())
-              .javaApplicationEntrypoint(
-                  loader -> {
-                    logger.debug("application detail");
-                    logger.warn("connection lost");
-                  })
+              .javaApplicationEntrypoint(loader -> {
+                logger.debug("application detail");
+                logger.warn("connection lost");
+              })
               .jarBindingRuntime(runtime)
               .build();
       dev.w0fv1.norm.cli.component.CommandJournal.withDependencyLogs(
@@ -66,19 +65,19 @@ final class ApplicationEnvironmentTest {
     var compilation =
         compile(
             """
-        package demo
-        import std.logging.LogOutputer
-        import std.logging.LogEvent
-        import std.logging.logInfo
-        import std.logging.logDebug
-        class Database implements LogOutputer {
-          Void open(Map<String, String> configuration) { printLine("open") }
-          Void output(LogEvent event) { printLine(event.source) printLine(event.message) }
-          Void flush() { printLine("flush") }
-          Void close() { printLine("close") }
-        }
-        Void main() { printLine("ready") logDebug("hidden") logInfo("saved") }
-        """);
+            package demo
+            import std.logging.LogOutputer
+            import std.logging.LogEvent
+            import std.logging.logInfo
+            import std.logging.logDebug
+            class Database implements LogOutputer {
+              Void open(Map<String, String> configuration) { printLine("open") }
+              Void output(LogEvent event) { printLine(event.source) printLine(event.message) }
+              Void flush() { printLine("flush") }
+              Void close() { printLine("close") }
+            }
+            Void main() { printLine("ready") logDebug("hidden") logInfo("saved") }
+            """);
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     var output = new StringWriter();
     var context =
@@ -97,22 +96,22 @@ final class ApplicationEnvironmentTest {
     var compilation =
         compile(
             """
-        import std.application.arguments
-        import std.application.environmentVariable
-        import std.application.setExitCode
-        import std.io.standardInput
-        import std.io.readAll
-        import std.io.decodeText
-        import std.io.TextEncoding
-        import std.io.printError
-        Void main() {
-          printLine(arguments()[0])
-          printLine(environmentVariable(name: "NORM_TEST") ?? "missing")
-          printLine(decodeText(content: readAll(reader: standardInput(), maximumBytes: 100), encoding: TextEncoding.Utf8))
-          printError(text: "diagnostic")
-          setExitCode(code: 2)
-        }
-        """);
+            import std.application.arguments
+            import std.application.environmentVariable
+            import std.application.setExitCode
+            import std.io.standardInput
+            import std.io.readAll
+            import std.io.decodeText
+            import std.io.TextEncoding
+            import std.io.printError
+            Void main() {
+              printLine(arguments()[0])
+              printLine(environmentVariable(name: "NORM_TEST") ?? "missing")
+              printLine(decodeText(content: readAll(reader: standardInput(), maximumBytes: 100), encoding: TextEncoding.Utf8))
+              printError(text: "diagnostic")
+              setExitCode(code: 2)
+            }
+            """);
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     var output = new StringWriter();
     var error = new StringWriter();

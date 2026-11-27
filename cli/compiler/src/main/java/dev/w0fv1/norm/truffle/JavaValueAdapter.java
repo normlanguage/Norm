@@ -36,36 +36,33 @@ final class JavaValueAdapter {
         public Object invoke(List<JarBindingResult> arguments) {
           return execution
               .callbacks()
-              .invoke(
-                  () -> {
-                    try {
-                      if (arguments.size() != function.parameterTypes().size()) {
-                        throw new IllegalStateException(
-                            "JAR callback expected "
-                                + function.parameterTypes().size()
-                                + " arguments but received "
-                                + arguments.size());
-                      }
-                      Object[] values = new Object[arguments.size()];
-                      for (int index = 0; index < values.length; index++) {
-                        values[index] =
-                            jarBindingValue(
-                                function.parameterTypes().get(index),
-                                arguments.get(index),
-                                annotations,
-                                execution,
-                                null);
-                      }
-                      return jarArgument(
-                          RuntimeInvocation.invoke(execution, closure, values),
-                          execution,
-                          annotations);
-                    } catch (JarBindingCallbackException exception) {
-                      throw exception;
-                    } catch (RuntimeException exception) {
-                      throw new JarBindingCallbackException(exception);
-                    }
-                  });
+              .invoke(() -> {
+                try {
+                  if (arguments.size() != function.parameterTypes().size()) {
+                    throw new IllegalStateException(
+                        "JAR callback expected "
+                            + function.parameterTypes().size()
+                            + " arguments but received "
+                            + arguments.size());
+                  }
+                  Object[] values = new Object[arguments.size()];
+                  for (int index = 0; index < values.length; index++) {
+                    values[index] =
+                        jarBindingValue(
+                            function.parameterTypes().get(index),
+                            arguments.get(index),
+                            annotations,
+                            execution,
+                            null);
+                  }
+                  return jarArgument(
+                      RuntimeInvocation.invoke(execution, closure, values), execution, annotations);
+                } catch (JarBindingCallbackException exception) {
+                  throw exception;
+                } catch (RuntimeException exception) {
+                  throw new JarBindingCallbackException(exception);
+                }
+              });
         }
       };
     }

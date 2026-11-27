@@ -70,9 +70,8 @@ final class AuthoringArchitectureTest {
       var renamed = new StringBuilder(source);
       edit.locations().stream()
           .sorted(Comparator.comparingInt(SourceLocation::startOffset).reversed())
-          .forEach(
-              location ->
-                  renamed.replace(location.startOffset(), location.endOffset(), edit.newName()));
+          .forEach(location ->
+              renamed.replace(location.startOffset(), location.endOffset(), edit.newName()));
       assertEquals("2", execute(source));
       assertEquals("2", execute(renamed.toString()));
       assertEquals(3, edit.locations().size());

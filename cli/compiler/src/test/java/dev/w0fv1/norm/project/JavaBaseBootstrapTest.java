@@ -17,10 +17,10 @@ final class JavaBaseBootstrapTest {
           SourceFile.of(
               DocumentId.of("memory:/Security.norm"),
               """
-          import java.base.security.Principal
-          String principalName(Principal principal) { principal.getName()!! }
-          Void main() {}
-          """);
+              import java.base.security.Principal
+              String principalName(Principal principal) { principal.getName()!! }
+              Void main() {}
+              """);
       var result = compiler.compile(source);
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -34,19 +34,19 @@ final class JavaBaseBootstrapTest {
           SourceFile.of(
               DocumentId.of("memory:/Inference.norm"),
               """
-          import std.io.printLines
-          import std.core.Stringable
-          Array<T> retain<T extends Stringable>(Array<T> values) { return values }
-          T choose<T extends Stringable>(T first, T second) { return first }
-          Void main() {
-            printLines(["x", 1])
-            printLines([true, "x"])
-            printLines([true, 1])
-            String value = retain(["x", "y"])[0]
-            printLine(choose(first: "x", second: 1))
-            printLine(value)
-          }
-          """);
+              import std.io.printLines
+              import std.core.Stringable
+              Array<T> retain<T extends Stringable>(Array<T> values) { return values }
+              T choose<T extends Stringable>(T first, T second) { return first }
+              Void main() {
+                printLines(["x", 1])
+                printLines([true, "x"])
+                printLines([true, 1])
+                String value = retain(["x", "y"])[0]
+                printLine(choose(first: "x", second: 1))
+                printLine(value)
+              }
+              """);
       var result = compiler.compile(source);
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }

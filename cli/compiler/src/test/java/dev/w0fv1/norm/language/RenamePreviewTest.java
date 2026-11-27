@@ -46,9 +46,8 @@ final class RenamePreviewTest {
             language.query(snapshot).search("value", 0, 10).items().stream()
                 .filter(
                     item -> item.symbol().declaration().orElseThrow().document().equals(base.id()))
-                .filter(
-                    item ->
-                        item.symbol().accessor() == dev.w0fv1.norm.semantic.Symbol.Accessor.GETTER)
+                .filter(item ->
+                    item.symbol().accessor() == dev.w0fv1.norm.semantic.Symbol.Accessor.GETTER)
                 .findFirst()
                 .orElseThrow();
         var preview =
@@ -75,17 +74,14 @@ final class RenamePreviewTest {
       assertEquals(5, edit.locations().size());
       assertTrue(
           edit.locations().stream()
-              .allMatch(
-                  location ->
-                      text.substring(location.startOffset(), location.endOffset())
-                          .equals("value")));
+              .allMatch(location ->
+                  text.substring(location.startOffset(), location.endOffset()).equals("value")));
       assertTrue(language.prepareRename(snapshot.analysis(), text.indexOf("set(next)")).isEmpty());
       var selected =
           language.query(snapshot).search("value", 0, 10).items().stream()
-              .filter(
-                  item ->
-                      item.symbol().declaration().orElseThrow().startOffset()
-                          == text.indexOf("value {"))
+              .filter(item ->
+                  item.symbol().declaration().orElseThrow().startOffset()
+                      == text.indexOf("value {"))
               .findFirst()
               .orElseThrow();
       var preview =
@@ -200,13 +196,10 @@ final class RenamePreviewTest {
       assertEquals("Integer answer() { return 42 }", api.text());
       assertTrue(
           preview.changes().stream()
-              .allMatch(
-                  change ->
-                      change.edits().stream()
-                          .allMatch(
-                              edit ->
-                                  edit.oldText().equals("answer")
-                                      && edit.newText().equals("result"))));
+              .allMatch(change ->
+                  change.edits().stream()
+                      .allMatch(edit ->
+                          edit.oldText().equals("answer") && edit.newText().equals("result"))));
     }
   }
 

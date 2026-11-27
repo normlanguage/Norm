@@ -109,14 +109,13 @@ class ApplicationSessionTest {
                 message -> {})) {
       var execution =
           Thread.ofVirtual()
-              .start(
-                  () -> {
-                    try {
-                      assertTrue(session.execute().isSuccess());
-                    } catch (Throwable exception) {
-                      failure.set(exception);
-                    }
-                  });
+              .start(() -> {
+                try {
+                  assertTrue(session.execute().isSuccess());
+                } catch (Throwable exception) {
+                  failure.set(exception);
+                }
+              });
       try {
         assertTrue(started.await(30, TimeUnit.SECONDS));
         var events = session.subscribeUpdates();

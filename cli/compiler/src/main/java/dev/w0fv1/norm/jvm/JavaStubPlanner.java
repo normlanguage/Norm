@@ -56,21 +56,19 @@ final class JavaStubPlanner {
         .filter(binding -> belongsTo(binding.occurrence(), artifact, scope, excludedDocuments))
         .filter(
             binding -> JavaAnnotationShape.representable(artifact.program(), binding, javaTypes))
-        .forEach(
-            binding -> {
-              CoreDefinition.Aggregate declaration =
-                  (CoreDefinition.Aggregate)
-                      artifact.program().definition(binding.definition()).orElseThrow();
-              CoreAnnotationPolicy policy =
-                  CoreAnnotationPolicy.resolve(
-                      artifact.program(), binding.definition(), declaration);
-              annotations.put(
-                  binding.definition(),
-                  new ApplicationAnnotationBinding(
-                      new TypeKey(binding.packageName(), binding.name()).binaryName(),
-                      binding,
-                      policy.inherited()));
-            });
+        .forEach(binding -> {
+          CoreDefinition.Aggregate declaration =
+              (CoreDefinition.Aggregate)
+                  artifact.program().definition(binding.definition()).orElseThrow();
+          CoreAnnotationPolicy policy =
+              CoreAnnotationPolicy.resolve(artifact.program(), binding.definition(), declaration);
+          annotations.put(
+              binding.definition(),
+              new ApplicationAnnotationBinding(
+                  new TypeKey(binding.packageName(), binding.name()).binaryName(),
+                  binding,
+                  policy.inherited()));
+        });
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
       if (!belongsTo(application.target(), artifact, scope, excludedDocuments)) continue;
       ApplicationAnnotationBinding annotation = annotations.get(application.annotation());
@@ -176,26 +174,24 @@ final class JavaStubPlanner {
       }
       type.fields
           .values()
-          .forEach(
-              field ->
-                  references.addAll(
-                      JavaHostSurface.references(
-                          artifact.program(), field.owner, List.of(field.type))));
+          .forEach(field ->
+              references.addAll(
+                  JavaHostSurface.references(
+                      artifact.program(), field.owner, List.of(field.type))));
       if (type.binding == null
           || type.binding.kind() != CoreBindingKind.ANNOTATION
           || !JavaAnnotationShape.representable(artifact.program(), type.binding, javaTypes))
         type.callables
             .values()
-            .forEach(
-                callable -> {
-                  var signature = new ArrayList<CoreType>();
-                  signature.add(callable.returnType);
-                  callable.parameters.forEach(parameter -> signature.add(parameter.type));
-                  callable.typeParameters.forEach(
-                      parameter -> parameter.upperBound().ifPresent(signature::add));
-                  references.addAll(
-                      JavaHostSurface.references(artifact.program(), callable.owner, signature));
-                });
+            .forEach(callable -> {
+              var signature = new ArrayList<CoreType>();
+              signature.add(callable.returnType);
+              callable.parameters.forEach(parameter -> signature.add(parameter.type));
+              callable.typeParameters.forEach(
+                  parameter -> parameter.upperBound().ifPresent(signature::add));
+              references.addAll(
+                  JavaHostSurface.references(artifact.program(), callable.owner, signature));
+            });
       for (var reference : references) {
         var declaration = declarations.get(reference);
         if (declaration == null) continue;
@@ -218,10 +214,9 @@ final class JavaStubPlanner {
     return switch (target) {
       case CoreAnnotationTarget.Package value ->
           scope.coordinates().entrySet().stream()
-              .anyMatch(
-                  entry ->
-                      entry.getValue().module().equals(value.module())
-                          && !excludedDocuments.contains(entry.getKey()));
+              .anyMatch(entry ->
+                  entry.getValue().module().equals(value.module())
+                      && !excludedDocuments.contains(entry.getKey()));
       case CoreAnnotationTarget.Definition value ->
           belongsTo(value.occurrence(), artifact, scope, excludedDocuments);
       case CoreAnnotationTarget.Field value ->
@@ -245,12 +240,11 @@ final class JavaStubPlanner {
 
   private static boolean isOpaqueNative(CoreNominalTypeKey nominal) {
     return OpaqueValueAbi.values().stream()
-        .anyMatch(
-            identity ->
-                identity.moduleName().equals(nominal.module().name())
-                    && identity.moduleVersion() == nominal.module().version()
-                    && identity.packageName().equals(nominal.packageName())
-                    && identity.typeName().equals(nominal.name()));
+        .anyMatch(identity ->
+            identity.moduleName().equals(nominal.module().name())
+                && identity.moduleVersion() == nominal.module().version()
+                && identity.packageName().equals(nominal.packageName())
+                && identity.typeName().equals(nominal.name()));
   }
 
   private static Optional<CoreNominalTypeKey> nominalType(
@@ -270,19 +264,18 @@ final class JavaStubPlanner {
       binding
           .generated()
           .classDescriptors()
-          .forEach(
-              (reference, descriptor) -> {
-                if (!descriptor.startsWith("L") || !descriptor.endsWith(";")) {
-                  return;
-                }
-                String sourceName =
-                    JavaTypeNames.sourceName(
-                        descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
-                String previous = result.putIfAbsent(reference, sourceName);
-                if (previous != null && !previous.equals(sourceName)) {
-                  throw new IllegalArgumentException("conflicting Java type binding " + reference);
-                }
-              });
+          .forEach((reference, descriptor) -> {
+            if (!descriptor.startsWith("L") || !descriptor.endsWith(";")) {
+              return;
+            }
+            String sourceName =
+                JavaTypeNames.sourceName(
+                    descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
+            String previous = result.putIfAbsent(reference, sourceName);
+            if (previous != null && !previous.equals(sourceName)) {
+              throw new IllegalArgumentException("conflicting Java type binding " + reference);
+            }
+          });
     }
     return Map.copyOf(result);
   }
@@ -294,24 +287,20 @@ final class JavaStubPlanner {
       binding
           .generated()
           .enumConstants()
-          .forEach(
-              (reference, constants) -> {
-                String descriptor = binding.generated().classDescriptors().get(reference);
-                if (descriptor == null
-                    || !descriptor.startsWith("L")
-                    || !descriptor.endsWith(";")) {
-                  throw new IllegalArgumentException(
-                      "Java enum binding has no class descriptor " + reference);
-                }
-                JavaEnumBinding enumeration =
-                    new JavaEnumBinding(
-                        descriptor.substring(1, descriptor.length() - 1).replace('/', '.'),
-                        constants);
-                JavaEnumBinding previous = result.putIfAbsent(reference, enumeration);
-                if (previous != null && !previous.equals(enumeration)) {
-                  throw new IllegalArgumentException("conflicting Java enum binding " + reference);
-                }
-              });
+          .forEach((reference, constants) -> {
+            String descriptor = binding.generated().classDescriptors().get(reference);
+            if (descriptor == null || !descriptor.startsWith("L") || !descriptor.endsWith(";")) {
+              throw new IllegalArgumentException(
+                  "Java enum binding has no class descriptor " + reference);
+            }
+            JavaEnumBinding enumeration =
+                new JavaEnumBinding(
+                    descriptor.substring(1, descriptor.length() - 1).replace('/', '.'), constants);
+            JavaEnumBinding previous = result.putIfAbsent(reference, enumeration);
+            if (previous != null && !previous.equals(enumeration)) {
+              throw new IllegalArgumentException("conflicting Java enum binding " + reference);
+            }
+          });
     }
     return Map.copyOf(result);
   }
@@ -323,14 +312,13 @@ final class JavaStubPlanner {
       binding
           .generated()
           .annotations()
-          .forEach(
-              (reference, annotation) -> {
-                JavaAnnotationBinding previous = result.putIfAbsent(reference, annotation);
-                if (previous != null && !previous.equals(annotation)) {
-                  throw new IllegalArgumentException(
-                      "conflicting Java annotation binding " + reference);
-                }
-              });
+          .forEach((reference, annotation) -> {
+            JavaAnnotationBinding previous = result.putIfAbsent(reference, annotation);
+            if (previous != null && !previous.equals(annotation)) {
+              throw new IllegalArgumentException(
+                  "conflicting Java annotation binding " + reference);
+            }
+          });
     }
     return Map.copyOf(result);
   }
@@ -612,21 +600,19 @@ final class JavaStubPlanner {
         Optional<CoreBinding> constructorBinding =
             artifact.namespace().bindings().stream()
                 .filter(candidate -> candidate.definition().equals(definition))
-                .filter(
-                    candidate ->
-                        candidate.shape() instanceof CoreBindingShape.Callable
-                            || candidate.shape() instanceof CoreBindingShape.MethodSignature)
+                .filter(candidate ->
+                    candidate.shape() instanceof CoreBindingShape.Callable
+                        || candidate.shape() instanceof CoreBindingShape.MethodSignature)
                 .findFirst();
         DefinitionOccurrenceId occurrence =
             constructorBinding
                 .map(CoreBinding::occurrence)
-                .orElseGet(
-                    () ->
-                        artifact.authoring().occurrences(definition).stream()
-                            .filter(candidate -> candidate.role() == CoreDefinitionRole.CONSTRUCTOR)
-                            .findFirst()
-                            .orElseThrow()
-                            .id());
+                .orElseGet(() ->
+                    artifact.authoring().occurrences(definition).stream()
+                        .filter(candidate -> candidate.role() == CoreDefinitionRole.CONSTRUCTOR)
+                        .findFirst()
+                        .orElseThrow()
+                        .id());
         created.callables.put(
             occurrence,
             new CallableStub(
@@ -647,14 +633,12 @@ final class JavaStubPlanner {
           .filter(candidate -> candidate.packageName().equals(binding.packageName()))
           .filter(candidate -> candidate.ownerName().equals(Optional.of(binding.name())))
           .filter(candidate -> candidate.visibility() == CoreVisibility.PUBLIC)
-          .filter(
-              candidate ->
-                  candidate.shape() instanceof CoreBindingShape.Callable
-                      || candidate.shape() instanceof CoreBindingShape.MethodSignature)
+          .filter(candidate ->
+              candidate.shape() instanceof CoreBindingShape.Callable
+                  || candidate.shape() instanceof CoreBindingShape.MethodSignature)
           .sorted(Comparator.comparing(CoreBinding::occurrence))
-          .forEach(
-              method ->
-                  created.callables.putIfAbsent(method.occurrence(), CallableStub.method(method)));
+          .forEach(method ->
+              created.callables.putIfAbsent(method.occurrence(), CallableStub.method(method)));
       for (var conformance : aggregate.conformances()) {
         for (var witness : conformance.witnesses()) {
           if (!(witness.implementation() instanceof CoreWitnessTarget.Callable callable)) continue;
@@ -681,10 +665,9 @@ final class JavaStubPlanner {
                   .filter(candidate -> candidate.ownerName().equals(Optional.of(binding.name())))
                   .filter(candidate -> candidate.shape() instanceof CoreBindingShape.Callable)
                   .filter(candidate -> candidate.name().equals(interfaceMethod.name()))
-                  .filter(
-                      candidate ->
-                          ((CoreBindingShape.Callable) candidate.shape()).parameters().size()
-                              == callableDefinition.parameterTypes().size())
+                  .filter(candidate ->
+                      ((CoreBindingShape.Callable) candidate.shape()).parameters().size()
+                          == callableDefinition.parameterTypes().size())
                   .sorted(Comparator.comparing(CoreBinding::occurrence))
                   .toList();
           if (implementations.isEmpty()) {
@@ -692,10 +675,9 @@ final class JavaStubPlanner {
           }
           List<CoreBinding> matchingImplementations =
               implementations.stream()
-                  .filter(
-                      candidate ->
-                          matchesCallableSignature(
-                              artifact.program(), candidate, definition, callableDefinition))
+                  .filter(candidate ->
+                      matchesCallableSignature(
+                          artifact.program(), candidate, definition, callableDefinition))
                   .toList();
           if (matchingImplementations.isEmpty()) {
             List<List<CoreType>> signatures =
@@ -837,10 +819,9 @@ final class JavaStubPlanner {
       case CoreAnnotationValue.ListValue list ->
           "{"
               + list.values().stream()
-                  .map(
-                      item ->
-                          annotationValue(
-                              artifact, enumerations, javaTypes, owner, returnDescriptor, item))
+                  .map(item ->
+                      annotationValue(
+                          artifact, enumerations, javaTypes, owner, returnDescriptor, item))
                   .collect(java.util.stream.Collectors.joining(", "))
               + "}";
       case CoreAnnotationReference.ClassReference reference ->
@@ -1116,23 +1097,22 @@ final class JavaStubPlanner {
     StringBuilder result = new StringBuilder("\"");
     value
         .codePoints()
-        .forEach(
-            character -> {
-              switch (character) {
-                case '\n' -> result.append("\\n");
-                case '\r' -> result.append("\\r");
-                case '\t' -> result.append("\\t");
-                case '\\' -> result.append("\\\\");
-                case '"' -> result.append("\\\"");
-                default -> {
-                  if (Character.isISOControl(character)) {
-                    result.append("\\u").append("%04x".formatted(character));
-                  } else {
-                    result.appendCodePoint(character);
-                  }
-                }
+        .forEach(character -> {
+          switch (character) {
+            case '\n' -> result.append("\\n");
+            case '\r' -> result.append("\\r");
+            case '\t' -> result.append("\\t");
+            case '\\' -> result.append("\\\\");
+            case '"' -> result.append("\\\"");
+            default -> {
+              if (Character.isISOControl(character)) {
+                result.append("\\u").append("%04x".formatted(character));
+              } else {
+                result.appendCodePoint(character);
               }
-            });
+            }
+          }
+        });
     return result.append('"').toString();
   }
 
@@ -1321,15 +1301,13 @@ final class JavaStubPlanner {
       var hostParents = new LinkedHashMap<>(javaTypes);
       types.values().stream()
           .filter(type -> type.binding != null)
-          .forEach(
-              type ->
-                  nominalType(artifact.program(), type.binding)
-                      .ifPresent(
-                          nominal ->
-                              hostParents.put(
-                                  new JarBindingClassReference.Nominal(
-                                      nominal.module(), nominal.packageName(), nominal.name()),
-                                  type.key.binaryName())));
+          .forEach(type ->
+              nominalType(artifact.program(), type.binding)
+                  .ifPresent(nominal ->
+                      hostParents.put(
+                          new JarBindingClassReference.Nominal(
+                              nominal.module(), nominal.packageName(), nominal.name()),
+                          type.key.binaryName())));
       addNormTypes(artifact, types, hostParents, scope, bindingDocuments);
     } while (types.size() != surfaceSize);
     Map<DefinitionId, DefinitionId> interfaceDefaults = new LinkedHashMap<>();
@@ -1382,16 +1360,15 @@ final class JavaStubPlanner {
     return new JavaStubPlan(
         types.values().stream()
             .sorted(Comparator.comparing(type -> type.key.binaryName()))
-            .map(
-                type ->
-                    typePlan(
-                        type,
-                        artifact,
-                        identity,
-                        javaTypes,
-                        availableTypes,
-                        generatedTypes,
-                        generatedParents.contains(type.key.binaryName())))
+            .map(type ->
+                typePlan(
+                    type,
+                    artifact,
+                    identity,
+                    javaTypes,
+                    availableTypes,
+                    generatedTypes,
+                    generatedParents.contains(type.key.binaryName())))
             .toList());
   }
 
@@ -1439,43 +1416,39 @@ final class JavaStubPlanner {
       parentType =
           shape
               .parentType()
-              .map(
-                  parent ->
-                      javaType(
-                          artifact.program(),
-                          type.binding.definition(),
-                          parent,
-                          javaTypes,
-                          availableTypes));
+              .map(parent ->
+                  javaType(
+                      artifact.program(),
+                      type.binding.definition(),
+                      parent,
+                      javaTypes,
+                      availableTypes));
       interfaces =
           shape.conformances().stream()
-              .map(
-                  conformance ->
-                      javaType(
-                          artifact.program(),
-                          type.binding.definition(),
-                          conformance,
-                          javaTypes,
-                          availableTypes))
-              .filter(
-                  conformance -> {
-                    int arguments = conformance.indexOf('<');
-                    return availableTypes.contains(
-                        arguments < 0 ? conformance : conformance.substring(0, arguments));
-                  })
+              .map(conformance ->
+                  javaType(
+                      artifact.program(),
+                      type.binding.definition(),
+                      conformance,
+                      javaTypes,
+                      availableTypes))
+              .filter(conformance -> {
+                int arguments = conformance.indexOf('<');
+                return availableTypes.contains(
+                    arguments < 0 ? conformance : conformance.substring(0, arguments));
+              })
               .toList();
     } else if (type.binding != null
         && type.binding.shape() instanceof CoreBindingShape.Interface shape) {
       interfaces =
           shape.directParents().stream()
-              .map(
-                  parent ->
-                      javaType(
-                          artifact.program(),
-                          type.binding.definition(),
-                          parent,
-                          javaTypes,
-                          availableTypes))
+              .map(parent ->
+                  javaType(
+                      artifact.program(),
+                      type.binding.definition(),
+                      parent,
+                      javaTypes,
+                      availableTypes))
               .filter(parent -> !parent.equals("java.lang.Object"))
               .toList();
     }
@@ -1493,21 +1466,20 @@ final class JavaStubPlanner {
       var targets = new ArrayList<String>();
       policy.targets().stream()
           .sorted()
-          .forEach(
-              target -> {
-                switch (target) {
-                  case PACKAGE -> targets.add("java.lang.annotation.ElementType.PACKAGE");
-                  case TYPE -> {
-                    targets.add("java.lang.annotation.ElementType.TYPE");
-                    targets.add("java.lang.annotation.ElementType.ANNOTATION_TYPE");
-                  }
-                  case FIELD -> targets.add("java.lang.annotation.ElementType.FIELD");
-                  case CONSTRUCTOR -> targets.add("java.lang.annotation.ElementType.CONSTRUCTOR");
-                  case FUNCTION -> targets.add("java.lang.annotation.ElementType.METHOD");
-                  case PARAMETER -> targets.add("java.lang.annotation.ElementType.PARAMETER");
-                  case LOCAL -> targets.add("java.lang.annotation.ElementType.LOCAL_VARIABLE");
-                }
-              });
+          .forEach(target -> {
+            switch (target) {
+              case PACKAGE -> targets.add("java.lang.annotation.ElementType.PACKAGE");
+              case TYPE -> {
+                targets.add("java.lang.annotation.ElementType.TYPE");
+                targets.add("java.lang.annotation.ElementType.ANNOTATION_TYPE");
+              }
+              case FIELD -> targets.add("java.lang.annotation.ElementType.FIELD");
+              case CONSTRUCTOR -> targets.add("java.lang.annotation.ElementType.CONSTRUCTOR");
+              case FUNCTION -> targets.add("java.lang.annotation.ElementType.METHOD");
+              case PARAMETER -> targets.add("java.lang.annotation.ElementType.PARAMETER");
+              case LOCAL -> targets.add("java.lang.annotation.ElementType.LOCAL_VARIABLE");
+            }
+          });
       annotations.add(
           new JavaStubPlan.Annotation(
               "java.lang.annotation.Target",
@@ -1532,26 +1504,24 @@ final class JavaStubPlanner {
     annotations.addAll(annotations(type.annotations));
     List<JavaStubPlan.Field> fields =
         type.fields.values().stream()
-            .map(
-                field ->
-                    new JavaStubPlan.Field(
-                        field.name,
-                        annotation
-                            ? JavaAnnotationShape.elementType(
-                                    artifact.program(), field.owner, field.type, javaTypes)
-                                .orElseThrow(
-                                    () ->
-                                        new IllegalArgumentException(
-                                            "illegal Java annotation element " + field.name))
-                            : nullableType(
+            .map(field ->
+                new JavaStubPlan.Field(
+                    field.name,
+                    annotation
+                        ? JavaAnnotationShape.elementType(
+                                artifact.program(), field.owner, field.type, javaTypes)
+                            .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                    "illegal Java annotation element " + field.name))
+                        : nullableType(
+                            field.type,
+                            javaType(
+                                artifact.program(),
+                                field.owner,
                                 field.type,
-                                javaType(
-                                    artifact.program(),
-                                    field.owner,
-                                    field.type,
-                                    javaTypes,
-                                    availableTypes)),
-                        annotations(field.annotations)))
+                                javaTypes,
+                                availableTypes)),
+                    annotations(field.annotations)))
             .toList();
     boolean generatedParent =
         generatedParent(type, artifact, javaTypes, generatedTypes).isPresent();
@@ -1568,16 +1538,15 @@ final class JavaStubPlanner {
                                     : 1)
                         .thenComparing(entry -> entry.getValue().name)
                         .thenComparing(entry -> identity.slot(entry.getKey())))
-                .map(
-                    entry ->
-                        callablePlan(
-                            type,
-                            entry.getValue(),
-                            entry.getKey(),
-                            artifact,
-                            identity,
-                            javaTypes,
-                            availableTypes))
+                .map(entry ->
+                    callablePlan(
+                        type,
+                        entry.getValue(),
+                        entry.getKey(),
+                        artifact,
+                        identity,
+                        javaTypes,
+                        availableTypes))
                 .toList();
     boolean hasZeroArgumentConstructor =
         type.callables.values().stream()
@@ -1649,27 +1618,26 @@ final class JavaStubPlanner {
         projected.equals("void") ? Optional.empty() : Optional.of(boxedJavaType(projected));
     List<JavaStubPlan.Parameter> parameters =
         callable.parameters.stream()
-            .map(
-                parameter ->
-                    new JavaStubPlan.Parameter(
-                        parameter.name,
-                        nullableType(
-                            parameter.type,
-                            parameter.referenceParameter
-                                ? boxedJavaType(
-                                    javaType(
-                                        artifact.program(),
-                                        callable.owner,
-                                        parameter.type,
-                                        javaTypes,
-                                        generatedTypes))
-                                : javaType(
+            .map(parameter ->
+                new JavaStubPlan.Parameter(
+                    parameter.name,
+                    nullableType(
+                        parameter.type,
+                        parameter.referenceParameter
+                            ? boxedJavaType(
+                                javaType(
                                     artifact.program(),
                                     callable.owner,
                                     parameter.type,
                                     javaTypes,
-                                    generatedTypes)),
-                        annotations(parameter.annotations)))
+                                    generatedTypes))
+                            : javaType(
+                                artifact.program(),
+                                callable.owner,
+                                parameter.type,
+                                javaTypes,
+                                generatedTypes)),
+                    annotations(parameter.annotations)))
             .toList();
     return new JavaStubPlan.Callable(
         callable.name,
@@ -1701,30 +1669,26 @@ final class JavaStubPlanner {
       List<CoreTypeParameter> parameters,
       Map<JarBindingClassReference.Nominal, String> javaTypes) {
     return parameters.stream()
-        .map(
-            parameter ->
-                new JavaStubPlan.TypeParameter(
-                    "T" + parameter.index(),
-                    parameter
-                        .upperBound()
-                        .map(
-                            bound ->
-                                javaTypeArgument(program, owner, bound, javaTypes, name -> true))))
+        .map(parameter ->
+            new JavaStubPlan.TypeParameter(
+                "T" + parameter.index(),
+                parameter
+                    .upperBound()
+                    .map(
+                        bound -> javaTypeArgument(program, owner, bound, javaTypes, name -> true))))
         .toList();
   }
 
   private static List<JavaStubPlan.Annotation> annotations(List<AnnotationStub> annotations) {
     return annotations.stream()
-        .map(
-            annotation ->
-                new JavaStubPlan.Annotation(
-                    annotation.binaryName,
-                    annotation.arguments.stream()
-                        .map(
-                            argument ->
-                                new JavaStubPlan.AnnotationArgument(
-                                    Optional.of(argument.name), argument.value))
-                        .toList()))
+        .map(annotation ->
+            new JavaStubPlan.Annotation(
+                annotation.binaryName,
+                annotation.arguments.stream()
+                    .map(argument ->
+                        new JavaStubPlan.AnnotationArgument(
+                            Optional.of(argument.name), argument.value))
+                    .toList()))
         .toList();
   }
 }

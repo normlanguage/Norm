@@ -26,10 +26,9 @@ final class RuntimeUpdateIntrinsicDispatcher {
         var updates =
             context
                 .updates()
-                .orElseThrow(
-                    () ->
-                        new IllegalStateException(
-                            "Source runtime updates are unavailable in this execution"));
+                .orElseThrow(() ->
+                    new IllegalStateException(
+                        "Source runtime updates are unavailable in this execution"));
         return switch (intrinsic) {
           case RUNTIME_STATUS -> {
             var status = updates.status();
@@ -74,17 +73,15 @@ final class RuntimeUpdateIntrinsicDispatcher {
                     .parameterTypes()
                     .getFirst();
             var subscription =
-                updates.onUpdate(
-                    event -> {
-                      execution
-                          .callbacks()
-                          .invoke(
-                              () -> {
-                                RuntimeInvocation.invoke(
-                                    execution, callback, event(event, eventType, execution));
-                                return null;
-                              });
-                    });
+                updates.onUpdate(event -> {
+                  execution
+                      .callbacks()
+                      .invoke(() -> {
+                        RuntimeInvocation.invoke(
+                            execution, callback, event(event, eventType, execution));
+                        return null;
+                      });
+                });
             yield execution
                 .values()
                 .resource(type, subscription, "runtime update subscription", execution);
@@ -105,25 +102,23 @@ final class RuntimeUpdateIntrinsicDispatcher {
   private static <T> T await(CompletableFuture<T> future, ExecutionState execution) {
     return execution
         .callbacks()
-        .hostCall(
-            () -> {
-              while (true) {
-                if (execution.context().cancellation().getAsBoolean()) {
-                  throw new java.util.concurrent.CancellationException(
-                      "Runtime publication wait was cancelled");
-                }
-                try {
-                  return future.get(100, TimeUnit.MILLISECONDS);
-                } catch (java.util.concurrent.TimeoutException ignored) {
-                } catch (InterruptedException failure) {
-                  Thread.currentThread().interrupt();
-                  throw new IllegalStateException(
-                      "Runtime publication wait was interrupted", failure);
-                } catch (java.util.concurrent.ExecutionException failure) {
-                  throw new IllegalStateException("Runtime publication failed", failure.getCause());
-                }
-              }
-            });
+        .hostCall(() -> {
+          while (true) {
+            if (execution.context().cancellation().getAsBoolean()) {
+              throw new java.util.concurrent.CancellationException(
+                  "Runtime publication wait was cancelled");
+            }
+            try {
+              return future.get(100, TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.TimeoutException ignored) {
+            } catch (InterruptedException failure) {
+              Thread.currentThread().interrupt();
+              throw new IllegalStateException("Runtime publication wait was interrupted", failure);
+            } catch (java.util.concurrent.ExecutionException failure) {
+              throw new IllegalStateException("Runtime publication failed", failure.getCause());
+            }
+          }
+        });
   }
 
   private static Object event(ExecutionUpdateEvent event, CoreType type, ExecutionState execution) {
@@ -132,11 +127,10 @@ final class RuntimeUpdateIntrinsicDispatcher {
         event
             .result()
             .map(ExecutionUpdateResult::changes)
-            .map(
-                value ->
-                    value.declarations().stream()
-                        .map(RuntimeUpdateIntrinsicDispatcher::summary)
-                        .toList())
+            .map(value ->
+                value.declarations().stream()
+                    .map(RuntimeUpdateIntrinsicDispatcher::summary)
+                    .toList())
             .orElse(List.of());
     return execution
         .values()
@@ -221,43 +215,41 @@ final class RuntimeUpdateIntrinsicDispatcher {
     var changeType = ((CoreType.Declared) type).arguments().get(1);
     var diagnostics =
         diagnosticValues.stream()
-            .map(
-                value ->
-                    execution
-                        .values()
-                        .construct(
-                            diagnosticType,
-                            execution,
-                            value.code().value(),
-                            value.severity().name(),
-                            value.message(),
-                            value.primarySpan().source().id().uri().toString(),
-                            value.primarySpan().startOffset(),
-                            value.primarySpan().endOffset()))
+            .map(value ->
+                execution
+                    .values()
+                    .construct(
+                        diagnosticType,
+                        execution,
+                        value.code().value(),
+                        value.severity().name(),
+                        value.message(),
+                        value.primarySpan().source().id().uri().toString(),
+                        value.primarySpan().startOffset(),
+                        value.primarySpan().endOffset()))
             .toList();
     var changes =
         changeSet.declarations().stream()
-            .map(
-                value ->
-                    execution
-                        .values()
-                        .construct(
-                            changeType,
-                            execution,
-                            value.kind().name(),
-                            value.declarationKind().name(),
-                            value.identity(),
-                            value
-                                .before()
-                                .<Object>map(Object::toString)
-                                .orElse(RuntimeValues.NullValue.INSTANCE),
-                            value
-                                .after()
-                                .<Object>map(Object::toString)
-                                .orElse(RuntimeValues.NullValue.INSTANCE),
-                            value.source(),
-                            value.startOffset(),
-                            value.endOffset()))
+            .map(value ->
+                execution
+                    .values()
+                    .construct(
+                        changeType,
+                        execution,
+                        value.kind().name(),
+                        value.declarationKind().name(),
+                        value.identity(),
+                        value
+                            .before()
+                            .<Object>map(Object::toString)
+                            .orElse(RuntimeValues.NullValue.INSTANCE),
+                        value
+                            .after()
+                            .<Object>map(Object::toString)
+                            .orElse(RuntimeValues.NullValue.INSTANCE),
+                        value.source(),
+                        value.startOffset(),
+                        value.endOffset()))
             .toList();
     return execution
         .values()

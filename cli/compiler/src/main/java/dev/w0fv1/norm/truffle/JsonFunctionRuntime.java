@@ -1,16 +1,16 @@
 package dev.w0fv1.norm.truffle;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypes;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.json.JsonFactory;
 
 final class JsonFunctionRuntime {
   private JsonFunctionRuntime() {}
@@ -62,7 +62,7 @@ final class JsonFunctionRuntime {
       if (reader.nextToken() != JsonToken.START_OBJECT)
         throw new IllegalArgumentException("JSON arguments must be an object");
       while (reader.nextToken() != JsonToken.END_OBJECT) {
-        if (reader.currentToken() != JsonToken.FIELD_NAME)
+        if (reader.currentToken() != JsonToken.PROPERTY_NAME)
           throw new IllegalArgumentException("Invalid JSON argument object");
         String name = reader.currentName();
         reader.nextToken();
@@ -74,7 +74,7 @@ final class JsonFunctionRuntime {
       }
       if (reader.nextToken() != null)
         throw new IllegalArgumentException("Trailing JSON argument data");
-    } catch (IOException failure) {
+    } catch (JacksonException failure) {
       throw new IllegalArgumentException(failure.getMessage(), failure);
     }
     var callable = reflection.callable(operation);

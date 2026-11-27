@@ -23,9 +23,8 @@ final class ResolvedJarClasspath {
       List<JarArtifactIdentity> roots) {
     this.selected = Map.copyOf(selected);
     var edges = new LinkedHashMap<ArtifactKey, Set<ArtifactKey>>();
-    dependencies.forEach(
-        (key, values) ->
-            edges.put(key, java.util.Collections.unmodifiableSet(new LinkedHashSet<>(values))));
+    dependencies.forEach((key, values) ->
+        edges.put(key, java.util.Collections.unmodifiableSet(new LinkedHashSet<>(values))));
     this.dependencies = Map.copyOf(edges);
     this.roots = List.copyOf(roots);
   }
@@ -68,16 +67,15 @@ final class ResolvedJarClasspath {
 
   ResolvedJarClasspath at(java.nio.file.Path directory) {
     Map<ArtifactKey, ResolvedJarArtifact> captured = new LinkedHashMap<>();
-    selected.forEach(
-        (key, artifact) ->
-            captured.put(
-                key,
-                new ResolvedJarArtifact(
-                    artifact.identity(),
-                    artifact.identity() instanceof JdkModuleIdentity
-                        ? artifact.file()
-                        : directory.resolve(artifact.storagePath()),
-                    artifact.content())));
+    selected.forEach((key, artifact) ->
+        captured.put(
+            key,
+            new ResolvedJarArtifact(
+                artifact.identity(),
+                artifact.identity() instanceof JdkModuleIdentity
+                    ? artifact.file()
+                    : directory.resolve(artifact.storagePath()),
+                artifact.content())));
     return new ResolvedJarClasspath(captured, dependencies, roots);
   }
 

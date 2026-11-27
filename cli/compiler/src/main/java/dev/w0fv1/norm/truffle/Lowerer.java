@@ -137,21 +137,19 @@ final class Lowerer {
           entry.getValue().constructors().stream()
               .map(link -> resolve(definition, link))
               .filter(execution.callables()::contains)
-              .map(
-                  constructor -> {
-                    com.oracle.truffle.api.CallTarget target = targets.get(constructor);
-                    if (target == null) {
-                      throw new IllegalStateException("aggregate initializer is absent");
-                    }
-                    CoreDefinition constructorDefinition =
-                        program.definition(constructor).orElseThrow();
-                    if (!(constructorDefinition instanceof CoreDefinition.Callable callable)) {
-                      throw new IllegalStateException("aggregate initializer is not callable");
-                    }
-                    return new GuestValueFactory.Initializer(
-                        target,
-                        dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(callable));
-                  })
+              .map(constructor -> {
+                com.oracle.truffle.api.CallTarget target = targets.get(constructor);
+                if (target == null) {
+                  throw new IllegalStateException("aggregate initializer is absent");
+                }
+                CoreDefinition constructorDefinition =
+                    program.definition(constructor).orElseThrow();
+                if (!(constructorDefinition instanceof CoreDefinition.Callable callable)) {
+                  throw new IllegalStateException("aggregate initializer is not callable");
+                }
+                return new GuestValueFactory.Initializer(
+                    target, dev.w0fv1.norm.core.CoreConstructorParameters.forCallable(callable));
+              })
               .toList();
       aggregatePlans.add(
           GuestValueFactory.AggregatePlan.create(
@@ -163,21 +161,18 @@ final class Lowerer {
     List<GuestValueFactory.EnumPlan> enumPlans =
         program.definitions().stream()
             .filter(record -> record.definition() instanceof CoreDefinition.Enum)
-            .map(
-                record ->
-                    GuestValueFactory.EnumPlan.create(
-                        identity.id(record.id()),
-                        (CoreDefinition.Enum)
-                            identity.definition(record.id(), record.definition())))
+            .map(record ->
+                GuestValueFactory.EnumPlan.create(
+                    identity.id(record.id()),
+                    (CoreDefinition.Enum) identity.definition(record.id(), record.definition())))
             .toList();
     Map<CoreType, List<DefinitionId>> providers = new LinkedHashMap<>();
     execution
         .providers()
-        .forEach(
-            (service, implementations) ->
-                providers.put(
-                    identity.absoluteType(service),
-                    implementations.stream().map(identity::id).toList()));
+        .forEach((service, implementations) ->
+            providers.put(
+                identity.absoluteType(service),
+                implementations.stream().map(identity::id).toList()));
     return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans, annotations, providers);
   }
 
@@ -561,31 +556,26 @@ final class Lowerer {
     }
     aggregate
         .fields()
-        .forEach(
-            field ->
-                result.add(
-                    new RuntimeValues.FieldPlan(
-                        new DefinitionOccurrenceId(
-                            identity.id(occurrence.representative()), occurrence.ordinal()),
-                        field.name(),
-                        field.ordinal(),
-                        field.visibility() == CoreVisibility.PUBLIC,
-                        field.interceptors(),
-                        identity.type(occurrence.representative(), field.type()),
-                        field
-                            .initializer()
-                            .map(
-                                initializer -> {
-                                  DefinitionOccurrenceId target =
-                                      artifact
-                                          .authoring()
-                                          .target(occurrence, initializer.nodeIndex());
-                                  FunctionPlan plan = callables.get(target);
-                                  if (plan == null)
-                                    throw new IllegalStateException(
-                                        "field initializer target is absent");
-                                  return (com.oracle.truffle.api.CallTarget) plan.target;
-                                }))));
+        .forEach(field ->
+            result.add(
+                new RuntimeValues.FieldPlan(
+                    new DefinitionOccurrenceId(
+                        identity.id(occurrence.representative()), occurrence.ordinal()),
+                    field.name(),
+                    field.ordinal(),
+                    field.visibility() == CoreVisibility.PUBLIC,
+                    field.interceptors(),
+                    identity.type(occurrence.representative(), field.type()),
+                    field
+                        .initializer()
+                        .map(initializer -> {
+                          DefinitionOccurrenceId target =
+                              artifact.authoring().target(occurrence, initializer.nodeIndex());
+                          FunctionPlan plan = callables.get(target);
+                          if (plan == null)
+                            throw new IllegalStateException("field initializer target is absent");
+                          return (com.oracle.truffle.api.CallTarget) plan.target;
+                        }))));
     return List.copyOf(result);
   }
 
@@ -639,9 +629,8 @@ final class Lowerer {
     List<RuntimeConformance> result = new ArrayList<>();
     Map<DefinitionId, CoreType.Declared> interfaces = new LinkedHashMap<>();
     CoreInterfaceHierarchy.implementedBy(program, owner, aggregate)
-        .forEach(
-            (id, type) ->
-                interfaces.put(id, (CoreType.Declared) type.substitute(ownerArguments::get)));
+        .forEach((id, type) ->
+            interfaces.put(id, (CoreType.Declared) type.substitute(ownerArguments::get)));
     for (CoreConformance conformance : aggregate.conformances()) {
       result.add(new RuntimeConformance(owner, conformance, interfaces));
     }
@@ -787,12 +776,11 @@ final class Lowerer {
               new StatementNodes.Try(
                   lowerBlock(tried.body(), plan),
                   tried.catches().stream()
-                      .map(
-                          clause ->
-                              new StatementNodes.CatchHandler(
-                                  catchDefinition(plan.id.representative(), clause.type()),
-                                  plan.binding(clause.localIndex()),
-                                  lowerBlock(clause.body(), plan)))
+                      .map(clause ->
+                          new StatementNodes.CatchHandler(
+                              catchDefinition(plan.id.representative(), clause.type()),
+                              plan.binding(clause.localIndex()),
+                              lowerBlock(clause.body(), plan)))
                       .toArray(StatementNodes.CatchHandler[]::new),
                   tried.finallyBlock().map(value -> lowerBlock(value, plan)).orElse(null));
           case CoreStatement.ThrowStatement thrown ->
@@ -1002,10 +990,9 @@ final class Lowerer {
             .findFirst()
             .orElseThrow();
     return variant.fields().stream()
-        .map(
-            field ->
-                CoreTypes.absolute(
-                    field.type().substitute(declared.arguments()::get), definition, program))
+        .map(field ->
+            CoreTypes.absolute(
+                field.type().substitute(declared.arguments()::get), definition, program))
         .toList();
   }
 
@@ -1158,10 +1145,8 @@ final class Lowerer {
             new CoreRuntimeType(
                 closure.type(),
                 java.util.stream.IntStream.range(0, plan.declaration.reifiedTypeLocals().size())
-                    .mapToObj(
-                        index ->
-                            new CoreTypeCapture(
-                                index, plan.declaration.reifiedTypeLocals().get(index)))
+                    .mapToObj(index ->
+                        new CoreTypeCapture(index, plan.declaration.reifiedTypeLocals().get(index)))
                     .toList()),
             plan),
         annotations);

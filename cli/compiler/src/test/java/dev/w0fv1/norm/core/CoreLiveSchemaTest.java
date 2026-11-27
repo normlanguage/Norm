@@ -32,11 +32,9 @@ final class CoreLiveSchemaTest {
     var second = dev.w0fv1.norm.testing.NormTestKit.compile(after);
     assertTrue(first.isSuccess(), first.diagnostics().toString());
     assertTrue(second.isSuccess(), second.diagnostics().toString());
-    assertDoesNotThrow(
-        () ->
-            CoreLiveSchema.create(first.output().orElseThrow().artifact())
-                .requireCompatible(
-                    CoreLiveSchema.create(second.output().orElseThrow().artifact())));
+    assertDoesNotThrow(() ->
+        CoreLiveSchema.create(first.output().orElseThrow().artifact())
+            .requireCompatible(CoreLiveSchema.create(second.output().orElseThrow().artifact())));
   }
 
   @Test
@@ -119,23 +117,19 @@ final class CoreLiveSchemaTest {
     String text =
         "Void main() { var count = 0 for (count < 3) { printLine(count) count = count + 1 } }";
     var schema = CoreLiveSchema.create(compile(text));
-    assertDoesNotThrow(
-        () ->
-            schema.requireCompatible(
-                CoreLiveSchema.create(
-                    compile(text.replace("var count = 0", "var other = 1 var count = 0")))));
-    assertDoesNotThrow(
-        () ->
-            schema.requireCompatible(
-                CoreLiveSchema.create(
-                    compile(text.replace("printLine(count)", "if (true) { printLine(count) }")))));
-    assertDoesNotThrow(
-        () ->
-            schema.requireCompatible(
-                CoreLiveSchema.create(
-                    compile(
-                        text.replace("count < 3", "count < 5")
-                            .replace("count + 1", "count + 2")))));
+    assertDoesNotThrow(() ->
+        schema.requireCompatible(
+            CoreLiveSchema.create(
+                compile(text.replace("var count = 0", "var other = 1 var count = 0")))));
+    assertDoesNotThrow(() ->
+        schema.requireCompatible(
+            CoreLiveSchema.create(
+                compile(text.replace("printLine(count)", "if (true) { printLine(count) }")))));
+    assertDoesNotThrow(() ->
+        schema.requireCompatible(
+            CoreLiveSchema.create(
+                compile(
+                    text.replace("count < 3", "count < 5").replace("count + 1", "count + 2")))));
   }
 
   @Test
@@ -171,10 +165,9 @@ final class CoreLiveSchemaTest {
     String text =
         "Function<Integer()> deferred() { var first = 1 var second = 2; () { first + second } } Void main() { printLine(deferred()()) }";
     var schema = CoreLiveSchema.create(compile(text));
-    assertDoesNotThrow(
-        () ->
-            schema.requireCompatible(
-                CoreLiveSchema.create(compile(text.replace("first + second", "second + first")))));
+    assertDoesNotThrow(() ->
+        schema.requireCompatible(
+            CoreLiveSchema.create(compile(text.replace("first + second", "second + first")))));
   }
 
   @Test

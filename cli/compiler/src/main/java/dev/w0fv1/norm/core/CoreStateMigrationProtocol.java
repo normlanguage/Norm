@@ -17,15 +17,14 @@ public record CoreStateMigrationProtocol(
   public static Optional<CoreStateMigrationProtocol> resolve(CoreProgram program) {
     return resolve(
         program.definitions().stream()
-            .map(
-                record ->
-                    new CoreDefinitionRecord(
-                        record.id(),
-                        CoreRewriter.map(
-                            record.definition(),
-                            link ->
-                                new DefinitionReference.External(
-                                    program.resolve(record.id(), (DefinitionReference) link)))))
+            .map(record ->
+                new CoreDefinitionRecord(
+                    record.id(),
+                    CoreRewriter.map(
+                        record.definition(),
+                        link ->
+                            new DefinitionReference.External(
+                                program.resolve(record.id(), (DefinitionReference) link)))))
             .toList());
   }
 
@@ -81,22 +80,17 @@ public record CoreStateMigrationProtocol(
   public static Set<DefinitionId> appliedTypes(
       CoreArtifact artifact, CoreRuntimeIdentity identity) {
     return resolve(artifact.program())
-        .map(
-            protocol ->
-                artifact.metadata().annotations().stream()
-                    .filter(application -> application.annotation().equals(protocol.annotationId()))
-                    .map(CoreAnnotationApplication::target)
-                    .filter(
-                        target ->
-                            target instanceof CoreAnnotationTarget.Definition definition
-                                && definition.kind() == AnnotationTarget.TYPE)
-                    .map(
-                        target ->
-                            identity.id(
-                                ((CoreAnnotationTarget.Definition) target)
-                                    .occurrence()
-                                    .representative()))
-                    .collect(Collectors.toUnmodifiableSet()))
+        .map(protocol ->
+            artifact.metadata().annotations().stream()
+                .filter(application -> application.annotation().equals(protocol.annotationId()))
+                .map(CoreAnnotationApplication::target)
+                .filter(target ->
+                    target instanceof CoreAnnotationTarget.Definition definition
+                        && definition.kind() == AnnotationTarget.TYPE)
+                .map(target ->
+                    identity.id(
+                        ((CoreAnnotationTarget.Definition) target).occurrence().representative()))
+                .collect(Collectors.toUnmodifiableSet()))
         .orElse(Set.of());
   }
 

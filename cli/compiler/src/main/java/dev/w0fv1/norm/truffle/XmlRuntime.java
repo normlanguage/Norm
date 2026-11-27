@@ -526,9 +526,8 @@ final class XmlRuntime {
         shape.declaration().variants().stream()
             .filter(candidate -> candidate.key().equals(value))
             .findFirst()
-            .orElseThrow(
-                () ->
-                    failure(reader, "NORM-XML-ENUM", path, "unknown enum variant '" + value + "'"));
+            .orElseThrow(() ->
+                failure(reader, "NORM-XML-ENUM", path, "unknown enum variant '" + value + "'"));
     return VALUES.enumeration(shape, variant);
   }
 

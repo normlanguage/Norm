@@ -733,10 +733,9 @@ final class GuestValueFactory {
     Initializer initializer(int parameterCount) {
       List<Initializer> matches =
           initializers.stream()
-              .filter(
-                  initializer ->
-                      initializer.parameters().count() == parameterCount
-                          || parameterCount == 0 && initializer.parameters().acceptsEmpty())
+              .filter(initializer ->
+                  initializer.parameters().count() == parameterCount
+                      || parameterCount == 0 && initializer.parameters().acceptsEmpty())
               .toList();
       if (matches.size() != 1) {
         throw new IllegalStateException(

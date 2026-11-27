@@ -174,12 +174,11 @@ final class WebSocketIntrinsicDispatcher {
       int maximumMessageBytes,
       OperationControl control,
       GuestCallbackScheduler callbacks) {
-    return callbacks.hostCall(
-        () ->
-            context
-                .platform()
-                .webSocketTransport()
-                .connect(uri, headers, protocols, maximumMessageBytes, control));
+    return callbacks.hostCall(() ->
+        context
+            .platform()
+            .webSocketTransport()
+            .connect(uri, headers, protocols, maximumMessageBytes, control));
   }
 
   @TruffleBoundary
@@ -188,11 +187,10 @@ final class WebSocketIntrinsicDispatcher {
       String text,
       OperationControl control,
       GuestCallbackScheduler callbacks) {
-    callbacks.hostCall(
-        () -> {
-          socket.sendText(text, control);
-          return null;
-        });
+    callbacks.hostCall(() -> {
+      socket.sendText(text, control);
+      return null;
+    });
   }
 
   @TruffleBoundary
@@ -201,11 +199,10 @@ final class WebSocketIntrinsicDispatcher {
       byte[] data,
       OperationControl control,
       GuestCallbackScheduler callbacks) {
-    callbacks.hostCall(
-        () -> {
-          socket.sendBinary(data, control);
-          return null;
-        });
+    callbacks.hostCall(() -> {
+      socket.sendBinary(data, control);
+      return null;
+    });
   }
 
   @TruffleBoundary
@@ -214,11 +211,10 @@ final class WebSocketIntrinsicDispatcher {
       byte[] data,
       OperationControl control,
       GuestCallbackScheduler callbacks) {
-    callbacks.hostCall(
-        () -> {
-          socket.ping(data, control);
-          return null;
-        });
+    callbacks.hostCall(() -> {
+      socket.ping(data, control);
+      return null;
+    });
   }
 
   @TruffleBoundary
@@ -234,11 +230,10 @@ final class WebSocketIntrinsicDispatcher {
       String reason,
       OperationControl control,
       GuestCallbackScheduler callbacks) {
-    callbacks.hostCall(
-        () -> {
-          socket.finish(code, reason, control);
-          return null;
-        });
+    callbacks.hostCall(() -> {
+      socket.finish(code, reason, control);
+      return null;
+    });
   }
 
   @TruffleBoundary

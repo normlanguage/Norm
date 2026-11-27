@@ -132,11 +132,10 @@ record ConstructorFlow(
 
   private static Optional<Set<SymbolId>> applyWrites(
       Optional<Set<SymbolId>> completion, Set<SymbolId> writes) {
-    return completion.map(
-        assigned -> {
-          Set<SymbolId> result = new HashSet<>(assigned);
-          result.addAll(writes);
-          return Set.copyOf(result);
-        });
+    return completion.map(assigned -> {
+      Set<SymbolId> result = new HashSet<>(assigned);
+      result.addAll(writes);
+      return Set.copyOf(result);
+    });
   }
 }

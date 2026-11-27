@@ -278,10 +278,9 @@ public final class JavaAnnotationProcessorPipeline {
         .map(Path::normalize)
         .filter(Files::isRegularFile)
         .findFirst()
-        .orElseThrow(
-            () ->
-                new JavaAnnotationProcessingException(
-                    "a JDK with javac is required for Java annotation processing"));
+        .orElseThrow(() ->
+            new JavaAnnotationProcessingException(
+                "a JDK with javac is required for Java annotation processing"));
   }
 
   private static void replace(Path staging, Path output) throws IOException {

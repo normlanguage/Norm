@@ -30,11 +30,11 @@ final class ApplicationBundleWriterTest {
         Files.writeString(
             app.resolve("main.norm"),
             """
-        package app
-        import example.library.Service
-        import std.application.providers
-        Void main() { for provider : providers<Service>() { printLine(provider.create().value()) } }
-        """);
+            package app
+            import example.library.Service
+            import std.application.providers
+            Void main() { for provider : providers<Service>() { printLine(provider.create().value()) } }
+            """);
     Files.writeString(
         library.resolve("module.norm"),
         """

@@ -56,11 +56,9 @@ public abstract class GenerateToolchainCatalog extends DefaultTask {
     var raw =
         runtime
             .getIncoming()
-            .artifactView(
-                view ->
-                    view.attributes(
-                        attributes ->
-                            attributes.attribute(Attribute.of("javaModule", Boolean.class), false)))
+            .artifactView(view ->
+                view.attributes(attributes ->
+                    attributes.attribute(Attribute.of("javaModule", Boolean.class), false)))
             .getArtifacts();
     Map<Path, String> coordinates = new HashMap<>();
     for (var artifact : raw.getArtifacts())
@@ -103,9 +101,8 @@ public abstract class GenerateToolchainCatalog extends DefaultTask {
             "hosted", roots.stream().filter(value -> hosted.contains(module(value))).toList(),
             "tooling",
                 roots.stream()
-                    .filter(
-                        value ->
-                            !execution.contains(module(value)) && !hosted.contains(module(value)))
+                    .filter(value ->
+                        !execution.contains(module(value)) && !hosted.contains(module(value)))
                     .toList());
     ToolchainArtifactCatalogGenerator.generate(
         new ToolchainArtifactCatalogGenerator.Input(

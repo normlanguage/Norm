@@ -91,20 +91,18 @@ final class WorkspaceTest {
     var release = new java.util.concurrent.CountDownLatch(1);
     var versions = new java.util.concurrent.CopyOnWriteArrayList<Integer>();
     try (var workspace = new Workspace(ProjectEnvironment.bootstrap(new NormRuntime()))) {
-      workspace.onDiagnostics(
-          diagnostics -> {
-            if (diagnostics.uri().equals("untitled:barrier")) {
-              publishing.countDown();
-              try {
-                if (!release.await(20, TimeUnit.SECONDS))
-                  throw new AssertionError("publication barrier timed out");
-              } catch (InterruptedException failure) {
-                Thread.currentThread().interrupt();
-                throw new AssertionError(failure);
-              }
-            } else if (diagnostics.uri().equals("untitled:queued"))
-              versions.add(diagnostics.version());
-          });
+      workspace.onDiagnostics(diagnostics -> {
+        if (diagnostics.uri().equals("untitled:barrier")) {
+          publishing.countDown();
+          try {
+            if (!release.await(20, TimeUnit.SECONDS))
+              throw new AssertionError("publication barrier timed out");
+          } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(failure);
+          }
+        } else if (diagnostics.uri().equals("untitled:queued")) versions.add(diagnostics.version());
+      });
       workspace.update("untitled:barrier", 1, "Void main() {}");
       assertTrue(publishing.await(20, TimeUnit.SECONDS));
       try {

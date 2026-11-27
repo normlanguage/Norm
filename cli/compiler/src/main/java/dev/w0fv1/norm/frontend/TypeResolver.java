@@ -1037,11 +1037,10 @@ final class TypeResolver {
     return declaration
         .returnType()
         .map(type -> resolveDeclarationType(type, declaration, typeParameters))
-        .orElseGet(
-            () -> {
-              Syntax.AggregateDecl owner = ownerOf(declaration);
-              return owner == null ? SemanticType.VOID : aggregateSelfType(owner);
-            });
+        .orElseGet(() -> {
+          Syntax.AggregateDecl owner = ownerOf(declaration);
+          return owner == null ? SemanticType.VOID : aggregateSelfType(owner);
+        });
   }
 
   List<InterfaceRequirement> interfaceRequirements(SemanticType receiver) {
@@ -1076,15 +1075,13 @@ final class TypeResolver {
   final List<InterfaceRequirement> mostSpecificRequirements(
       List<InterfaceRequirement> requirements) {
     return requirements.stream()
-        .filter(
-            requirement ->
-                requirements.stream()
-                    .noneMatch(
-                        candidate ->
-                            candidate != requirement
-                                && requirementShape(candidate).equals(requirementShape(requirement))
-                                && isAssignable(requirement.receiver(), candidate.receiver())
-                                && !isAssignable(candidate.receiver(), requirement.receiver())))
+        .filter(requirement ->
+            requirements.stream()
+                .noneMatch(candidate ->
+                    candidate != requirement
+                        && requirementShape(candidate).equals(requirementShape(requirement))
+                        && isAssignable(requirement.receiver(), candidate.receiver())
+                        && !isAssignable(candidate.receiver(), requirement.receiver())))
         .toList();
   }
 
@@ -1097,9 +1094,8 @@ final class TypeResolver {
     return requirement.method().name()
         + "("
         + requirement.parameters().stream()
-            .map(
-                parameter ->
-                    parameter.name() + ":" + semanticTypeShape(parameter.type(), typeParameters))
+            .map(parameter ->
+                parameter.name() + ":" + semanticTypeShape(parameter.type(), typeParameters))
             .collect(java.util.stream.Collectors.joining(","))
         + ")->"
         + semanticTypeShape(requirement.result(), typeParameters);
@@ -1125,11 +1121,10 @@ final class TypeResolver {
   Optional<ResolvedIteration> resolveIteration(SemanticType iterableType) {
     return builtins
         .resolveIterable(iterableType)
-        .map(
-            capability ->
-                new ResolvedIteration(
-                    capability.elementType(),
-                    new ResolvedIteration.Strategy.Builtin(capability.intrinsic())))
+        .map(capability ->
+            new ResolvedIteration(
+                capability.elementType(),
+                new ResolvedIteration.Strategy.Builtin(capability.intrinsic())))
         .or(() -> resolveInterfaceIteration(iterableType));
   }
 
@@ -1208,32 +1203,30 @@ final class TypeResolver {
     Map<String, SemanticType> substitutions = interfaceSubstitutions(declaration, instance);
     Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
     return declaration.methods().stream()
-        .map(
-            method -> {
-              Map<String, SemanticType> methodTypes = interfaceMethodTypes(declaration, method);
-              List<ParameterInfo> methodParameters =
-                  model.symbolOf(method).parameters().stream()
-                      .map(parameter -> parameter.substitute(substitutions))
-                      .toList();
-              SemanticType result =
-                  readResult(
-                      resolveDeclarationType(method.returnType(), method, methodTypes),
-                      substitutions);
-              String signature =
-                  methodParameters.stream()
-                          .map(value -> value.name() + ":" + value.type().identity())
-                          .collect(java.util.stream.Collectors.joining(","))
-                      + "->"
-                      + result.identity();
-              return new InterfaceRequirement(
-                  declaration,
-                  instance,
-                  method,
-                  methodParameters,
-                  result,
-                  model.declarationSymbols().get(method).value(),
-                  signature);
-            })
+        .map(method -> {
+          Map<String, SemanticType> methodTypes = interfaceMethodTypes(declaration, method);
+          List<ParameterInfo> methodParameters =
+              model.symbolOf(method).parameters().stream()
+                  .map(parameter -> parameter.substitute(substitutions))
+                  .toList();
+          SemanticType result =
+              readResult(
+                  resolveDeclarationType(method.returnType(), method, methodTypes), substitutions);
+          String signature =
+              methodParameters.stream()
+                      .map(value -> value.name() + ":" + value.type().identity())
+                      .collect(java.util.stream.Collectors.joining(","))
+                  + "->"
+                  + result.identity();
+          return new InterfaceRequirement(
+              declaration,
+              instance,
+              method,
+              methodParameters,
+              result,
+              model.declarationSymbols().get(method).value(),
+              signature);
+        })
         .toList();
   }
 }

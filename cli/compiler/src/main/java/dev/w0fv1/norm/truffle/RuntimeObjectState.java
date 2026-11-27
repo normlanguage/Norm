@@ -34,13 +34,12 @@ final class RuntimeObjectState {
       var fingerprints =
           new LinkedHashMap<
               RuntimeValues.FieldKey, dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint>();
-      fields.forEach(
-          (key, type) ->
-              fingerprints.put(
-                  key,
-                  info.annotations() == null
-                      ? new dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint(type, Map.of())
-                      : info.annotations().typeFingerprint(type)));
+      fields.forEach((key, type) ->
+          fingerprints.put(
+              key,
+              info.annotations() == null
+                  ? new dev.w0fv1.norm.core.CoreRuntimeSchema.TypeFingerprint(type, Map.of())
+                  : info.annotations().typeFingerprint(type)));
       contracts = Map.copyOf(fingerprints);
       hash = Objects.hash(System.identityHashCode(info), objectType, contracts);
     }
@@ -54,18 +53,16 @@ final class RuntimeObjectState {
           type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
       var fields = new LinkedHashMap<RuntimeValues.FieldKey, CoreType>();
       info.fields()
-          .forEach(
-              field ->
-                  fields.put(
-                      field.key(),
-                      field
-                          .type()
-                          .substitute(
-                              index ->
-                                  index < arguments.size()
-                                      ? arguments.get(index)
-                                      : new CoreType.Parameter(
-                                          index, dev.w0fv1.norm.core.CoreNullability.NON_NULL))));
+          .forEach(field ->
+              fields.put(
+                  field.key(),
+                  field
+                      .type()
+                      .substitute(index ->
+                          index < arguments.size()
+                              ? arguments.get(index)
+                              : new CoreType.Parameter(
+                                  index, dev.w0fv1.norm.core.CoreNullability.NON_NULL))));
       return new Schema(info, type, fields);
     }
 
@@ -138,9 +135,8 @@ final class RuntimeObjectState {
     var cells = new LinkedHashMap<RuntimeValues.FieldKey, Cell>();
     schema
         .fields()
-        .forEach(
-            (key, declared) ->
-                cells.put(key, new Cell(declared, values.containsKey(key), values.get(key))));
+        .forEach((key, declared) ->
+            cells.put(key, new Cell(declared, values.containsKey(key), values.get(key))));
     var current = new ViewMap(this, schema, cells);
     views.put(schema, new java.lang.ref.WeakReference<>(current));
     published = new Published(current, info);
@@ -354,10 +350,9 @@ final class RuntimeObjectState {
     @Override
     public Set<Entry<RuntimeValues.FieldKey, Object>> entrySet() {
       var entries = new LinkedHashSet<Entry<RuntimeValues.FieldKey, Object>>();
-      cells.forEach(
-          (key, cell) -> {
-            if (containsKey(key)) entries.add(new SimpleImmutableEntry<>(key, cell.read()));
-          });
+      cells.forEach((key, cell) -> {
+        if (containsKey(key)) entries.add(new SimpleImmutableEntry<>(key, cell.read()));
+      });
       return java.util.Collections.unmodifiableSet(entries);
     }
   }
@@ -385,10 +380,9 @@ final class RuntimeObjectState {
       sourceAnnotations = source.schema.revision.get().annotations();
       this.target = target;
       var values = new LinkedHashMap<RuntimeValues.FieldKey, Object>(source);
-      object.configuration.forEach(
-          (key, value) -> {
-            if (stateCompatible(key)) values.put(key, value);
-          });
+      object.configuration.forEach((key, value) -> {
+        if (stateCompatible(key)) values.put(key, value);
+      });
       snapshot = java.util.Collections.unmodifiableMap(values);
     }
 
@@ -525,11 +519,10 @@ final class RuntimeObjectState {
     boolean destructive() {
       return source.schema.requiresTypePlan(target.schema)
           || source.schema.fields().entrySet().stream()
-              .anyMatch(
-                  entry ->
-                      target.schema.fields().get(entry.getKey()) == null
-                          || !dev.w0fv1.norm.core.CoreRuntimeSchema.migratableFieldType(
-                              entry.getValue(), target.schema.fields().get(entry.getKey())));
+              .anyMatch(entry ->
+                  target.schema.fields().get(entry.getKey()) == null
+                      || !dev.w0fv1.norm.core.CoreRuntimeSchema.migratableFieldType(
+                          entry.getValue(), target.schema.fields().get(entry.getKey())));
     }
 
     boolean hasExplicitChanges() {
@@ -539,11 +532,10 @@ final class RuntimeObjectState {
     boolean requiresConverter() {
       return destructive()
           || targetInfo.fields().stream()
-              .anyMatch(
-                  field ->
-                      !target.containsKey(field.key())
-                          && field.initializer().isEmpty()
-                          && !object.configurationFor(targetInfo).containsKey(field.key()));
+              .anyMatch(field ->
+                  !target.containsKey(field.key())
+                      && field.initializer().isEmpty()
+                      && !object.configurationFor(targetInfo).containsKey(field.key()));
     }
 
     void validateCoverage() {

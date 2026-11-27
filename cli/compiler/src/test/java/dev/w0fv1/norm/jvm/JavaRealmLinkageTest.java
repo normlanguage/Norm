@@ -26,13 +26,13 @@ class JavaRealmLinkageTest {
             Map.of(
                 "fixture/Facade.java",
                 """
-        package fixture;
-        public final class Facade {
-          public static Object call() {
-            return dev.w0fv1.norm.bridge.JavaApplicationBridge.toJava(Facade.class.getClassLoader(), "value");
-          }
-        }
-        """),
+                package fixture;
+                public final class Facade {
+                  public static Object call() {
+                    return dev.w0fv1.norm.bridge.JavaApplicationBridge.toJava(Facade.class.getClassLoader(), "value");
+                  }
+                }
+                """),
             Set.of());
     var firstHandler =
         (dev.w0fv1.norm.bridge.JavaApplicationBridge.Handler)
@@ -95,29 +95,28 @@ class JavaRealmLinkageTest {
     var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
     var creator =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try {
-                    Object value;
-                    try (var runtime =
-                        JvmJarBindingRuntime.prepared(
-                            List.of(binding),
-                            List.of(output.jar(), output.classes()),
-                            List.of(),
-                            assets)) {
-                      value =
-                          ((dev.w0fv1.norm.execution.JarBindingResult.Reference)
-                                  runtime.invoke("create", List.of()))
-                              .value();
-                    }
-                    assets.close();
-                    assertFalse(released.get());
-                    assertEquals(42, value.getClass().getMethod("read").invoke(value));
-                    java.lang.ref.Reference.reachabilityFence(value);
-                  } catch (Throwable exception) {
-                    failure.set(exception);
-                  }
-                });
+            .start(() -> {
+              try {
+                Object value;
+                try (var runtime =
+                    JvmJarBindingRuntime.prepared(
+                        List.of(binding),
+                        List.of(output.jar(), output.classes()),
+                        List.of(),
+                        assets)) {
+                  value =
+                      ((dev.w0fv1.norm.execution.JarBindingResult.Reference)
+                              runtime.invoke("create", List.of()))
+                          .value();
+                }
+                assets.close();
+                assertFalse(released.get());
+                assertEquals(42, value.getClass().getMethod("read").invoke(value));
+                java.lang.ref.Reference.reachabilityFence(value);
+              } catch (Throwable exception) {
+                failure.set(exception);
+              }
+            });
     creator.join();
     if (failure.get() != null) throw new AssertionError(failure.get());
     assertTimeoutPreemptively(

@@ -29,10 +29,9 @@ final class JavaFacadeIdentityExecutionTest {
             .artifact();
     var aggregate =
         artifact.program().definitions().stream()
-            .filter(
-                record ->
-                    record.definition() instanceof CoreDefinition.Aggregate declaration
-                        && declaration.nominalType().name().equals("Counter"))
+            .filter(record ->
+                record.definition() instanceof CoreDefinition.Aggregate declaration
+                    && declaration.nominalType().name().equals("Counter"))
             .findFirst()
             .orElseThrow();
     String binary =

@@ -69,9 +69,9 @@ final class PreparedApplicationCacheTest {
         Files.writeString(
             directory.resolve("main.norm"),
             """
-        Void main() { printLine("cached application") }
-        Module module() { module(dependencies: []) }
-        """);
+            Void main() { printLine("cached application") }
+            Module module() { module(dependencies: []) }
+            """);
     Path resource =
         Files.writeString(
             Files.createDirectories(directory.resolve("resources")).resolve("value.txt"), "first");

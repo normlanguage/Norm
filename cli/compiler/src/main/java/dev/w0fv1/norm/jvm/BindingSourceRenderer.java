@@ -135,13 +135,12 @@ public final class BindingSourceRenderer {
     if (!packageName.equals(module.name())) {
       Set<JavaArrayType> arrays = new java.util.LinkedHashSet<>();
       bindings.forEach(callable -> collectArrays(callable, arrays));
-      arrays.forEach(
-          array ->
-              text.append("import ")
-                  .append(module.name())
-                  .append('.')
-                  .append(sourceTypes.arrays().get(array))
-                  .append('\n'));
+      arrays.forEach(array ->
+          text.append("import ")
+              .append(module.name())
+              .append('.')
+              .append(sourceTypes.arrays().get(array))
+              .append('\n'));
     }
     text.append('\n');
     List<String> callIds = new ArrayList<>();
@@ -209,11 +208,10 @@ public final class BindingSourceRenderer {
     Set<String> referencedTypes = new java.util.LinkedHashSet<>();
     binding
         .elements()
-        .forEach(
-            element -> {
-              collectReferences(element.type(), referencedTypes);
-              element.defaultValue().ifPresent(value -> collectReferences(value, referencedTypes));
-            });
+        .forEach(element -> {
+          collectReferences(element.type(), referencedTypes);
+          element.defaultValue().ifPresent(value -> collectReferences(value, referencedTypes));
+        });
     BindingTypeNames sourceTypes =
         aliasReferenceImports(
             module, packageName, annotationName, binaryName, referencedTypes, normTypes);
@@ -248,10 +246,9 @@ public final class BindingSourceRenderer {
         text.append("    this.").append(elementName).append(" = ").append(elementName);
         element
             .defaultValue()
-            .ifPresent(
-                value ->
-                    text.append(" ?? ")
-                        .append(annotationDefaultLiteral(value, element.type(), sourceTypes)));
+            .ifPresent(value ->
+                text.append(" ?? ")
+                    .append(annotationDefaultLiteral(value, element.type(), sourceTypes)));
         text.append('\n');
       }
       text.append("  }\n");
@@ -298,13 +295,12 @@ public final class BindingSourceRenderer {
               .filter(entry -> entry.getValue().equals(enumeration.constant()))
               .map(Map.Entry::getKey)
               .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Java annotation enum constant is not exported: "
-                              + enumeration.type()
-                              + "."
-                              + enumeration.constant()));
+              .orElseThrow(() ->
+                  new IllegalArgumentException(
+                      "Java annotation enum constant is not exported: "
+                          + enumeration.type()
+                          + "."
+                          + enumeration.constant()));
       return normType(expectedType, normTypes, true) + "." + variant;
     }
     if (value instanceof JavaAnnotationClassValue classValue) {
@@ -327,11 +323,9 @@ public final class BindingSourceRenderer {
                     .filter(entry -> entry.getKey().descriptor().equals(descriptor))
                     .map(Map.Entry::getValue)
                     .findFirst()
-                    .orElseThrow(
-                        () ->
-                            new IllegalArgumentException(
-                                "Java annotation class default array is not exported: "
-                                    + descriptor));
+                    .orElseThrow(() ->
+                        new IllegalArgumentException(
+                            "Java annotation class default array is not exported: " + descriptor));
               }
               if (!descriptor.startsWith("L") || !descriptor.endsWith(";")) {
                 throw new IllegalArgumentException(
@@ -457,24 +451,23 @@ public final class BindingSourceRenderer {
     references.stream()
         .filter(reference -> !reference.equals(ownerBinaryName))
         .sorted()
-        .forEach(
-            reference -> {
-              String path = normTypes.referencePaths().get(reference);
-              if (path == null) return;
-              var imported = normTypes.imports().get(reference);
-              String referencePackage =
-                  imported == null ? module.name() + exportPackage(path) : imported.packageName();
-              if (referencePackage.equals(packageName)) return;
-              String name = names.get(reference);
-              if (occupied.add(name)) return;
-              int suffix = 1;
-              String alias;
-              do {
-                alias = name + "Imported" + suffix++;
-              } while (occupied.contains(alias) || names.containsValue(alias));
-              names.put(reference, alias);
-              occupied.add(alias);
-            });
+        .forEach(reference -> {
+          String path = normTypes.referencePaths().get(reference);
+          if (path == null) return;
+          var imported = normTypes.imports().get(reference);
+          String referencePackage =
+              imported == null ? module.name() + exportPackage(path) : imported.packageName();
+          if (referencePackage.equals(packageName)) return;
+          String name = names.get(reference);
+          if (occupied.add(name)) return;
+          int suffix = 1;
+          String alias;
+          do {
+            alias = name + "Imported" + suffix++;
+          } while (occupied.contains(alias) || names.containsValue(alias));
+          names.put(reference, alias);
+          occupied.add(alias);
+        });
     return new BindingTypeNames(
         names,
         normTypes.referencePaths(),
@@ -495,28 +488,27 @@ public final class BindingSourceRenderer {
     references.stream()
         .filter(reference -> !reference.equals(ownerBinaryName))
         .sorted()
-        .forEach(
-            reference -> {
-              String path = normTypes.referencePaths().get(reference);
-              if (path == null) return;
-              var imported = normTypes.imports().get(reference);
-              String referencePackage =
-                  imported == null ? module.name() + exportPackage(path) : imported.packageName();
-              if (referencePackage.equals(packageName)) return;
-              String name = normTypes.references().get(reference);
-              String importedName = imported == null ? simpleName(path) : imported.name();
-              String existing = importedNames.putIfAbsent(name, reference);
-              if (existing != null && !existing.equals(reference)) {
-                throw new IllegalArgumentException(
-                    "Java types require the same imported Norm name: "
-                        + existing
-                        + " and "
-                        + reference);
-              }
-              text.append("import ").append(referencePackage).append('.').append(importedName);
-              if (!name.equals(importedName)) text.append(" as ").append(name);
-              text.append('\n');
-            });
+        .forEach(reference -> {
+          String path = normTypes.referencePaths().get(reference);
+          if (path == null) return;
+          var imported = normTypes.imports().get(reference);
+          String referencePackage =
+              imported == null ? module.name() + exportPackage(path) : imported.packageName();
+          if (referencePackage.equals(packageName)) return;
+          String name = normTypes.references().get(reference);
+          String importedName = imported == null ? simpleName(path) : imported.name();
+          String existing = importedNames.putIfAbsent(name, reference);
+          if (existing != null && !existing.equals(reference)) {
+            throw new IllegalArgumentException(
+                "Java types require the same imported Norm name: "
+                    + existing
+                    + " and "
+                    + reference);
+          }
+          text.append("import ").append(referencePackage).append('.').append(importedName);
+          if (!name.equals(importedName)) text.append(" as ").append(name);
+          text.append('\n');
+        });
   }
 
   private static void appendClass(
@@ -705,13 +697,12 @@ public final class BindingSourceRenderer {
     if (parameters.isEmpty()) return;
     text.append(
         parameters.stream()
-            .map(
-                parameter ->
-                    parameter.name()
-                        + parameter
-                            .bound()
-                            .map(bound -> " extends " + normBoundType(bound, normTypes))
-                            .orElse(""))
+            .map(parameter ->
+                parameter.name()
+                    + parameter
+                        .bound()
+                        .map(bound -> " extends " + normBoundType(bound, normTypes))
+                        .orElse(""))
             .collect(java.util.stream.Collectors.joining(", ", "<", ">")));
   }
 }

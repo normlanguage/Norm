@@ -124,20 +124,19 @@ final class ArtifactIdTest {
     DefinitionId second = original.namespace().definition("", "second").orElseThrow();
     List<CoreBinding> swappedBindings =
         original.namespace().bindings().stream()
-            .map(
-                binding ->
-                    new CoreBinding(
-                        binding.packageName(),
-                        binding.ownerName(),
-                        binding.name(),
-                        binding.visibility(),
-                        binding.shape(),
-                        binding.definition().equals(first)
-                            ? original.namespace().occurrence("", "second").orElseThrow()
-                            : binding.definition().equals(second)
-                                ? original.namespace().occurrence("", "first").orElseThrow()
-                                : binding.occurrence(),
-                        binding.exported()))
+            .map(binding ->
+                new CoreBinding(
+                    binding.packageName(),
+                    binding.ownerName(),
+                    binding.name(),
+                    binding.visibility(),
+                    binding.shape(),
+                    binding.definition().equals(first)
+                        ? original.namespace().occurrence("", "second").orElseThrow()
+                        : binding.definition().equals(second)
+                            ? original.namespace().occurrence("", "first").orElseThrow()
+                            : binding.occurrence(),
+                    binding.exported()))
             .toList();
     CoreNamespace swappedNamespace = CoreNamespace.create(swappedBindings);
     CoreArtifact swapped =
@@ -166,25 +165,24 @@ final class ArtifactIdTest {
     assertEquals(alpha.representative(), beta.representative());
     List<CoreDefinitionOccurrence> reroutedOccurrences =
         original.authoring().occurrences().stream()
-            .map(
-                occurrence -> {
-                  if (!occurrence.id().equals(original.entryPoint())) return occurrence;
-                  Map<Integer, DefinitionOccurrenceId> references =
-                      occurrence.references().entrySet().stream()
-                          .collect(
-                              java.util.stream.Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  reference ->
-                                      reference.getValue().equals(alpha)
-                                          ? beta
-                                          : reference.getValue()));
-                  return new CoreDefinitionOccurrence(
-                      occurrence.id(),
-                      occurrence.representedDefinitions(),
-                      occurrence.role(),
-                      occurrence.origin(),
-                      references);
-                })
+            .map(occurrence -> {
+              if (!occurrence.id().equals(original.entryPoint())) return occurrence;
+              Map<Integer, DefinitionOccurrenceId> references =
+                  occurrence.references().entrySet().stream()
+                      .collect(
+                          java.util.stream.Collectors.toMap(
+                              Map.Entry::getKey,
+                              reference ->
+                                  reference.getValue().equals(alpha)
+                                      ? beta
+                                      : reference.getValue()));
+              return new CoreDefinitionOccurrence(
+                  occurrence.id(),
+                  occurrence.representedDefinitions(),
+                  occurrence.role(),
+                  occurrence.origin(),
+                  references);
+            })
             .toList();
     CoreArtifact rerouted =
         new CoreArtifact(

@@ -40,14 +40,13 @@ public record PreparedApplication(
     Path root = directory.toAbsolutePath().normalize();
     var paths =
         classpath.stream()
-            .map(
-                value -> {
-                  Path path = root.resolve(value).normalize();
-                  if (!path.startsWith(root))
-                    throw new IllegalArgumentException(
-                        "application classpath is outside its directory");
-                  return path;
-                })
+            .map(value -> {
+              Path path = root.resolve(value).normalize();
+              if (!path.startsWith(root))
+                throw new IllegalArgumentException(
+                    "application classpath is outside its directory");
+              return path;
+            })
             .toList();
     return JvmJarBindingRuntime.prepared(program.bindings(), paths, moduleRoots, assets, realm);
   }

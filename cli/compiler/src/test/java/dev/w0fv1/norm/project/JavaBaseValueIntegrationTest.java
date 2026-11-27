@@ -22,45 +22,45 @@ final class JavaBaseValueIntegrationTest {
         Files.writeString(
             temporaryDirectory.resolve("Main.norm"),
             """
-        import java.base.lang.Record
-            import java.base.lang.Cloneable
-            import java.base.util.EventListener
-            import java.base.util.EventObject
-            import java.base.util.eventObjectNew
-        import java.base.time.LocalDate
-        import java.base.time.LocalTime
-        import java.base.time.YearMonth
-        import java.base.time.localDateOf
-        import java.base.time.localTimeOf
-        import java.base.time.yearMonthOf
-        import java.base.math.BigDecimal
-        import java.base.math.bigDecimalNew
-        import java.base.time.durationOfSeconds
-        import java.base.time.durationOfMillis
-        import java.base.time.durationOfNanos
+            import java.base.lang.Record
+                import java.base.lang.Cloneable
+                import java.base.util.EventListener
+                import java.base.util.EventObject
+                import java.base.util.eventObjectNew
+            import java.base.time.LocalDate
+            import java.base.time.LocalTime
+            import java.base.time.YearMonth
+            import java.base.time.localDateOf
+            import java.base.time.localTimeOf
+            import java.base.time.yearMonthOf
+            import java.base.math.BigDecimal
+            import java.base.math.bigDecimalNew
+            import java.base.time.durationOfSeconds
+            import java.base.time.durationOfMillis
+            import java.base.time.durationOfNanos
 
-        Void eventContracts(Cloneable copyable, EventListener listener) {}
+            Void eventContracts(Cloneable copyable, EventListener listener) {}
 
-            String recordText(Record value) { value.toString()!! }
+                String recordText(Record value) { value.toString()!! }
 
-        Void main() {
-          LocalDate date = localDateOf(arg0: 2024, arg1: 2, arg2: 29)!!
-          printLine(date.plusDays(arg0: 1)!!.toString()!!)
-          LocalTime time = localTimeOf(arg0: 23, arg1: 59)!!
-          printLine(time.plusMinutes(arg0: 2)!!.toString()!!)
-          YearMonth month = yearMonthOf(arg0: 2024, arg1: 2)!!
-          printLine(month.lengthOfMonth())
-          printLine(month.atDay(arg0: 29)!!.toString()!!)
-          BigDecimal amount = bigDecimalNew(arg0: "0.10")
-          printLine(amount.add(arg0: bigDecimalNew(arg0: "0.20"))!!.toPlainString()!!)
-          printLine(amount.compareTo(arg0: bigDecimalNew(arg0: "0.1")))
-          printLine(durationOfSeconds(2)!!.toString()!!)
-          printLine(durationOfMillis(1500)!!.toString()!!)
-          printLine(durationOfNanos(1)!!.toString()!!)
-              EventObject event = eventObjectNew(arg0: "change")
-              printLine(event.getSource())
-        }
-        """);
+            Void main() {
+              LocalDate date = localDateOf(arg0: 2024, arg1: 2, arg2: 29)!!
+              printLine(date.plusDays(arg0: 1)!!.toString()!!)
+              LocalTime time = localTimeOf(arg0: 23, arg1: 59)!!
+              printLine(time.plusMinutes(arg0: 2)!!.toString()!!)
+              YearMonth month = yearMonthOf(arg0: 2024, arg1: 2)!!
+              printLine(month.lengthOfMonth())
+              printLine(month.atDay(arg0: 29)!!.toString()!!)
+              BigDecimal amount = bigDecimalNew(arg0: "0.10")
+              printLine(amount.add(arg0: bigDecimalNew(arg0: "0.20"))!!.toPlainString()!!)
+              printLine(amount.compareTo(arg0: bigDecimalNew(arg0: "0.1")))
+              printLine(durationOfSeconds(2)!!.toString()!!)
+              printLine(durationOfMillis(1500)!!.toString()!!)
+              printLine(durationOfNanos(1)!!.toString()!!)
+                  EventObject event = eventObjectNew(arg0: "change")
+                  printLine(event.getSource())
+            }
+            """);
     var runtime = new NormRuntime();
     var output = new StringWriter();
     try (var environment = ProjectEnvironment.bootstrap(runtime);

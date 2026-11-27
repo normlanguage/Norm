@@ -16,9 +16,8 @@ public record CoreParameterInterceptorProtocol(
                     nominal.module(), nominal.packageName(), nominal.name()),
             AnnotationAbi.PARAMETER_TARGET,
             "std.core.ParameterContext")
-        .map(
-            protocol ->
-                new CoreParameterInterceptorProtocol(
-                    protocol.interfaceId(), protocol.before(), protocol.after()));
+        .map(protocol ->
+            new CoreParameterInterceptorProtocol(
+                protocol.interfaceId(), protocol.before(), protocol.after()));
   }
 }

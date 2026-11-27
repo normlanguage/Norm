@@ -39,12 +39,10 @@ final class MethodDeclarationCompilerTest {
       assertFalse(result.isSuccess());
       assertTrue(
           result.diagnostics().stream()
-              .anyMatch(
-                  value ->
-                      value
-                          .message()
-                          .contains(
-                              "has unimplemented methods and cannot be constructed directly")),
+              .anyMatch(value ->
+                  value
+                      .message()
+                      .contains("has unimplemented methods and cannot be constructed directly")),
           () -> result.diagnostics().toString());
     }
     org.junit.jupiter.api.Assertions.assertEquals(
@@ -94,12 +92,10 @@ final class MethodDeclarationCompilerTest {
       assertFalse(removed.isSuccess());
       assertTrue(
           removed.diagnostics().stream()
-              .anyMatch(
-                  value ->
-                      value
-                          .message()
-                          .contains(
-                              "has unimplemented methods and cannot be constructed directly")));
+              .anyMatch(value ->
+                  value
+                      .message()
+                      .contains("has unimplemented methods and cannot be constructed directly")));
       assertTrue(compiler.compile(SourceFile.of(path, declarations)).isSuccess());
     }
   }
@@ -126,13 +122,12 @@ final class MethodDeclarationCompilerTest {
     assertFalse(invalid.isSuccess());
     assertTrue(
         invalid.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic
-                        .message()
-                        .equals(
-                            "annotation policy interfaces can only be implemented by annotation"
-                                + " types")));
+            .anyMatch(diagnostic ->
+                diagnostic
+                    .message()
+                    .equals(
+                        "annotation policy interfaces can only be implemented by annotation"
+                            + " types")));
   }
 
   @Test
@@ -159,11 +154,10 @@ final class MethodDeclarationCompilerTest {
                 diagnostic -> diagnostic.message().equals("method declarations require a class")));
     assertTrue(
         inferred.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic
-                        .message()
-                        .equals("method declarations require an explicit return type")));
+            .anyMatch(diagnostic ->
+                diagnostic
+                    .message()
+                    .equals("method declarations require an explicit return type")));
   }
 
   @Test
@@ -172,11 +166,8 @@ final class MethodDeclarationCompilerTest {
     assertFalse(result.isSuccess());
     assertTrue(
         result.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic
-                        .message()
-                        .equals("method declaration has no implementation provider")));
+            .anyMatch(diagnostic ->
+                diagnostic.message().equals("method declaration has no implementation provider")));
   }
 
   @Test
@@ -185,11 +176,8 @@ final class MethodDeclarationCompilerTest {
     assertFalse(result.isSuccess());
     assertTrue(
         result.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic
-                        .message()
-                        .equals("method declaration has no implementation provider")));
+            .anyMatch(diagnostic ->
+                diagnostic.message().equals("method declaration has no implementation provider")));
     assertTrue(
         result.diagnostics().stream()
             .noneMatch(diagnostic -> diagnostic.message().contains("must return")));

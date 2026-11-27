@@ -374,12 +374,11 @@ final class CoreProgramVerifier {
     int receiverParameters = method.receiverTypeParameterCount();
     return validationTypes
         .absolute(owner, type)
-        .substitute(
-            index -> {
-              if (index < receiverParameters) return receiver.arguments().get(index);
-              return new CoreType.Parameter(
-                  aggregateParameterCount + index - receiverParameters, CoreNullability.NON_NULL);
-            });
+        .substitute(index -> {
+          if (index < receiverParameters) return receiver.arguments().get(index);
+          return new CoreType.Parameter(
+              aggregateParameterCount + index - receiverParameters, CoreNullability.NON_NULL);
+        });
   }
 
   private void verifyInterface(DefinitionId id, CoreDefinition.Interface declaration) {
@@ -694,23 +693,21 @@ final class CoreProgramVerifier {
     }
     declaration
         .variants()
-        .forEach(
-            variant -> {
-              if (variant.fields().stream().map(CoreField::name).distinct().count()
-                  != variant.fields().size()) {
-                throw new IllegalArgumentException("enum field names must be unique");
-              }
-              for (int index = 0; index < variant.fields().size(); index++) {
-                CoreField field = variant.fields().get(index);
-                if (field.ordinal() != index
-                    || field.visibility() != CoreVisibility.PUBLIC
-                    || !field.interceptors().isEmpty()
-                    || field.initializer().isPresent()) {
-                  throw new IllegalArgumentException("enum field structure is invalid");
-                }
-                validationTypes.verifyStoredType(
-                    id, field.type(), declaration.typeParameters().size());
-              }
-            });
+        .forEach(variant -> {
+          if (variant.fields().stream().map(CoreField::name).distinct().count()
+              != variant.fields().size()) {
+            throw new IllegalArgumentException("enum field names must be unique");
+          }
+          for (int index = 0; index < variant.fields().size(); index++) {
+            CoreField field = variant.fields().get(index);
+            if (field.ordinal() != index
+                || field.visibility() != CoreVisibility.PUBLIC
+                || !field.interceptors().isEmpty()
+                || field.initializer().isPresent()) {
+              throw new IllegalArgumentException("enum field structure is invalid");
+            }
+            validationTypes.verifyStoredType(id, field.type(), declaration.typeParameters().size());
+          }
+        });
   }
 }

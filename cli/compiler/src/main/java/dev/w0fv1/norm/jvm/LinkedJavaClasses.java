@@ -32,18 +32,16 @@ public record LinkedJavaClasses(
     for (var binding : bindings) {
       binding
           .classDescriptors()
-          .forEach(
-              (reference, descriptor) -> {
-                if (classes.putIfAbsent(reference, descriptorClass(descriptor, loader)) != null)
-                  throw new JarBindingRuntimeException("duplicate Norm class mapping " + reference);
-              });
+          .forEach((reference, descriptor) -> {
+            if (classes.putIfAbsent(reference, descriptorClass(descriptor, loader)) != null)
+              throw new JarBindingRuntimeException("duplicate Norm class mapping " + reference);
+          });
       binding
           .enumConstants()
-          .forEach(
-              (reference, constants) -> {
-                if (enums.putIfAbsent(reference, constants) != null)
-                  throw new JarBindingRuntimeException("duplicate Norm enum mapping " + reference);
-              });
+          .forEach((reference, constants) -> {
+            if (enums.putIfAbsent(reference, constants) != null)
+              throw new JarBindingRuntimeException("duplicate Norm enum mapping " + reference);
+          });
     }
     return new LinkedJavaClasses(classes, enums);
   }

@@ -146,10 +146,9 @@ final class ProjectModuleSources {
           new LinkedHashMap<>();
       providedModules
           .values()
-          .forEach(
-              module ->
-                  imports.putAll(
-                      module.binding().generated().exportedClasses(module.descriptor().exports())));
+          .forEach(module ->
+              imports.putAll(
+                  module.binding().generated().exportedClasses(module.descriptor().exports())));
       ResolvedJarBinding resolvedBinding =
           JarBindingPreparer.prepare(
               descriptor,

@@ -1,16 +1,16 @@
 package dev.w0fv1.norm.truffle;
 
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamWriteConstraints;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
-import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 import com.oracle.truffle.api.nodes.Node;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamWriteConstraints;
+import tools.jackson.dataformat.yaml.YAMLFactory;
+import tools.jackson.dataformat.yaml.YAMLParser;
+import tools.jackson.dataformat.yaml.YAMLWriteFeature;
 
 final class YamlRuntime {
   private static final YAMLFactory FACTORY =
       YAMLFactory.builder()
-          .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+          .disable(YAMLWriteFeature.WRITE_DOC_START_MARKER)
           .streamReadConstraints(
               StreamReadConstraints.builder()
                   .maxDocumentLength(JacksonDataRuntime.MAX_INPUT_BYTES)

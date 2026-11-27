@@ -15,11 +15,10 @@ public record ApplicationInput(CompilationRequest request, Optional<ProjectSourc
   public SourceFile source() {
     return project
         .map(ProjectSourceSet::primarySource)
-        .orElseGet(
-            () ->
-                request.sources().stream()
-                    .filter(source -> source.id().equals(request.entryDocument()))
-                    .findFirst()
-                    .orElseThrow());
+        .orElseGet(() ->
+            request.sources().stream()
+                .filter(source -> source.id().equals(request.entryDocument()))
+                .findFirst()
+                .orElseThrow());
   }
 }

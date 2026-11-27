@@ -51,13 +51,12 @@ public final class CommandJournal {
     try (var file = new RollingLogFile(root, 10L * 1024 * 1024, 7, 200L * 1024 * 1024)) {
       err.println("Command diagnostics: " + file.directory());
       return ScopedValue.where(CURRENT, file)
-          .call(
-              () -> {
-                record("command", () -> new com.google.gson.JsonPrimitive(command));
-                int code = execute.getAsInt();
-                record("exit", () -> new com.google.gson.JsonPrimitive(code));
-                return code;
-              });
+          .call(() -> {
+            record("command", () -> new com.google.gson.JsonPrimitive(command));
+            int code = execute.getAsInt();
+            record("exit", () -> new com.google.gson.JsonPrimitive(code));
+            return code;
+          });
     } catch (IOException | java.io.UncheckedIOException failure) {
       err.println("Cannot persist command diagnostics: " + failure.getMessage());
       return dev.w0fv1.norm.cli.value.ExitCode.INTERNAL_ERROR;

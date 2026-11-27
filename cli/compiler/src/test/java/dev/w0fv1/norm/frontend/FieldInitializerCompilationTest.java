@@ -40,11 +40,10 @@ final class FieldInitializerCompilationTest {
             .resolve(owner, (DefinitionReference) aggregate.constructors().getFirst());
     var method =
         artifact.namespace().bindings().stream()
-            .filter(
-                binding ->
-                    binding.ownerName().orElse("").equals("Box")
-                        && binding.name().equals(methodName)
-                        && binding.kind() == dev.w0fv1.norm.core.CoreBindingKind.METHOD)
+            .filter(binding ->
+                binding.ownerName().orElse("").equals("Box")
+                    && binding.name().equals(methodName)
+                    && binding.kind() == dev.w0fv1.norm.core.CoreBindingKind.METHOD)
             .findFirst()
             .orElseThrow()
             .definition();
@@ -119,13 +118,12 @@ final class FieldInitializerCompilationTest {
       assertTrue(callable.captureTypes().isEmpty());
       assertTrue(
           artifact.authoring().occurrences(initializer).stream()
-              .anyMatch(
-                  occurrence ->
-                      occurrence
-                          .origin()
-                          .declarationIdentity()
-                          .orElseThrow()
-                          .endsWith("/initializer")));
+              .anyMatch(occurrence ->
+                  occurrence
+                      .origin()
+                      .declarationIdentity()
+                      .orElseThrow()
+                      .endsWith("/initializer")));
     }
     var reloaded =
         PortableObjectCodec.decode(PortableObjectCodec.encode(artifact), CoreArtifact.class);
@@ -223,20 +221,18 @@ final class FieldInitializerCompilationTest {
     var aggregate = (CoreDefinition.Aggregate) artifact.program().definition(owner).orElseThrow();
     var movedFields =
         aggregate.fields().stream()
-            .map(
-                field ->
-                    new dev.w0fv1.norm.core.CoreField(
-                        field.visibility(),
-                        field.name(),
-                        field.ordinal(),
-                        field.type(),
-                        field.interceptors(),
-                        field
-                            .initializer()
-                            .map(
-                                initializer ->
-                                    new dev.w0fv1.norm.core.CoreFieldInitializer(
-                                        initializer.nodeIndex() + 100, initializer.target()))))
+            .map(field ->
+                new dev.w0fv1.norm.core.CoreField(
+                    field.visibility(),
+                    field.name(),
+                    field.ordinal(),
+                    field.type(),
+                    field.interceptors(),
+                    field
+                        .initializer()
+                        .map(initializer ->
+                            new dev.w0fv1.norm.core.CoreFieldInitializer(
+                                initializer.nodeIndex() + 100, initializer.target()))))
             .toList();
     var moved =
         new CoreDefinition.Aggregate(

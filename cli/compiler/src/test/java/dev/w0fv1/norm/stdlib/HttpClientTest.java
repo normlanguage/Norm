@@ -38,58 +38,56 @@ final class HttpClientTest {
         ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
       server.setSoTimeout(10_000);
       Future<?> exchange =
-          executor.submit(
-              () -> {
-                try (var socket = server.accept()) {
-                  var input = socket.getInputStream();
-                  ByteArrayOutputStream headerBytes = new ByteArrayOutputStream();
-                  int matched = 0;
-                  while (matched < 4) {
-                    int value = input.read();
-                    if (value < 0) throw new java.io.EOFException();
-                    headerBytes.write(value);
-                    matched =
-                        switch (matched) {
-                          case 0 -> value == '\r' ? 1 : 0;
-                          case 1 -> value == '\n' ? 2 : 0;
-                          case 2 -> value == '\r' ? 3 : 0;
-                          default -> value == '\n' ? 4 : 0;
-                        };
-                  }
-                  String headers = headerBytes.toString(StandardCharsets.US_ASCII);
-                  String[] lines = headers.split("\\r\\n");
-                  org.junit.jupiter.api.Assertions.assertEquals(
-                      "POST /messages HTTP/1.1", lines[0]);
-                  int contentLength = 0;
-                  boolean jsonContentType = false;
-                  for (int index = 1; index < lines.length; index++) {
-                    String line = lines[index];
-                    if (line.regionMatches(true, 0, "Content-Length:", 0, 15)) {
-                      contentLength = Integer.parseInt(line.substring(15).trim());
-                    }
-                    if (line.equalsIgnoreCase("Content-Type: application/json")) {
-                      jsonContentType = true;
-                    }
-                  }
-                  org.junit.jupiter.api.Assertions.assertTrue(jsonContentType);
-                  byte[] body = input.readNBytes(contentLength);
-                  org.junit.jupiter.api.Assertions.assertEquals(
-                      "{\"message\":\"你好\"}", new String(body, StandardCharsets.UTF_8));
-                  byte[] response = "{\"message\":\"pong\"}".getBytes(StandardCharsets.UTF_8);
-                  socket
-                      .getOutputStream()
-                      .write(
-                          ("HTTP/1.1 200 OK\r\n"
-                                  + "Content-Length: "
-                                  + response.length
-                                  + "\r\nContent-Type: application/json\r\n"
-                                  + "Connection: close\r\n\r\n")
-                              .getBytes(StandardCharsets.US_ASCII));
-                  socket.getOutputStream().write(response);
-                } catch (java.io.IOException failure) {
-                  throw new java.io.UncheckedIOException(failure);
+          executor.submit(() -> {
+            try (var socket = server.accept()) {
+              var input = socket.getInputStream();
+              ByteArrayOutputStream headerBytes = new ByteArrayOutputStream();
+              int matched = 0;
+              while (matched < 4) {
+                int value = input.read();
+                if (value < 0) throw new java.io.EOFException();
+                headerBytes.write(value);
+                matched =
+                    switch (matched) {
+                      case 0 -> value == '\r' ? 1 : 0;
+                      case 1 -> value == '\n' ? 2 : 0;
+                      case 2 -> value == '\r' ? 3 : 0;
+                      default -> value == '\n' ? 4 : 0;
+                    };
+              }
+              String headers = headerBytes.toString(StandardCharsets.US_ASCII);
+              String[] lines = headers.split("\\r\\n");
+              org.junit.jupiter.api.Assertions.assertEquals("POST /messages HTTP/1.1", lines[0]);
+              int contentLength = 0;
+              boolean jsonContentType = false;
+              for (int index = 1; index < lines.length; index++) {
+                String line = lines[index];
+                if (line.regionMatches(true, 0, "Content-Length:", 0, 15)) {
+                  contentLength = Integer.parseInt(line.substring(15).trim());
                 }
-              });
+                if (line.equalsIgnoreCase("Content-Type: application/json")) {
+                  jsonContentType = true;
+                }
+              }
+              org.junit.jupiter.api.Assertions.assertTrue(jsonContentType);
+              byte[] body = input.readNBytes(contentLength);
+              org.junit.jupiter.api.Assertions.assertEquals(
+                  "{\"message\":\"你好\"}", new String(body, StandardCharsets.UTF_8));
+              byte[] response = "{\"message\":\"pong\"}".getBytes(StandardCharsets.UTF_8);
+              socket
+                  .getOutputStream()
+                  .write(
+                      ("HTTP/1.1 200 OK\r\n"
+                              + "Content-Length: "
+                              + response.length
+                              + "\r\nContent-Type: application/json\r\n"
+                              + "Connection: close\r\n\r\n")
+                          .getBytes(StandardCharsets.US_ASCII));
+              socket.getOutputStream().write(response);
+            } catch (java.io.IOException failure) {
+              throw new java.io.UncheckedIOException(failure);
+            }
+          });
 
       assertOutput(
           JdkSystemPlatform.standard(),
@@ -118,31 +116,29 @@ final class HttpClientTest {
     try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
       Future<?> exchange =
-          executor.submit(
-              () -> {
-                try (var socket = server.accept()) {
-                  BufferedReader input =
-                      new BufferedReader(
-                          new InputStreamReader(
-                              socket.getInputStream(), StandardCharsets.US_ASCII));
-                  org.junit.jupiter.api.Assertions.assertEquals(
-                      "GET /health HTTP/1.1", input.readLine());
-                  for (String line = input.readLine(); line != null && !line.isEmpty(); ) {
-                    line = input.readLine();
-                  }
-                  socket
-                      .getOutputStream()
-                      .write(
-                          ("HTTP/1.1 202 Accepted\r\n"
-                                  + "Content-Length: 4\r\n"
-                                  + "Content-Type: text/plain; charset=utf-8\r\n"
-                                  + "Connection: close\r\n\r\n"
-                                  + "pong")
-                              .getBytes(StandardCharsets.US_ASCII));
-                } catch (java.io.IOException failure) {
-                  throw new java.io.UncheckedIOException(failure);
-                }
-              });
+          executor.submit(() -> {
+            try (var socket = server.accept()) {
+              BufferedReader input =
+                  new BufferedReader(
+                      new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
+              org.junit.jupiter.api.Assertions.assertEquals(
+                  "GET /health HTTP/1.1", input.readLine());
+              for (String line = input.readLine(); line != null && !line.isEmpty(); ) {
+                line = input.readLine();
+              }
+              socket
+                  .getOutputStream()
+                  .write(
+                      ("HTTP/1.1 202 Accepted\r\n"
+                              + "Content-Length: 4\r\n"
+                              + "Content-Type: text/plain; charset=utf-8\r\n"
+                              + "Connection: close\r\n\r\n"
+                              + "pong")
+                          .getBytes(StandardCharsets.US_ASCII));
+            } catch (java.io.IOException failure) {
+              throw new java.io.UncheckedIOException(failure);
+            }
+          });
 
       assertOutput(
           JdkSystemPlatform.standard(),

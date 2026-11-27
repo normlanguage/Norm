@@ -53,17 +53,17 @@ final class OpenAiAgentTest {
             String data =
                 round < 2
                     ? """
-          data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"install","function":{"name":"install","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
+                    data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"install","function":{"name":"install","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
 
-          data: [DONE]
+                    data: [DONE]
 
-          """
+                    """
                     : """
-          data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":"stop"}]}
+                    data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":"stop"}]}
 
-          data: [DONE]
+                    data: [DONE]
 
-          """;
+                    """;
             exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
           } catch (Throwable error) {
             failure.compareAndSet(null, error);
@@ -81,34 +81,34 @@ final class OpenAiAgentTest {
       Files.writeString(
           entry,
           """
-        package app
-        import agent.Agent
-        import openai.Tool
-        class Unsupported {}
-        class Catalog {
-          Integer stage = 0
-          @Tool(description: "Install")
-          Integer install() { stage = stage + 1 return stage }
-          %s
-          Integer invalid(%s) { return 0 }
-          @Tool(description: "Added")
-          Integer added() { return stage }
-          List<Function<?>> tools() {
-            if stage == 0 { return [this.install] }
-            if stage == 1 { return [this.invalid] }
-            return [this.added]
+          package app
+          import agent.Agent
+          import openai.Tool
+          class Unsupported {}
+          class Catalog {
+            Integer stage = 0
+            @Tool(description: "Install")
+            Integer install() { stage = stage + 1 return stage }
+            %s
+            Integer invalid(%s) { return 0 }
+            @Tool(description: "Added")
+            Integer added() { return stage }
+            List<Function<?>> tools() {
+              if stage == 0 { return [this.install] }
+              if stage == 1 { return [this.invalid] }
+              return [this.added]
+            }
           }
-        }
-        Void main() {
-          var catalog = Catalog()
-          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
-            headers: ["x-opencode-session", "agent-session", "User-Agent", "norm-test/1.0"],
-            toolProvider: catalog.tools)
-          agent.chat("install and repair")
-          require(condition: catalog.stage == 2, message: "accepted catalog remains callable")
-          printLine("done")
-        }
-        """
+          Void main() {
+            var catalog = Catalog()
+            var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+              headers: ["x-opencode-session", "agent-session", "User-Agent", "norm-test/1.0"],
+              toolProvider: catalog.tools)
+            agent.chat("install and repair")
+            require(condition: catalog.stage == 2, message: "accepted catalog remains callable")
+            printLine("done")
+          }
+          """
               .formatted(
                   scenario.equals("schema") ? "@Tool(description: \"Unsupported schema\")" : "",
                   scenario.equals("schema") ? "Unsupported value" : "",
@@ -217,11 +217,11 @@ final class OpenAiAgentTest {
               .getResponseBody()
               .write(
                   """
-        data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"noop","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
+                  data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"noop","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
 
-        data: [DONE]
+                  data: [DONE]
 
-        """
+                  """
                       .getBytes(StandardCharsets.UTF_8));
           exchange.close();
         });
@@ -235,34 +235,34 @@ final class OpenAiAgentTest {
       Files.writeString(
           entry,
           """
-        package app
-        import agent.Agent
-        import openai.Tool
-        import agent.ToolScope
-        import std.core.Exception
-        class Scope implements ToolScope {
-          Boolean closed = false
-          Integer failed = 0
-          public String? complete() { throw Exception(message: "publication failed") }
-          public Void close() { closed = true }
-          ToolScope begin() { return this }
-          @Tool(description: "Do nothing")
-          Void noop() {}
-        }
-        Void main() {
-          var scope = Scope()
-          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
-            tools: [scope.noop], beginToolScope: scope.begin)
-          try {
-            agent.chat("run", onFailed: (Exception error) {
-              require(condition: scope.closed && error.message == "publication failed", message: "close before failure notification")
-              scope.failed = scope.failed + 1
-            })
-          } catch Exception error { require(condition: error.message == "publication failed", message: "original exception") }
-          require(condition: scope.closed && scope.failed == 1, message: "scope cleanup")
-          printLine("done")
-        }
-        """
+          package app
+          import agent.Agent
+          import openai.Tool
+          import agent.ToolScope
+          import std.core.Exception
+          class Scope implements ToolScope {
+            Boolean closed = false
+            Integer failed = 0
+            public String? complete() { throw Exception(message: "publication failed") }
+            public Void close() { closed = true }
+            ToolScope begin() { return this }
+            @Tool(description: "Do nothing")
+            Void noop() {}
+          }
+          Void main() {
+            var scope = Scope()
+            var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+              tools: [scope.noop], beginToolScope: scope.begin)
+            try {
+              agent.chat("run", onFailed: (Exception error) {
+                require(condition: scope.closed && error.message == "publication failed", message: "close before failure notification")
+                scope.failed = scope.failed + 1
+              })
+            } catch Exception error { require(condition: error.message == "publication failed", message: "original exception") }
+            require(condition: scope.closed && scope.failed == 1, message: "scope cleanup")
+            printLine("done")
+          }
+          """
               .formatted(server.getAddress().getPort()));
       assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
     } finally {
@@ -323,21 +323,21 @@ final class OpenAiAgentTest {
             String data =
                 round == 0
                     ? """
-          data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"install","arguments":"{}"}},{"index":1,"id":"two","function":{"name":"install","arguments":"{}"}}]},"finish_reason":null}]}
+                    data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"one","function":{"name":"install","arguments":"{}"}},{"index":1,"id":"two","function":{"name":"install","arguments":"{}"}}]},"finish_reason":null}]}
 
-          data: {"id":"r1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+                    data: {"id":"r1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
 
-          data: [DONE]
+                    data: [DONE]
 
-          """
+                    """
                     : """
-          data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":null}]}
+                    data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":null}]}
 
-          data: {"id":"r2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+                    data: {"id":"r2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
-          data: [DONE]
+                    data: [DONE]
 
-          """;
+                    """;
             exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
           } catch (Throwable error) {
             failure.set(error);
@@ -355,40 +355,40 @@ final class OpenAiAgentTest {
       Files.writeString(
           entry,
           """
-        package app
-        import agent.Agent
-        import agent.AgentSession
-        import openai.Tool
-        import agent.ToolScope
-        class Catalog {
-          Integer count = 0
-          Integer scopes = 0
-          Integer completed = 0
-          Integer closed = 0
-          @Tool(description: "Install a tool")
-          Integer install() { count = count + 1 return count }
-          @Tool(description: "Added tool")
-          Integer added() { return count }
-          List<Function<?>> tools() { return if count == 0 { [this.install] } else { [this.added] } }
-          ToolScope begin() { scopes = scopes + 1 return Scope(catalog: this) }
-        }
-        class Scope implements ToolScope {
-          Catalog catalog
-          public String? complete() { catalog.completed = catalog.completed + 1 return "published" }
-          public Void close() { catalog.closed = catalog.closed + 1 }
-        }
-        Void main() {
-          var catalog = Catalog()
-          var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
-            toolProvider: catalog.tools, beginToolScope: catalog.begin)
-          var session = AgentSession()
-          agent.chat("install", session: session)
-          require(condition: catalog.count == 2, message: "response tool snapshot")
-          agent.chat("continue", session: session)
-          require(condition: catalog.scopes == 1 && catalog.completed == 1 && catalog.closed == 1, message: "whole response scope")
-          printLine("done")
-        }
-        """
+          package app
+          import agent.Agent
+          import agent.AgentSession
+          import openai.Tool
+          import agent.ToolScope
+          class Catalog {
+            Integer count = 0
+            Integer scopes = 0
+            Integer completed = 0
+            Integer closed = 0
+            @Tool(description: "Install a tool")
+            Integer install() { count = count + 1 return count }
+            @Tool(description: "Added tool")
+            Integer added() { return count }
+            List<Function<?>> tools() { return if count == 0 { [this.install] } else { [this.added] } }
+            ToolScope begin() { scopes = scopes + 1 return Scope(catalog: this) }
+          }
+          class Scope implements ToolScope {
+            Catalog catalog
+            public String? complete() { catalog.completed = catalog.completed + 1 return "published" }
+            public Void close() { catalog.closed = catalog.closed + 1 }
+          }
+          Void main() {
+            var catalog = Catalog()
+            var agent = Agent(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions",
+              toolProvider: catalog.tools, beginToolScope: catalog.begin)
+            var session = AgentSession()
+            agent.chat("install", session: session)
+            require(condition: catalog.count == 2, message: "response tool snapshot")
+            agent.chat("continue", session: session)
+            require(condition: catalog.scopes == 1 && catalog.completed == 1 && catalog.closed == 1, message: "whole response scope")
+            printLine("done")
+          }
+          """
               .formatted(server.getAddress().getPort()));
       assertEquals("done\n", NormTestKit.run(entry).replace("\r\n", "\n"));
       if (failure.get() != null) throw new AssertionError(failure.get());
@@ -416,11 +416,11 @@ final class OpenAiAgentTest {
               http
                   ? "{\"error\":{\"code\":\"AUTH\",\"message\":\"denied\"}}"
                   : """
-            data: {"type":"response.created","response":{"id":"one"}}
+                  data: {"type":"response.created","response":{"id":"one"}}
 
-            data: {"type":"response.output_text.delta","delta":"hello"}
+                  data: {"type":"response.output_text.delta","delta":"hello"}
 
-            """;
+                  """;
           exchange.getResponseBody().write(body.getBytes(StandardCharsets.UTF_8));
           exchange.close();
         });
@@ -531,21 +531,21 @@ final class OpenAiAgentTest {
             String data =
                 round % 2 == 0
                     ? """
-              data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call1","function":{"name":"add","arguments":"{\\\"amount\\\":3}"}}]},"finish_reason":null}]}
+                    data: {"id":"r1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call1","function":{"name":"add","arguments":"{\\\"amount\\\":3}"}}]},"finish_reason":null}]}
 
-              data: {"id":"r1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+                    data: {"id":"r1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
 
-              data: [DONE]
+                    data: [DONE]
 
-              """
+                    """
                     : """
-              data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":null}]}
+                    data: {"id":"r2","choices":[{"index":0,"delta":{"role":"assistant","content":"done"},"finish_reason":null}]}
 
-              data: {"id":"r2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+                    data: {"id":"r2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
-              data: [DONE]
+                    data: [DONE]
 
-              """;
+                    """;
             exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
           } catch (Throwable error) {
             failure.set(error);

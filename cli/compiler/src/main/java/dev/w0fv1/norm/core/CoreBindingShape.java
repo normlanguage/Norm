@@ -46,20 +46,18 @@ public sealed interface CoreBindingShape {
               mapTypeParameters(aggregate.typeParameters(), types),
               aggregate.parentType().map(type -> CoreTypes.mapLinks(type, types)),
               aggregate.fields().stream()
-                  .map(
-                      field ->
-                          new Field(
-                              field.name(),
-                              field.visibility(),
-                              CoreTypes.mapLinks(field.type(), types)))
+                  .map(field ->
+                      new Field(
+                          field.name(),
+                          field.visibility(),
+                          CoreTypes.mapLinks(field.type(), types)))
                   .toList(),
               aggregate.constructors().stream()
-                  .map(
-                      constructor ->
-                          new Constructor(
-                              constructor.parameters().stream()
-                                  .map(parameter -> parameter.mapLinks(types, defaults))
-                                  .toList()))
+                  .map(constructor ->
+                      new Constructor(
+                          constructor.parameters().stream()
+                              .map(parameter -> parameter.mapLinks(types, defaults))
+                              .toList()))
                   .toList(),
               aggregate.conformances().stream()
                   .map(type -> CoreTypes.mapLinks(type, types))
@@ -68,13 +66,12 @@ public sealed interface CoreBindingShape {
           new Enum(
               mapTypeParameters(enumeration.typeParameters(), types),
               enumeration.variants().stream()
-                  .map(
-                      variant ->
-                          new Variant(
-                              variant.name(),
-                              variant.fields().stream()
-                                  .map(parameter -> parameter.mapLinks(types, defaults))
-                                  .toList()))
+                  .map(variant ->
+                      new Variant(
+                          variant.name(),
+                          variant.fields().stream()
+                              .map(parameter -> parameter.mapLinks(types, defaults))
+                              .toList()))
                   .toList());
       case Interface contract ->
           new Interface(
@@ -89,12 +86,11 @@ public sealed interface CoreBindingShape {
       List<CoreTypeParameter> parameters,
       java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> types) {
     return parameters.stream()
-        .map(
-            parameter ->
-                new CoreTypeParameter(
-                    parameter.index(),
-                    parameter.upperBound().map(type -> CoreTypes.mapLinks(type, types)),
-                    parameter.defaultType().map(type -> CoreTypes.mapLinks(type, types))))
+        .map(parameter ->
+            new CoreTypeParameter(
+                parameter.index(),
+                parameter.upperBound().map(type -> CoreTypes.mapLinks(type, types)),
+                parameter.defaultType().map(type -> CoreTypes.mapLinks(type, types))))
         .toList();
   }
 

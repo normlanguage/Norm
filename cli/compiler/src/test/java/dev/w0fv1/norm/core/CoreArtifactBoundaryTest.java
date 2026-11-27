@@ -48,16 +48,15 @@ final class CoreArtifactBoundaryTest {
         compile("value Point { Integer x } Void main() { Point point = Point(x: 1) }");
     List<CoreDefinitionOccurrence> occurrences =
         compilation.authoring().occurrences().stream()
-            .map(
-                occurrence ->
-                    occurrence.role() == CoreDefinitionRole.CONSTRUCTOR
-                        ? new CoreDefinitionOccurrence(
-                            occurrence.id(),
-                            occurrence.representedDefinitions(),
-                            CoreDefinitionRole.METHOD,
-                            occurrence.origin(),
-                            occurrence.references())
-                        : occurrence)
+            .map(occurrence ->
+                occurrence.role() == CoreDefinitionRole.CONSTRUCTOR
+                    ? new CoreDefinitionOccurrence(
+                        occurrence.id(),
+                        occurrence.representedDefinitions(),
+                        CoreDefinitionRole.METHOD,
+                        occurrence.origin(),
+                        occurrence.references())
+                    : occurrence)
             .toList();
 
     assertThrows(
@@ -85,16 +84,15 @@ final class CoreArtifactBoundaryTest {
     assertRoleRejected(compilation, "value", CoreDefinitionRole.LAMBDA);
     List<CoreDefinitionOccurrence> occurrences =
         compilation.authoring().occurrences().stream()
-            .map(
-                occurrence ->
-                    occurrence.id().equals(compilation.entryPoint())
-                        ? new CoreDefinitionOccurrence(
-                            occurrence.id(),
-                            occurrence.representedDefinitions(),
-                            CoreDefinitionRole.LAMBDA,
-                            occurrence.origin(),
-                            occurrence.references())
-                        : occurrence)
+            .map(occurrence ->
+                occurrence.id().equals(compilation.entryPoint())
+                    ? new CoreDefinitionOccurrence(
+                        occurrence.id(),
+                        occurrence.representedDefinitions(),
+                        CoreDefinitionRole.LAMBDA,
+                        occurrence.origin(),
+                        occurrence.references())
+                    : occurrence)
             .toList();
 
     assertThrows(
@@ -278,16 +276,15 @@ final class CoreArtifactBoundaryTest {
     DefinitionOccurrenceId target = binding(compilation, name).occurrence();
     List<CoreDefinitionOccurrence> occurrences =
         compilation.authoring().occurrences().stream()
-            .map(
-                occurrence ->
-                    occurrence.id().equals(target)
-                        ? new CoreDefinitionOccurrence(
-                            occurrence.id(),
-                            occurrence.representedDefinitions(),
-                            role,
-                            occurrence.origin(),
-                            occurrence.references())
-                        : occurrence)
+            .map(occurrence ->
+                occurrence.id().equals(target)
+                    ? new CoreDefinitionOccurrence(
+                        occurrence.id(),
+                        occurrence.representedDefinitions(),
+                        role,
+                        occurrence.origin(),
+                        occurrence.references())
+                    : occurrence)
             .toList();
 
     assertThrows(

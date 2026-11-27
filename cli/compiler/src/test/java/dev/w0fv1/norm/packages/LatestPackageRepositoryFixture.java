@@ -23,8 +23,8 @@ public final class LatestPackageRepositoryFixture implements AutoCloseable {
         exchange -> {
           byte[] body =
               """
-          {"formatVersion":1,"packages":[{"name":"sample.library","owner":"normlanguage","repository":"sample-library"}]}
-          """
+              {"formatVersion":1,"packages":[{"name":"sample.library","owner":"normlanguage","repository":"sample-library"}]}
+              """
                   .getBytes(StandardCharsets.UTF_8);
           exchange.sendResponseHeaders(200, body.length);
           try (var output = exchange.getResponseBody()) {

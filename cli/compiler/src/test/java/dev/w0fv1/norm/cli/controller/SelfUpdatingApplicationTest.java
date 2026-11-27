@@ -86,53 +86,53 @@ final class SelfUpdatingApplicationTest {
     String original =
         imports
             + """
-        Void main() {
-          printLine("boot")
-          var count = 0
-          for (arguments().isEmpty() && count < 300) {
-        """
+            Void main() {
+              printLine("boot")
+              var count = 0
+              for (arguments().isEmpty() && count < 300) {
+            """
             + publish
             + """
-            printLine("old:" + count.toString())
-            count = count + 1
-            delay(duration(seconds: 0, nanoseconds: 100000000))
-          }
-        }
-        """;
+                printLine("old:" + count.toString())
+                count = count + 1
+                delay(duration(seconds: 0, nanoseconds: 100000000))
+              }
+            }
+            """;
     String updated =
         imports
             + "import agent.helperValue\n"
             + """
-        interface AgentValue<T> { T get() }
-        class AgentBox<T> implements AgentValue<T> {
-          T value
-          AgentBox(T value) { this.value = value }
-          T get() { value }
-        }
-        interface AgentCounter { Integer current() }
-        class AgentState implements AgentCounter {
-          Integer count
-          Integer current() { count }
-        }
-        Integer addedFunction() { %s }
-        Void main() {
-          printLine("boot")
-          var count = 0
-          for (arguments().isEmpty() && count < 300) {
-        """
+            interface AgentValue<T> { T get() }
+            class AgentBox<T> implements AgentValue<T> {
+              T value
+              AgentBox(T value) { this.value = value }
+              T get() { value }
+            }
+            interface AgentCounter { Integer current() }
+            class AgentState implements AgentCounter {
+              Integer count
+              Integer current() { count }
+            }
+            Integer addedFunction() { %s }
+            Void main() {
+              printLine("boot")
+              var count = 0
+              for (arguments().isEmpty() && count < 300) {
+            """
                 .formatted(
                     addDependency ? "agentDependencyValue() + helperValue() - 42" : "helperValue()")
             + publish
             + """
-            AgentCounter state = AgentState(count: count)
-            AgentValue<Integer> box = AgentBox<Integer>(addedFunction())
-            printLine("new:" + state.current().toString() + ":" + box.get().toString())
-            if (count >= 4) { break }
-            count = count + 1
-            delay(duration(seconds: 0, nanoseconds: 100000000))
-          }
-        }
-        """;
+                AgentCounter state = AgentState(count: count)
+                AgentValue<Integer> box = AgentBox<Integer>(addedFunction())
+                printLine("new:" + state.current().toString() + ":" + box.get().toString())
+                if (count >= 4) { break }
+                count = count + 1
+                delay(duration(seconds: 0, nanoseconds: 100000000))
+              }
+            }
+            """;
     Files.writeString(entry, original);
     Files.writeString(directory.resolve("next-source.txt"), updated);
     Path output = directory.resolve("stdout.txt");

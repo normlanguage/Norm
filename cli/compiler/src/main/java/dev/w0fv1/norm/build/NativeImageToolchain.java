@@ -18,10 +18,9 @@ public record NativeImageToolchain(Path executable) {
 
   public static NativeImageToolchain discover() throws IOException {
     return existing()
-        .orElseThrow(
-            () ->
-                new IOException(
-                    "Native Image toolchain is unavailable; run 'norm setup' or set NORM_NATIVE_IMAGE"));
+        .orElseThrow(() ->
+            new IOException(
+                "Native Image toolchain is unavailable; run 'norm setup' or set NORM_NATIVE_IMAGE"));
   }
 
   public static NativeImageToolchain ensureAvailable(Consumer<String> output) throws IOException {

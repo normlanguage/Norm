@@ -37,46 +37,44 @@ public record SemanticContribution(
   public SemanticContribution rebase(TokenSpanMapping mapping) {
     var previousRoot = mapping.previousRoot();
     var rebasedSymbols = new LinkedHashMap<SymbolId, Symbol>();
-    symbols.forEach(
-        (id, symbol) -> {
-          var location = symbol.declaration();
-          if (location.isPresent()
-              && location.orElseThrow().document().equals(previousRoot.source().id())
-              && location.orElseThrow().startOffset() >= previousRoot.startOffset()
-              && location.orElseThrow().endOffset() <= previousRoot.endOffset()) {
-            symbol =
-                new Symbol(
-                    symbol.id(),
-                    symbol.name(),
-                    symbol.kind(),
-                    symbol.type(),
-                    java.util.Optional.of(mapping.rebase(location.orElseThrow())),
-                    symbol.owner(),
-                    symbol.typeParameters(),
-                    symbol.parameters(),
-                    symbol.documentation(),
-                    symbol.accessor());
-          }
-          rebasedSymbols.put(id, symbol);
-        });
+    symbols.forEach((id, symbol) -> {
+      var location = symbol.declaration();
+      if (location.isPresent()
+          && location.orElseThrow().document().equals(previousRoot.source().id())
+          && location.orElseThrow().startOffset() >= previousRoot.startOffset()
+          && location.orElseThrow().endOffset() <= previousRoot.endOffset()) {
+        symbol =
+            new Symbol(
+                symbol.id(),
+                symbol.name(),
+                symbol.kind(),
+                symbol.type(),
+                java.util.Optional.of(mapping.rebase(location.orElseThrow())),
+                symbol.owner(),
+                symbol.typeParameters(),
+                symbol.parameters(),
+                symbol.documentation(),
+                symbol.accessor());
+      }
+      rebasedSymbols.put(id, symbol);
+    });
     var calls = new LinkedHashMap<SourceSpan, ResolvedCall>();
-    resolvedCalls.forEach(
-        (span, call) ->
-            calls.put(
-                mapping.rebase(span),
-                new ResolvedCall(
-                    call.kind(),
-                    call.target(),
-                    mapping.rebase(call.calleeSpan()),
-                    new ArgumentBinding(
-                        call.arguments().parameterIndices(),
-                        call.arguments().labels().entrySet().stream()
-                            .collect(
-                                java.util.stream.Collectors.toMap(
-                                    entry -> mapping.rebase(entry.getKey()), Map.Entry::getValue))),
-                    call.parameters(),
-                    call.callableTypeArguments(),
-                    call.resultType())));
+    resolvedCalls.forEach((span, call) ->
+        calls.put(
+            mapping.rebase(span),
+            new ResolvedCall(
+                call.kind(),
+                call.target(),
+                mapping.rebase(call.calleeSpan()),
+                new ArgumentBinding(
+                    call.arguments().parameterIndices(),
+                    call.arguments().labels().entrySet().stream()
+                        .collect(
+                            java.util.stream.Collectors.toMap(
+                                entry -> mapping.rebase(entry.getKey()), Map.Entry::getValue))),
+                call.parameters(),
+                call.callableTypeArguments(),
+                call.resultType())));
     return new SemanticContribution(
         rebasedSymbols,
         rebase(bindings, mapping),
@@ -90,9 +88,8 @@ public record SemanticContribution(
         rebase(iterations, mapping),
         rebase(indexes, mapping),
         scopes.stream()
-            .map(
-                scope ->
-                    new SemanticScope(mapping.rebase(scope.span()), scope.depth(), scope.symbols()))
+            .map(scope ->
+                new SemanticScope(mapping.rebase(scope.span()), scope.depth(), scope.symbols()))
             .toList());
   }
 

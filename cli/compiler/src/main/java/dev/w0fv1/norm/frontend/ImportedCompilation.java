@@ -42,9 +42,8 @@ record ImportedCompilation(
     var declarationDocuments = declarations.sourceDocuments();
     documents.stream()
         .filter(document -> declarationDocuments.contains(document.source().id()))
-        .forEach(
-            document ->
-                currentSources.put(scope.coordinate(document.source().id()), document.source()));
+        .forEach(document ->
+            currentSources.put(scope.coordinate(document.source().id()), document.source()));
     var contracts = declarations.moduleContracts(scope, scope.modules().modules());
     var contributions = new LinkedHashMap<SourceSpan, SemanticContribution>();
     var mappings = new LinkedHashMap<SourceSpan, TokenSpanMapping>();
@@ -98,47 +97,44 @@ record ImportedCompilation(
       var relocated = new LinkedHashMap<DocumentId, TokenSpanMapping>();
       content
           .sources()
-          .forEach(
-              (coordinate, source) -> {
-                var mapping = TokenSpanMapping.relocate(source, currentSources.get(coordinate));
-                relocated.put(source.id(), mapping);
-              });
+          .forEach((coordinate, source) -> {
+            var mapping = TokenSpanMapping.relocate(source, currentSources.get(coordinate));
+            relocated.put(source.id(), mapping);
+          });
       content
           .contributions()
-          .forEach(
-              (span, contribution) -> {
-                var mapping = relocated.get(span.source().id());
-                contributions.put(mapping.rebase(span), contribution.rebase(mapping));
-                mappings.put(span, mapping);
-              });
+          .forEach((span, contribution) -> {
+            var mapping = relocated.get(span.source().id());
+            contributions.put(mapping.rebase(span), contribution.rebase(mapping));
+            mappings.put(span, mapping);
+          });
       content
           .definitions()
-          .forEach(
-              (key, definition) -> {
-                var mapping = relocated.get(definition.origin().rootSpan().source().id());
-                var nodes = new LinkedHashMap<Integer, SourceSpan>();
-                definition
-                    .origin()
-                    .nodeSpans()
-                    .forEach((node, span) -> nodes.put(node, mapping.rebase(span)));
-                var origin =
-                    new CoreDefinitionOrigin(
-                        definition.origin().definitionName(),
-                        mapping.rebase(definition.origin().rootSpan()),
-                        nodes,
-                        definition.origin().declarationIdentity(),
-                        definition.origin().localNames());
-                if (definitions.putIfAbsent(
-                        key,
-                        new CompiledModule.Definition(
-                            definition.unit(),
-                            origin,
-                            definition.references(),
-                            definition.binding(),
-                            definition.role()))
-                    != null)
-                  throw new IllegalArgumentException("duplicate imported Core declaration: " + key);
-              });
+          .forEach((key, definition) -> {
+            var mapping = relocated.get(definition.origin().rootSpan().source().id());
+            var nodes = new LinkedHashMap<Integer, SourceSpan>();
+            definition
+                .origin()
+                .nodeSpans()
+                .forEach((node, span) -> nodes.put(node, mapping.rebase(span)));
+            var origin =
+                new CoreDefinitionOrigin(
+                    definition.origin().definitionName(),
+                    mapping.rebase(definition.origin().rootSpan()),
+                    nodes,
+                    definition.origin().declarationIdentity(),
+                    definition.origin().localNames());
+            if (definitions.putIfAbsent(
+                    key,
+                    new CompiledModule.Definition(
+                        definition.unit(),
+                        origin,
+                        definition.references(),
+                        definition.binding(),
+                        definition.role()))
+                != null)
+              throw new IllegalArgumentException("duplicate imported Core declaration: " + key);
+          });
       locals.putAll(content.callableLocals());
     }
     return new ImportedCompilation(contributions, mappings, definitions, locals);

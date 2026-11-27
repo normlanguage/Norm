@@ -80,45 +80,45 @@ final class JavaOpaqueTransportIntegrationTest {
         Files.writeString(
             root.resolve("Main.norm"),
             """
-        package sample
-        import java.base.util.linkedHashMapNew
-        enum Tone { Primary, Muted }
-        class Reflected {}
-        class Payload {
-          public Integer code = 7
-          Payload() {}
-        }
-        Void main() {
-          %s
-          var tones = linkedHashMapNew<String, Tone>()
-          tones.put(arg0: "tone", arg1: Tone.Primary)
-          require(condition: tones.get(arg0: "tone") == Tone.Primary,
-            message: "Java map replaced the native enum")
-          require(condition: transportApiObject(Tone.Primary) == Tone.Primary,
-            message: "Java Object transport replaced the native enum")
-          var tokens = linkedHashMapNew<String, Class<Reflected>>()
-          tokens.put(arg0: "type", arg1: Reflected.class)
-          require(condition: tokens.get(arg0: "type") == Reflected.class,
-            message: "Java map replaced the class token")
-          require(condition: transportApiObject(Reflected.class) == Reflected.class,
-            message: "Java Object transport replaced the class token")
-          var payload = Payload()
-          var map = linkedHashMapNew<String, Payload>()
-          map.put(arg0: "key", arg1: payload)
-          var mapped = map.get(arg0: "key")!!
-          require(condition: mapped == payload, message: "Java map replaced the Norm object")
-          printLine(mapped.code)
-          require(condition: transportApiObject(payload) == payload,
-            message: "Java Object transport replaced the Norm object")
-          Function<Payload?(Payload?)> identity = (value) {
-            require(condition: value == payload, message: "Java callback replaced its argument")
-            return value
-          }
-          var returned = transportApiCallback<Payload>(arg0: payload, arg1: identity)!!
-          require(condition: returned == payload, message: "Java callback replaced its result")
-          printLine(returned.code)
-        }
-        """
+            package sample
+            import java.base.util.linkedHashMapNew
+            enum Tone { Primary, Muted }
+            class Reflected {}
+            class Payload {
+              public Integer code = 7
+              Payload() {}
+            }
+            Void main() {
+              %s
+              var tones = linkedHashMapNew<String, Tone>()
+              tones.put(arg0: "tone", arg1: Tone.Primary)
+              require(condition: tones.get(arg0: "tone") == Tone.Primary,
+                message: "Java map replaced the native enum")
+              require(condition: transportApiObject(Tone.Primary) == Tone.Primary,
+                message: "Java Object transport replaced the native enum")
+              var tokens = linkedHashMapNew<String, Class<Reflected>>()
+              tokens.put(arg0: "type", arg1: Reflected.class)
+              require(condition: tokens.get(arg0: "type") == Reflected.class,
+                message: "Java map replaced the class token")
+              require(condition: transportApiObject(Reflected.class) == Reflected.class,
+                message: "Java Object transport replaced the class token")
+              var payload = Payload()
+              var map = linkedHashMapNew<String, Payload>()
+              map.put(arg0: "key", arg1: payload)
+              var mapped = map.get(arg0: "key")!!
+              require(condition: mapped == payload, message: "Java map replaced the Norm object")
+              printLine(mapped.code)
+              require(condition: transportApiObject(payload) == payload,
+                message: "Java Object transport replaced the Norm object")
+              Function<Payload?(Payload?)> identity = (value) {
+                require(condition: value == payload, message: "Java callback replaced its argument")
+                return value
+              }
+              var returned = transportApiCallback<Payload>(arg0: payload, arg1: identity)!!
+              require(condition: returned == payload, message: "Java callback replaced its result")
+              printLine(returned.code)
+            }
+            """
                 .formatted(
                     exportedEnum
                         ? "require(condition: transportApiObject(Tone.class) == Tone.class, message: \"Exported enum class token changed\")"

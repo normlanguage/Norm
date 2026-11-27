@@ -44,13 +44,13 @@ final class OpenAiChatStreamTest {
               };
           String data =
               """
-        data: {"id":"one","choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":%s}]}
+              data: {"id":"one","choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":%s}]}
 
-        data: {"id":"one","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":"stop"}]}
+              data: {"id":"one","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":"stop"}]}
 
-        data: [DONE]
+              data: [DONE]
 
-        """
+              """
                   .formatted(finish);
           exchange.getResponseBody().write(data.getBytes(StandardCharsets.UTF_8));
           exchange.close();
@@ -65,15 +65,15 @@ final class OpenAiChatStreamTest {
       Files.writeString(
           entry,
           """
-        package app
-        import openai.Client
-        import openai.OpenAiException
-        Void main() {
-          var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
-          try { printLine(client.generate(input: "hello").text) }
-          catch OpenAiException error { printLine(error.code) }
-        }
-        """
+          package app
+          import openai.Client
+          import openai.OpenAiException
+          Void main() {
+            var client = Client(apiKey: "test", model: "model", endpoint: "http://127.0.0.1:%d/v1/chat/completions")
+            try { printLine(client.generate(input: "hello").text) }
+            catch OpenAiException error { printLine(error.code) }
+          }
+          """
               .formatted(server.getAddress().getPort()));
       assertEquals(
           (scenario.equals("after_stop") ? "OPENAI-PROTOCOL" : "hello world") + "\n",

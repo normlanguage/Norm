@@ -171,13 +171,10 @@ final class BundledJarGraphsTest {
         var executor = java.util.concurrent.Executors.newFixedThreadPool(4)) {
       var readers =
           java.util.stream.IntStream.range(0, 4)
-              .mapToObj(
-                  index ->
-                      executor.submit(
-                          () ->
-                              BundledJarGraphs.readArchive(
-                                      archive, temporaryDirectory.resolve("cache"))
-                                  .orElseThrow()))
+              .mapToObj(index ->
+                  executor.submit(() ->
+                      BundledJarGraphs.readArchive(archive, temporaryDirectory.resolve("cache"))
+                          .orElseThrow()))
               .toList();
       for (var reader : readers)
         assertEquals(cachedJar, reader.get().get(binding.graph().contentId()).root().file());

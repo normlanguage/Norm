@@ -16,90 +16,90 @@ final class ConfigurationRuntimeTest {
     String output =
         dev.w0fv1.norm.testing.NormTestKit.run(
             """
-                import java.base.util.JavaMap
-                import std.configuration.ConfigurationKey
-                import std.configuration.ConfigurationValue
-                import std.configuration.configurationProperties
-                import std.serialization.Serializable
+            import java.base.util.JavaMap
+            import std.configuration.ConfigurationKey
+            import std.configuration.ConfigurationValue
+            import std.configuration.configurationProperties
+            import std.serialization.Serializable
 
-                @Serializable()
-                value Server { String host Integer port }
+            @Serializable()
+            value Server { String host Integer port }
 
-                @Serializable()
-                value StaticResource {
-                  @ConfigurationKey()
-                  String name
-                  String mapping
-                  List<String> paths
-                }
+            @Serializable()
+            value StaticResource {
+              @ConfigurationKey()
+              String name
+              String mapping
+              List<String> paths
+            }
 
-                @Serializable()
-                value Router { List<StaticResource> staticResources }
+            @Serializable()
+            value Router { List<StaticResource> staticResources }
 
-                @Serializable()
-                value SecurityAccess {
-                  @ConfigurationValue()
-                  String expression
-                }
+            @Serializable()
+            value SecurityAccess {
+              @ConfigurationValue()
+              String expression
+            }
 
-                @Serializable()
-                value SecurityRule { String pattern List<SecurityAccess> access }
+            @Serializable()
+            value SecurityRule { String pattern List<SecurityAccess> access }
 
-                @Serializable()
-                value Security {
-                  List<SecurityRule> interceptUrlMap
-                  String? token
-                }
+            @Serializable()
+            value Security {
+              List<SecurityRule> interceptUrlMap
+              String? token
+            }
 
-                @Serializable()
-                value Host { Server server Router router Security security }
+            @Serializable()
+            value Host { Server server Router router Security security }
 
-                @Serializable()
-                value Config { Host sample }
+            @Serializable()
+            value Config { Host sample }
 
-                Void main() {
-                  JavaMap<String, Any> properties = configurationProperties(value: Config(
-                    sample: Host(
-                      server: Server(host: "127.0.0.1", port: 8080),
-                      router: Router(staticResources: [
-                        StaticResource(
-                          name: "bbs",
-                          mapping: "/**",
-                          paths: ["classpath:public", "file:public"]
-                        )
-                      ]),
-                      security: Security(
-                        interceptUrlMap: [
-                          SecurityRule(
-                            pattern: "/**",
-                            access: [SecurityAccess(expression: "isAnonymous()")]
-                          )
-                        ],
-                        token: null
-                      )
+            Void main() {
+              JavaMap<String, Any> properties = configurationProperties(value: Config(
+                sample: Host(
+                  server: Server(host: "127.0.0.1", port: 8080),
+                  router: Router(staticResources: [
+                    StaticResource(
+                      name: "bbs",
+                      mapping: "/**",
+                      paths: ["classpath:public", "file:public"]
                     )
-                  ))
-                  printLine(properties.get(arg0: "sample.server.host") ?? "missing")
-                  printLine(properties.get(arg0: "sample.server.port") ?? -1)
-                  printLine(properties.get(
-                    arg0: "sample.router.static-resources.bbs.mapping"
-                  ) ?? "missing")
-                  printLine(properties.get(
-                    arg0: "sample.router.static-resources.bbs.paths[0]"
-                  ) ?? "missing")
-                  printLine(properties.get(
-                    arg0: "sample.router.static-resources.bbs.paths[1]"
-                  ) ?? "missing")
-                  printLine(properties.get(
-                    arg0: "sample.security.intercept-url-map[0].pattern"
-                  ) ?? "missing")
-                  printLine(properties.get(
-                    arg0: "sample.security.intercept-url-map[0].access[0]"
-                  ) ?? "missing")
-                  printLine(properties.containsKey(arg0: "sample.security.token"))
-                  printLine(properties.size())
-                }
-                """);
+                  ]),
+                  security: Security(
+                    interceptUrlMap: [
+                      SecurityRule(
+                        pattern: "/**",
+                        access: [SecurityAccess(expression: "isAnonymous()")]
+                      )
+                    ],
+                    token: null
+                  )
+                )
+              ))
+              printLine(properties.get(arg0: "sample.server.host") ?? "missing")
+              printLine(properties.get(arg0: "sample.server.port") ?? -1)
+              printLine(properties.get(
+                arg0: "sample.router.static-resources.bbs.mapping"
+              ) ?? "missing")
+              printLine(properties.get(
+                arg0: "sample.router.static-resources.bbs.paths[0]"
+              ) ?? "missing")
+              printLine(properties.get(
+                arg0: "sample.router.static-resources.bbs.paths[1]"
+              ) ?? "missing")
+              printLine(properties.get(
+                arg0: "sample.security.intercept-url-map[0].pattern"
+              ) ?? "missing")
+              printLine(properties.get(
+                arg0: "sample.security.intercept-url-map[0].access[0]"
+              ) ?? "missing")
+              printLine(properties.containsKey(arg0: "sample.security.token"))
+              printLine(properties.size())
+            }
+            """);
 
     assertEquals(
         String.join(

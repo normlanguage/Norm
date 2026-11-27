@@ -1,14 +1,5 @@
 package dev.w0fv1.norm.truffle;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonLocation;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamWriteConstraints;
-import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.JsonAbi;
 import dev.w0fv1.norm.core.CoreDefinition;
@@ -18,10 +9,18 @@ import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamWriteConstraints;
+import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.core.exc.StreamConstraintsException;
+import tools.jackson.core.json.JsonFactory;
 
 final class JsonRuntime {
   private static final int MAX_INPUT_BYTES = 8 * 1024 * 1024;
@@ -115,8 +114,8 @@ final class JsonRuntime {
           parsed.column,
           execution,
           location);
-    } catch (IOException failure) {
-      Location parsed = location(failure);
+    } catch (JacksonException failure) {
+      Location parsed = location(failure.getLocation());
       throw jsonFailure(
           "NORM-JSON-SYNTAX",
           failure.getMessage() == null ? "invalid JSON" : failure.getMessage(),
@@ -151,13 +150,12 @@ final class JsonRuntime {
           failure.column,
           execution,
           location);
-    } catch (IOException failure) {
+    } catch (JacksonException failure) {
       throw jsonFailure("NORM-JSON-WRITE", failure.getMessage(), "$", 0, 1, 1, execution, location);
     }
   }
 
-  private static Object readValue(JsonParser reader, TreeType tree, String path, int depth)
-      throws IOException {
+  private static Object readValue(JsonParser reader, TreeType tree, String path, int depth) {
     requireDepth(path, depth);
     if (reader.currentToken() == null) {
       throw new JsonFailure("NORM-JSON-SYNTAX", path, "expected a JSON value");
@@ -170,7 +168,7 @@ final class JsonRuntime {
         int count = 0;
         while (reader.nextToken() != JsonToken.END_OBJECT) {
           requireElements(++count, path);
-          requireToken(reader, JsonToken.FIELD_NAME, path);
+          requireToken(reader, JsonToken.PROPERTY_NAME, path);
           String name = reader.currentName();
           if (RuntimeValues.mapContains(fields, name)) {
             throw new JsonFailure(
@@ -207,8 +205,7 @@ final class JsonRuntime {
   }
 
   private static void writeValue(
-      JsonGenerator writer, TreeType tree, RuntimeValues.EnumValue value, String path, int depth)
-      throws IOException {
+      JsonGenerator writer, TreeType tree, RuntimeValues.EnumValue value, String path, int depth) {
     requireDepth(path, depth);
     if (!value.definition().equals(tree.definition)) {
       throw new JsonFailure("NORM-JSON-TYPE", path, "expected JsonValue");
@@ -223,7 +220,7 @@ final class JsonRuntime {
               || !(entry.getValue() instanceof RuntimeValues.EnumValue child)) {
             throw new JsonFailure("NORM-JSON-TYPE", path, "invalid JsonValue.Object payload");
           }
-          writer.writeFieldName(name);
+          writer.writeName(name);
           writeValue(writer, tree, child, field(path, name), depth + 1);
         }
         writer.writeEndObject();
@@ -273,28 +270,27 @@ final class JsonRuntime {
   private static void validateNumber(String value, String path) {
     try (JsonParser reader = FACTORY.createParser(value)) {
       JsonToken token = reader.nextToken();
-      if (token != JsonToken.VALUE_NUMBER_INT && token != JsonToken.VALUE_NUMBER_FLOAT) {
-        throw new IOException();
-      }
-      if (reader.nextToken() != null) throw new IOException();
-    } catch (IOException failure) {
+      if ((token == JsonToken.VALUE_NUMBER_INT || token == JsonToken.VALUE_NUMBER_FLOAT)
+          && reader.nextToken() == null) return;
+    } catch (JacksonException failure) {
       throw new JsonFailure("NORM-JSON-NUMBER", path, "invalid JSON number");
     }
+    throw new JsonFailure("NORM-JSON-NUMBER", path, "invalid JSON number");
   }
 
-  private static String string(JsonParser reader, String path) throws IOException {
+  private static String string(JsonParser reader, String path) {
     requireToken(reader, JsonToken.VALUE_STRING, path);
-    String value = reader.getText();
+    String value = reader.getString();
     requireString(value, path);
     return value;
   }
 
-  private static String number(JsonParser reader, String path) throws IOException {
+  private static String number(JsonParser reader, String path) {
     JsonToken token = reader.currentToken();
     if (token != JsonToken.VALUE_NUMBER_INT && token != JsonToken.VALUE_NUMBER_FLOAT) {
       throw typeMismatch(path, "number");
     }
-    return reader.getText();
+    return reader.getString();
   }
 
   private static void requireToken(JsonParser reader, JsonToken expected, String path) {
@@ -354,14 +350,7 @@ final class JsonRuntime {
         .jsonException(code, message, path, offset, line, column, execution, location);
   }
 
-  private static Location location(IOException failure) {
-    if (failure instanceof JsonProcessingException processing) {
-      return location(processing.getLocation());
-    }
-    return new Location("$", 0, 1, 1);
-  }
-
-  private static Location location(JsonLocation position) {
+  private static Location location(TokenStreamLocation position) {
     if (position == null) return new Location("$", 0, 1, 1);
     long measured = position.getByteOffset();
     if (measured < 0) measured = position.getCharOffset();

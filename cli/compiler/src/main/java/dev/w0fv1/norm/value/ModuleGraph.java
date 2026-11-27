@@ -12,17 +12,16 @@ public record ModuleGraph(Map<ModuleCoordinate, Set<ModuleCoordinate>> dependenc
     Map<ModuleCoordinate, Set<ModuleCoordinate>> stable = new LinkedHashMap<>();
     Objects.requireNonNull(dependencies, "dependencies").entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
-        .forEach(
-            entry -> {
-              Set<ModuleCoordinate> required =
-                  Objects.requireNonNull(entry.getValue(), "module dependencies").stream()
-                      .map(value -> Objects.requireNonNull(value, "module dependency"))
-                      .sorted()
-                      .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-              stable.put(
-                  Objects.requireNonNull(entry.getKey(), "module"),
-                  java.util.Collections.unmodifiableSet(required));
-            });
+        .forEach(entry -> {
+          Set<ModuleCoordinate> required =
+              Objects.requireNonNull(entry.getValue(), "module dependencies").stream()
+                  .map(value -> Objects.requireNonNull(value, "module dependency"))
+                  .sorted()
+                  .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+          stable.put(
+              Objects.requireNonNull(entry.getKey(), "module"),
+              java.util.Collections.unmodifiableSet(required));
+        });
     for (Set<ModuleCoordinate> required : stable.values()) {
       if (!stable.keySet().containsAll(required)) {
         throw new IllegalArgumentException("module dependencies must belong to the graph");

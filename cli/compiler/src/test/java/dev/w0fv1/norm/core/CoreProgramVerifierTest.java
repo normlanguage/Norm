@@ -1090,13 +1090,12 @@ final class CoreProgramVerifierTest {
             List.of(),
             List.of(),
             java.util.stream.IntStream.range(0, fields.size())
-                .mapToObj(
-                    index ->
-                        new CoreCallableParameter(
-                            "argument" + index,
-                            fields.get(index).type(),
-                            parameters.get(index),
-                            List.of()))
+                .mapToObj(index ->
+                    new CoreCallableParameter(
+                        "argument" + index,
+                        fields.get(index).type(),
+                        parameters.get(index),
+                        List.of()))
                 .toList(),
             reifiedLocals,
             List.of(),
@@ -1161,13 +1160,12 @@ final class CoreProgramVerifierTest {
             List.of(),
             List.of(),
             java.util.stream.IntStream.range(0, fields.size())
-                .mapToObj(
-                    index ->
-                        new CoreCallableParameter(
-                            "argument" + index,
-                            fields.get(index).type(),
-                            parameterLocals.get(index),
-                            List.of()))
+                .mapToObj(index ->
+                    new CoreCallableParameter(
+                        "argument" + index,
+                        fields.get(index).type(),
+                        parameterLocals.get(index),
+                        List.of()))
                 .toList(),
             reifiedLocals,
             List.of(),

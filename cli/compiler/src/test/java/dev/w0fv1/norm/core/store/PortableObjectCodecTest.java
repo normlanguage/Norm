@@ -96,10 +96,9 @@ final class PortableObjectCodecTest {
     var independent =
         new Locations(
             java.util.stream.IntStream.range(0, 1000)
-                .mapToObj(
-                    index ->
-                        new dev.w0fv1.norm.source.SourceSpan(
-                            dev.w0fv1.norm.source.SourceFile.of(document, text), index, index + 1))
+                .mapToObj(index ->
+                    new dev.w0fv1.norm.source.SourceSpan(
+                        dev.w0fv1.norm.source.SourceFile.of(document, text), index, index + 1))
                 .toList());
     byte[] encoded = PortableObjectCodec.encodeDeterministic(shared);
     assertTrue(encoded.length < 100_000, "encoded bytes: " + encoded.length);

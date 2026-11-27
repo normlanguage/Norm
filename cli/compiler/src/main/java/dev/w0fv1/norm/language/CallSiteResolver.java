@@ -49,12 +49,11 @@ final class CallSiteResolver {
     if (!labels.isEmpty()) {
       List<Symbol> labeled =
           candidates.stream()
-              .filter(
-                  candidate ->
-                      candidate.parameters().stream()
-                          .map(ParameterInfo::name)
-                          .collect(java.util.stream.Collectors.toSet())
-                          .containsAll(labels))
+              .filter(candidate ->
+                  candidate.parameters().stream()
+                      .map(ParameterInfo::name)
+                      .collect(java.util.stream.Collectors.toSet())
+                      .containsAll(labels))
               .toList();
       if (!labeled.isEmpty()) candidates = labeled;
     }
@@ -186,13 +185,12 @@ final class CallSiteResolver {
                 : call.callableTypeArguments();
         List<TypeParameterInfo> instantiatedTypeParameters =
             java.util.stream.IntStream.range(0, typeArguments.size())
-                .mapToObj(
-                    index ->
-                        new TypeParameterInfo(
-                            index < declaration.typeParameters().size()
-                                ? declaration.typeParameters().get(index).name()
-                                : typeArguments.get(index).displayName(),
-                            typeArguments.get(index)))
+                .mapToObj(index ->
+                    new TypeParameterInfo(
+                        index < declaration.typeParameters().size()
+                            ? declaration.typeParameters().get(index).name()
+                            : typeArguments.get(index).displayName(),
+                        typeArguments.get(index)))
                 .toList();
         Symbol instantiated =
             new Symbol(
@@ -234,11 +232,10 @@ final class CallSiteResolver {
       Optional<Symbol> receiver =
           model
               .symbolAt(receiverOffset)
-              .or(
-                  () ->
-                      model.visibleSymbols(offset).stream()
-                          .filter(symbol -> symbol.name().equals(receiverToken.value()))
-                          .findFirst());
+              .or(() ->
+                  model.visibleSymbols(offset).stream()
+                      .filter(symbol -> symbol.name().equals(receiverToken.value()))
+                      .findFirst());
       if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
         Symbol type = model.resolveAlias(receiver.orElseThrow());
         Optional<List<SemanticType>> arguments =
@@ -282,11 +279,10 @@ final class CallSiteResolver {
         model.visibleSymbols(offset).stream()
             .filter(symbol -> symbol.name().equals(name.value()))
             .map(symbol -> SymbolPresentation.annotation(model, symbol))
-            .flatMap(
-                symbol ->
-                    model.annotations().schema(symbol.id()).isPresent()
-                        ? java.util.stream.Stream.of(symbol)
-                        : model.callableAlternatives(symbol).stream())
+            .flatMap(symbol ->
+                model.annotations().schema(symbol.id()).isPresent()
+                    ? java.util.stream.Stream.of(symbol)
+                    : model.callableAlternatives(symbol).stream())
             .filter(CallSiteResolver::callable)
             .map(SymbolPresentation::callable)
             .toList();
@@ -295,14 +291,9 @@ final class CallSiteResolver {
         model.symbols().stream()
             .filter(symbol -> symbol.name().equals(name.value()))
             .filter(symbol -> symbol.owner().isEmpty())
-            .filter(
-                symbol ->
-                    symbol.declaration().isEmpty()
-                        || symbol
-                            .declaration()
-                            .orElseThrow()
-                            .document()
-                            .equals(model.source().id()))
+            .filter(symbol ->
+                symbol.declaration().isEmpty()
+                    || symbol.declaration().orElseThrow().document().equals(model.source().id()))
             .map(symbol -> SymbolPresentation.annotation(model, symbol))
             .filter(CallSiteResolver::callable)
             .map(SymbolPresentation::callable)

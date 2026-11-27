@@ -14,15 +14,11 @@ public final class CoreDependencyIndex<T> {
   private CoreDependencyIndex(Map<T, Set<T>> dependencies) {
     this.dependencies = copy(dependencies);
     Map<T, Set<T>> reverse = new LinkedHashMap<>();
-    dependencies.forEach(
-        (definition, targets) -> {
-          reverse.computeIfAbsent(definition, ignored -> new LinkedHashSet<>());
-          targets.forEach(
-              target ->
-                  reverse
-                      .computeIfAbsent(target, ignored -> new LinkedHashSet<>())
-                      .add(definition));
-        });
+    dependencies.forEach((definition, targets) -> {
+      reverse.computeIfAbsent(definition, ignored -> new LinkedHashSet<>());
+      targets.forEach(target ->
+          reverse.computeIfAbsent(target, ignored -> new LinkedHashSet<>()).add(definition));
+    });
     this.dependents = copy(reverse);
   }
 
@@ -48,11 +44,10 @@ public final class CoreDependencyIndex<T> {
     for (var occurrence : artifact.authoring().occurrences()) {
       occurrence
           .representedDefinitions()
-          .forEach(
-              definition ->
-                  represented
-                      .computeIfAbsent(definition, ignored -> new LinkedHashSet<>())
-                      .add(occurrence.id()));
+          .forEach(definition ->
+              represented
+                  .computeIfAbsent(definition, ignored -> new LinkedHashSet<>())
+                  .add(occurrence.id()));
     }
     Map<DefinitionOccurrenceId, Set<DefinitionOccurrenceId>> direct = new LinkedHashMap<>();
     for (var occurrence : artifact.authoring().occurrences()) {

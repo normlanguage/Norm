@@ -11,13 +11,13 @@ final class CoreEnumMigrationProtocolTest {
     var compilation =
         NormTestKit.compile(
             """
-      import std.runtime.StateMigration
-      import std.runtime.MigrationState
-      @StateMigration(convert: convertMessage.function)
-      enum Message { Current(String text) }
-      Void convertMessage(MigrationState state) {}
-      Void main() { var message = Message.Current(text: "Norm") }
-      """);
+            import std.runtime.StateMigration
+            import std.runtime.MigrationState
+            @StateMigration(convert: convertMessage.function)
+            enum Message { Current(String text) }
+            Void convertMessage(MigrationState state) {}
+            Void main() { var message = Message.Current(text: "Norm") }
+            """);
     assertTrue(compilation.isSuccess(), compilation.diagnostics().toString());
     var artifact = compilation.output().orElseThrow().artifact();
     var identity = CoreRuntimeIdentity.create(artifact);
@@ -30,13 +30,13 @@ final class CoreEnumMigrationProtocolTest {
   void requiresTheConverterForRemovedEnumVariantsAndChangedPayloads() {
     String source =
         """
-      import std.runtime.StateMigration
-      import std.runtime.MigrationState
-      @StateMigration(convert: convertMessage.function)
-      enum Message { Previous(Integer count) }
-      Void convertMessage(MigrationState state) {}
-      Void main() { var message = Message.Previous(count: 7) }
-      """;
+        import std.runtime.StateMigration
+        import std.runtime.MigrationState
+        @StateMigration(convert: convertMessage.function)
+        enum Message { Previous(Integer count) }
+        Void convertMessage(MigrationState state) {}
+        Void main() { var message = Message.Previous(count: 7) }
+        """;
     var first = NormTestKit.compile(source);
     var second =
         NormTestKit.compile(

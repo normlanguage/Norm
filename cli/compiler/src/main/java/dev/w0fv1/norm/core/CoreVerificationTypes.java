@@ -311,11 +311,10 @@ final class CoreVerificationTypes {
     Map<Integer, CoreType> bounds = new LinkedHashMap<>();
     signature
         .typeParameters()
-        .forEach(
-            parameter ->
-                parameter
-                    .upperBound()
-                    .ifPresent(bound -> bounds.put(parameter.index(), absolute(owner, bound))));
+        .forEach(parameter ->
+            parameter
+                .upperBound()
+                .ifPresent(bound -> bounds.put(parameter.index(), absolute(owner, bound))));
     if (signature.receiverType().isPresent()) {
       CoreType receiver = absolute(owner, signature.receiverType().orElseThrow());
       if (receiver instanceof CoreType.Declared declared
@@ -329,12 +328,10 @@ final class CoreVerificationTypes {
               case CoreDefinition.Enum enumeration -> enumeration.typeParameters();
               default -> List.of();
             };
-        parameters.forEach(
-            parameter ->
-                parameter
-                    .upperBound()
-                    .ifPresent(
-                        bound -> bounds.put(parameter.index(), absolute(receiverId, bound))));
+        parameters.forEach(parameter ->
+            parameter
+                .upperBound()
+                .ifPresent(bound -> bounds.put(parameter.index(), absolute(receiverId, bound))));
       }
     }
     CoreType original = absolute(owner, type);
@@ -389,36 +386,35 @@ final class CoreVerificationTypes {
     for (CoreTypeParameter parameter : parameters) {
       parameter
           .upperBound()
-          .ifPresent(
-              bound -> {
-                verifyValueType(owner, bound, parameterCount);
-                CoreType resolved = absolute(owner, bound);
-                if (resolved.isNullable()) {
-                  throw new IllegalArgumentException(
-                      "type parameter bound must be a non-null class, interface, or type"
-                          + " parameter");
-                }
-                if (nonNullable(resolved) instanceof CoreType.Parameter boundParameter) {
-                  if (boundParameter.index() == parameter.index()) {
-                    throw new IllegalArgumentException("cyclic type parameter bound");
-                  }
-                  return;
-                }
-                if (!(nonNullable(resolved) instanceof CoreType.Declared declared)
-                    || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
-                  throw new IllegalArgumentException(
-                      "type parameter bound must be a non-null class, interface, or type"
-                          + " parameter");
-                }
-                CoreDefinition definition =
-                    program.definition(resolveExternal(user.definition())).orElseThrow();
-                if (!(definition instanceof CoreDefinition.Interface)
-                    && (!(definition instanceof CoreDefinition.Aggregate aggregate)
-                        || aggregate.kind() != CoreAggregateKind.CLASS)) {
-                  throw new IllegalArgumentException(
-                      "type parameter bound must be a non-null class or interface");
-                }
-              });
+          .ifPresent(bound -> {
+            verifyValueType(owner, bound, parameterCount);
+            CoreType resolved = absolute(owner, bound);
+            if (resolved.isNullable()) {
+              throw new IllegalArgumentException(
+                  "type parameter bound must be a non-null class, interface, or type"
+                      + " parameter");
+            }
+            if (nonNullable(resolved) instanceof CoreType.Parameter boundParameter) {
+              if (boundParameter.index() == parameter.index()) {
+                throw new IllegalArgumentException("cyclic type parameter bound");
+              }
+              return;
+            }
+            if (!(nonNullable(resolved) instanceof CoreType.Declared declared)
+                || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+              throw new IllegalArgumentException(
+                  "type parameter bound must be a non-null class, interface, or type"
+                      + " parameter");
+            }
+            CoreDefinition definition =
+                program.definition(resolveExternal(user.definition())).orElseThrow();
+            if (!(definition instanceof CoreDefinition.Interface)
+                && (!(definition instanceof CoreDefinition.Aggregate aggregate)
+                    || aggregate.kind() != CoreAggregateKind.CLASS)) {
+              throw new IllegalArgumentException(
+                  "type parameter bound must be a non-null class or interface");
+            }
+          });
       if (parameter.defaultType().isEmpty()) {
         if (defaultSeen) {
           throw new IllegalArgumentException(

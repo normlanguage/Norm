@@ -594,13 +594,12 @@ final class AnnotationCompilerTest {
         + "public interface AnnotationRetention {} "
         + java.util.Arrays.stream(names)
             .filter(name -> !name.equals("AnnotationTarget") && !name.equals("AnnotationRetention"))
-            .map(
-                name ->
-                    "public interface "
-                        + name
-                        + " extends "
-                        + (name.endsWith("Retention") ? "AnnotationRetention" : "AnnotationTarget")
-                        + " {} ")
+            .map(name ->
+                "public interface "
+                    + name
+                    + " extends "
+                    + (name.endsWith("Retention") ? "AnnotationRetention" : "AnnotationTarget")
+                    + " {} ")
             .collect(java.util.stream.Collectors.joining());
   }
 

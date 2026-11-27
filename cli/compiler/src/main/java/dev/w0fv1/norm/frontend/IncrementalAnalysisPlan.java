@@ -120,10 +120,9 @@ record IncrementalAnalysisPlan(
     var ownership =
         dev.w0fv1.norm.semantic.SpanIndex.of(
             old.stream()
-                .map(
-                    declaration ->
-                        new dev.w0fv1.norm.semantic.SpanIndex.Entry<>(
-                            declaration.span(), declaration.key()))
+                .map(declaration ->
+                    new dev.w0fv1.norm.semantic.SpanIndex.Entry<>(
+                        declaration.span(), declaration.key()))
                 .toList());
     var facts = model.contributions(old.stream().map(DeclarationRef::span).toList());
     Map<String, Set<String>> dependents = new LinkedHashMap<>();
@@ -227,35 +226,34 @@ record IncrementalAnalysisPlan(
     List<DeclarationRef> declarations = new ArrayList<>();
     snapshot.documentIds().stream()
         .sorted(java.util.Comparator.comparing(document -> document.uri().toString()))
-        .forEach(
-            document -> {
-              var model = snapshot.document(document).orElseThrow();
-              Syntax.Program syntax = model.syntax();
-              add(
-                  declarations,
-                  syntax,
-                  model.tokens(),
-                  syntax.enums(),
-                  snapshot.semanticModel().compilationScope());
-              add(
-                  declarations,
-                  syntax,
-                  model.tokens(),
-                  syntax.interfaces(),
-                  snapshot.semanticModel().compilationScope());
-              add(
-                  declarations,
-                  syntax,
-                  model.tokens(),
-                  syntax.aggregates(),
-                  snapshot.semanticModel().compilationScope());
-              add(
-                  declarations,
-                  syntax,
-                  model.tokens(),
-                  syntax.functions(),
-                  snapshot.semanticModel().compilationScope());
-            });
+        .forEach(document -> {
+          var model = snapshot.document(document).orElseThrow();
+          Syntax.Program syntax = model.syntax();
+          add(
+              declarations,
+              syntax,
+              model.tokens(),
+              syntax.enums(),
+              snapshot.semanticModel().compilationScope());
+          add(
+              declarations,
+              syntax,
+              model.tokens(),
+              syntax.interfaces(),
+              snapshot.semanticModel().compilationScope());
+          add(
+              declarations,
+              syntax,
+              model.tokens(),
+              syntax.aggregates(),
+              snapshot.semanticModel().compilationScope());
+          add(
+              declarations,
+              syntax,
+              model.tokens(),
+              syntax.functions(),
+              snapshot.semanticModel().compilationScope());
+        });
     return List.copyOf(declarations);
   }
 
@@ -323,11 +321,10 @@ record IncrementalAnalysisPlan(
 
   private static Map<String, Set<String>> byFamily(List<DeclarationRef> declarations) {
     Map<String, Set<String>> result = new LinkedHashMap<>();
-    declarations.forEach(
-        declaration ->
-            result
-                .computeIfAbsent(declaration.family(), ignored -> new LinkedHashSet<>())
-                .add(declaration.key()));
+    declarations.forEach(declaration ->
+        result
+            .computeIfAbsent(declaration.family(), ignored -> new LinkedHashSet<>())
+            .add(declaration.key()));
     Map<String, Set<String>> copied = new LinkedHashMap<>();
     result.forEach((family, members) -> copied.put(family, Set.copyOf(members)));
     return Map.copyOf(copied);
@@ -343,9 +340,8 @@ record IncrementalAnalysisPlan(
     Map<DocumentId, DocumentContext> result = new LinkedHashMap<>();
     snapshot.documentIds().stream()
         .sorted(java.util.Comparator.comparing(document -> document.uri().toString()))
-        .forEach(
-            document ->
-                result.put(document, context(snapshot.document(document).orElseThrow().syntax())));
+        .forEach(document ->
+            result.put(document, context(snapshot.document(document).orElseThrow().syntax())));
     return Map.copyOf(result);
   }
 

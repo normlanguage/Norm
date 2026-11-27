@@ -52,25 +52,22 @@ public final class JdkProcessRunner implements ProcessRunner {
     var executor = Executors.newVirtualThreadPerTaskExecutor();
     var descendants = new LinkedHashSet<ProcessHandle>();
     Future<?> stdout =
-        executor.submit(
-            () -> {
-              output.read(process.getInputStream());
-              return null;
-            });
+        executor.submit(() -> {
+          output.read(process.getInputStream());
+          return null;
+        });
     Future<?> stderr =
-        executor.submit(
-            () -> {
-              error.read(process.getErrorStream());
-              return null;
-            });
+        executor.submit(() -> {
+          error.read(process.getErrorStream());
+          return null;
+        });
     Future<?> stdin =
-        executor.submit(
-            () -> {
-              try (var stream = process.getOutputStream()) {
-                stream.write(request.input());
-              }
-              return null;
-            });
+        executor.submit(() -> {
+          try (var stream = process.getOutputStream()) {
+            stream.write(request.input());
+          }
+          return null;
+        });
     ProcessOutcome outcome = ProcessOutcome.EXITED;
     boolean interrupted = false;
     boolean completed = false;

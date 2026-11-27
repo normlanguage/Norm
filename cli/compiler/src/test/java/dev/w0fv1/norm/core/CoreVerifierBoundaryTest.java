@@ -12,23 +12,20 @@ final class CoreVerifierBoundaryTest {
   void callableStateIsNotSharedByProgramVerification() {
     assertTrue(
         Arrays.stream(CoreProgramVerifier.class.getDeclaredFields())
-            .noneMatch(
-                field ->
-                    field.getType() == CoreReferenceFlow.class
-                        || java.util.Deque.class.isAssignableFrom(field.getType())));
+            .noneMatch(field ->
+                field.getType() == CoreReferenceFlow.class
+                    || java.util.Deque.class.isAssignableFrom(field.getType())));
     assertTrue(
         Arrays.stream(CoreCallableVerifier.class.getDeclaredFields())
             .anyMatch(field -> field.getType() == CoreReferenceFlow.class));
     assertTrue(
         Arrays.stream(CoreCallableVerifier.class.getDeclaredFields())
-            .filter(
-                field ->
-                    field.getType() == CoreReferenceFlow.class
-                        || java.util.Deque.class.isAssignableFrom(field.getType()))
-            .allMatch(
-                field ->
-                    Modifier.isPrivate(field.getModifiers())
-                        && Modifier.isFinal(field.getModifiers())));
+            .filter(field ->
+                field.getType() == CoreReferenceFlow.class
+                    || java.util.Deque.class.isAssignableFrom(field.getType()))
+            .allMatch(field ->
+                Modifier.isPrivate(field.getModifiers())
+                    && Modifier.isFinal(field.getModifiers())));
   }
 
   @Test

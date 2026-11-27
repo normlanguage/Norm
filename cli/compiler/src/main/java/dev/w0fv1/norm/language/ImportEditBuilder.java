@@ -15,10 +15,9 @@ final class ImportEditBuilder {
       var tokens = document.tokens();
       int offset =
           java.util.stream.IntStream.range(1, tokens.size())
-              .takeWhile(
-                  index ->
-                      tokens.get(index).kind() == TokenKind.IDENTIFIER
-                          || tokens.get(index).kind() == TokenKind.DOT)
+              .takeWhile(index ->
+                  tokens.get(index).kind() == TokenKind.IDENTIFIER
+                      || tokens.get(index).kind() == TokenKind.DOT)
               .map(index -> tokens.get(index).span().endOffset())
               .reduce((first, second) -> second)
               .orElse(tokens.getFirst().span().endOffset());

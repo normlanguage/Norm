@@ -578,10 +578,10 @@ final class ProjectLoaderTest {
             temporaryDirectory,
             "sample/module.norm",
             """
-        Module module() { module(name: "sample", version: 1,
-          binding: jarBinding(target: localJar(path: "lib/sample.jar"),
-            api: [jarType(name: "Button", members: [], alias: "")])) }
-        """);
+            Module module() { module(name: "sample", version: 1,
+              binding: jarBinding(target: localJar(path: "lib/sample.jar"),
+                api: [jarType(name: "Button", members: [], alias: "")])) }
+            """);
     try (ProjectLoader projects = environment().projectLoader()) {
       IOException failure =
           assertThrows(

@@ -67,10 +67,9 @@ final class CoreCallableVerifier {
     }
     callable
         .interceptors()
-        .forEach(
-            interceptor ->
-                CoreAnnotationVerifier.verifyInterceptor(
-                    program, id, interceptor, functionInterceptor));
+        .forEach(interceptor ->
+            CoreAnnotationVerifier.verifyInterceptor(
+                program, id, interceptor, functionInterceptor));
     for (CoreCallableParameter parameter : callable.parameters()) {
       Set<DefinitionId> parameterInterceptorTypes = new HashSet<>();
       for (CoreInterceptor interceptor : parameter.interceptors()) {
@@ -215,19 +214,16 @@ final class CoreCallableVerifier {
             throw new IllegalArgumentException("for loop local ABI is invalid");
           }
           loop.indexLocal()
-              .ifPresent(
-                  index -> {
-                    if (index == loop.iteratorLocal() || index == loop.variableLocal()) {
-                      throw new IllegalArgumentException("for loop index local ABI is invalid");
-                    }
-                    CoreLocal local = CoreVerificationTypes.local(callable, index);
-                    if (local.kind() != CoreLocal.Kind.VARIABLE
-                        || !validationTypes
-                            .absolute(owner, local.type())
-                            .equals(CoreType.INTEGER)) {
-                      throw new IllegalArgumentException("for loop index local ABI is invalid");
-                    }
-                  });
+              .ifPresent(index -> {
+                if (index == loop.iteratorLocal() || index == loop.variableLocal()) {
+                  throw new IllegalArgumentException("for loop index local ABI is invalid");
+                }
+                CoreLocal local = CoreVerificationTypes.local(callable, index);
+                if (local.kind() != CoreLocal.Kind.VARIABLE
+                    || !validationTypes.absolute(owner, local.type()).equals(CoreType.INTEGER)) {
+                  throw new IllegalArgumentException("for loop index local ABI is invalid");
+                }
+              });
           verifyExpression(owner, callable, loop.iterable());
           intrinsicVerifier.verifyIteration(
               owner, callable, loop.variableLocal(), loop.iterable(), loop.iteration());
@@ -538,10 +534,8 @@ final class CoreCallableVerifier {
         intrinsic.runtimeType().ifPresent(type -> verifyRuntimeType(owner, callable, type));
         intrinsic
             .runtimeDependencies()
-            .forEach(
-                type ->
-                    validationTypes.verifyValueType(
-                        owner, type, callable.reifiedTypeLocals().size()));
+            .forEach(type ->
+                validationTypes.verifyValueType(owner, type, callable.reifiedTypeLocals().size()));
         intrinsicVerifier.verifyIntrinsic(owner, intrinsic);
       }
     }
@@ -696,18 +690,16 @@ final class CoreCallableVerifier {
         }
         repeated
             .indexLocal()
-            .ifPresent(
-                index -> {
-                  if (index == repeated.iteratorLocal()
-                      || index == repeated.variableLocal()
-                      || CoreVerificationTypes.local(callable, index).kind()
-                          != CoreLocal.Kind.VARIABLE
-                      || !validationTypes
-                          .absolute(owner, CoreVerificationTypes.local(callable, index).type())
-                          .equals(CoreType.INTEGER)) {
-                    throw new IllegalArgumentException("collection loop index ABI is invalid");
-                  }
-                });
+            .ifPresent(index -> {
+              if (index == repeated.iteratorLocal()
+                  || index == repeated.variableLocal()
+                  || CoreVerificationTypes.local(callable, index).kind() != CoreLocal.Kind.VARIABLE
+                  || !validationTypes
+                      .absolute(owner, CoreVerificationTypes.local(callable, index).type())
+                      .equals(CoreType.INTEGER)) {
+                throw new IllegalArgumentException("collection loop index ABI is invalid");
+              }
+            });
         verifyExpression(owner, callable, repeated.iterable());
         intrinsicVerifier.verifyIteration(
             owner, callable, repeated.variableLocal(), repeated.iterable(), repeated.iteration());
@@ -1037,10 +1029,9 @@ final class CoreCallableVerifier {
       throw new IllegalArgumentException("construct target is not an aggregate");
     }
     if (target.dispatch().stream()
-        .anyMatch(
-            method ->
-                program.definition(validationTypes.resolve(targetId, method.target())).orElseThrow()
-                    instanceof CoreDefinition.MethodSignature)) {
+        .anyMatch(method ->
+            program.definition(validationTypes.resolve(targetId, method.target())).orElseThrow()
+                instanceof CoreDefinition.MethodSignature)) {
       throw new IllegalArgumentException("construct target has unimplemented methods");
     }
     verifyRuntimeType(owner, caller, construct.runtimeType());
@@ -1387,17 +1378,15 @@ final class CoreCallableVerifier {
       CoreDefinition target = program.definition(definition).orElseThrow();
       if (!(target instanceof CoreDefinition.Enum enumDeclaration)) return List.of();
       return enumDeclaration.variants().stream()
-          .map(
-              variant ->
-                  new PatternCoverage.Constructor<>(
-                      "variant:" + variant.key(),
-                      variant.fields().stream()
-                          .map(
-                              field ->
-                                  validationTypes
-                                      .absolute(definition, field.type())
-                                      .substitute(declared.arguments()::get))
-                          .toList()))
+          .map(variant ->
+              new PatternCoverage.Constructor<>(
+                  "variant:" + variant.key(),
+                  variant.fields().stream()
+                      .map(field ->
+                          validationTypes
+                              .absolute(definition, field.type())
+                              .substitute(declared.arguments()::get))
+                      .toList()))
           .toList();
     }
 

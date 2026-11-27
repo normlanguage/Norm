@@ -79,14 +79,13 @@ public final class JdkModuleArchive implements AutoCloseable {
       classes =
           paths
               .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".class"))
-              .filter(
-                  path -> {
-                    Path relative = module.relativize(path);
-                    Path parent = relative.getParent();
-                    return parent != null
-                        && exportedPackages.contains(
-                            parent.toString().replace('\\', '.').replace('/', '.'));
-                  })
+              .filter(path -> {
+                Path relative = module.relativize(path);
+                Path parent = relative.getParent();
+                return parent != null
+                    && exportedPackages.contains(
+                        parent.toString().replace('\\', '.').replace('/', '.'));
+              })
               .sorted(Comparator.comparing(path -> module.relativize(path).toString()))
               .toList();
     }

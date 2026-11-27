@@ -57,12 +57,11 @@ final class FileAgentApplicationTest {
             assertTrue(request.toString().contains("exactly one chance"), request.toString());
             Set<String> names =
                 request.getAsJsonArray("tools").asList().stream()
-                    .map(
-                        item ->
-                            item.getAsJsonObject()
-                                .getAsJsonObject("function")
-                                .get("name")
-                                .getAsString())
+                    .map(item ->
+                        item.getAsJsonObject()
+                            .getAsJsonObject("function")
+                            .get("name")
+                            .getAsString())
                     .collect(Collectors.toSet());
             assertEquals(Set.of("read_file", "write_file"), names, request.toString());
             JsonObject delta = new JsonObject();

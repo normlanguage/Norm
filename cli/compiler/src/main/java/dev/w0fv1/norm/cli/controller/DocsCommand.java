@@ -85,11 +85,10 @@ final class DocsCommand implements Command {
     } catch (MissingDocumentationException exception) {
       exception
           .declarations()
-          .forEach(
-              declaration ->
-                  err.printf(
-                      "error[NORM-DOC-0002]: exported declaration '%s' is missing @Document%n",
-                      declaration));
+          .forEach(declaration ->
+              err.printf(
+                  "error[NORM-DOC-0002]: exported declaration '%s' is missing @Document%n",
+                  declaration));
       return ExitCode.COMPILATION_ERROR;
     } catch (DocumentationCompilationException exception) {
       return ExitCode.COMPILATION_ERROR;

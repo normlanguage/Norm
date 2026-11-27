@@ -17,23 +17,23 @@ record NativeImageDistribution(
     if (operatingSystem.startsWith("windows") && isX64(architecture)) {
       return distribution(
           "windows-x64",
-          "graalvm-community-jdk-25i1-25.0.3_windows-x64_bin.zip",
-          "96f1e7a9674b5b5751224104ff0c4624f15f9522b190d960a041cab72c381393",
+          "graalvm-community-jdk-25i6-25.0.5.1_windows-x64_bin.zip",
+          "1f534c46337f838880553c47f973a3d769b4058036288afcec930e2abddf06a1",
           ArchiveFormat.ZIP);
     }
     if (operatingSystem.startsWith("linux") && isX64(architecture)) {
       return distribution(
           "linux-x64",
-          "graalvm-community-jdk-25i1-25.0.3_linux-x64_bin.tar.gz",
-          "e9cd1637be853e105f8b09125b4b19fbce385696465d782cbca8bb80e1df8f0d",
+          "graalvm-community-jdk-25i6-25.0.5.1_linux-x64_bin.tar.gz",
+          "d792848db26f1602f0a5cf2cd9279d9a652d32ab450d891ce616c9ca67e359d0",
           ArchiveFormat.TAR_GZIP);
     }
     if ((operatingSystem.startsWith("mac") || operatingSystem.startsWith("darwin"))
         && isArm64(architecture)) {
       return distribution(
           "macos-arm64",
-          "graalvm-community-jdk-25i1-25.0.3_macos-aarch64_bin.tar.gz",
-          "b41cdde27691a0e04a1f2b0660624bc37e59c738e536888860c4c9f65a4a9a3b",
+          "graalvm-community-jdk-25i6-25.0.5.1_macos-aarch64_bin.tar.gz",
+          "19ef5175f18fe2a957a5ec4cc3dd263a164e88ae621cf80ee1c715ede72469f0",
           ArchiveFormat.TAR_GZIP);
     }
     throw new IllegalStateException(

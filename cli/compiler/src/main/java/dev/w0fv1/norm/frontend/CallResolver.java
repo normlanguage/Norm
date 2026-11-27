@@ -129,12 +129,11 @@ final class CallResolver {
       SemanticType nullableReceiver) {
     var signatures =
         candidates.stream()
-            .map(
-                candidate ->
-                    sourceTarget(
-                        candidate.declaration(),
-                        typeResolver.aggregateSubstitutions(
-                            candidate.owner().declaration(), candidate.owner().type())))
+            .map(candidate ->
+                sourceTarget(
+                    candidate.declaration(),
+                    typeResolver.aggregateSubstitutions(
+                        candidate.owner().declaration(), candidate.owner().type())))
             .toList();
     return resolveCall(
         signatures,
@@ -154,19 +153,18 @@ final class CallResolver {
       SemanticType nullableReceiver) {
     List<CallableTarget<InterfaceRequirement>> signatures =
         candidates.stream()
-            .map(
-                requirement ->
-                    new CallableTarget<>(
-                        requirement,
-                        requirement.method().name(),
-                        model
-                            .symbols()
-                            .get(model.declarationSymbols().get(requirement.method()))
-                            .typeParameters(),
-                        requirement.parameters(),
-                        requirement.result(),
-                        typeResolver.interfaceSubstitutions(
-                            requirement.owner(), requirement.receiver())))
+            .map(requirement ->
+                new CallableTarget<>(
+                    requirement,
+                    requirement.method().name(),
+                    model
+                        .symbols()
+                        .get(model.declarationSymbols().get(requirement.method()))
+                        .typeParameters(),
+                    requirement.parameters(),
+                    requirement.result(),
+                    typeResolver.interfaceSubstitutions(
+                        requirement.owner(), requirement.receiver())))
             .toList();
     return resolveCall(
         signatures,
@@ -187,15 +185,14 @@ final class CallResolver {
       boolean nullableAccess) {
     List<CallableTarget<Symbol>> signatures =
         candidates.stream()
-            .map(
-                symbol ->
-                    new CallableTarget<>(
-                        symbol,
-                        symbol.name(),
-                        symbol.typeParameters(),
-                        symbol.parameters(),
-                        symbol.type(),
-                        Map.of()))
+            .map(symbol ->
+                new CallableTarget<>(
+                    symbol,
+                    symbol.name(),
+                    symbol.typeParameters(),
+                    symbol.parameters(),
+                    symbol.type(),
+                    Map.of()))
             .toList();
     return resolveCall(
         signatures, explicitTypeArguments, call, expected, span, null, nullableAccess);
@@ -216,14 +213,13 @@ final class CallResolver {
             .toList();
     List<CallableTarget<T>> arityMatches =
         candidates.stream()
-            .filter(
-                candidate ->
-                    explicitTypes.isEmpty()
-                        || explicitTypes.size()
-                                >= TypeArguments.required(
-                                    candidate.typeParameters(),
-                                    parameter -> parameter.defaultType().isPresent())
-                            && explicitTypes.size() <= candidate.typeParameters().size())
+            .filter(candidate ->
+                explicitTypes.isEmpty()
+                    || explicitTypes.size()
+                            >= TypeArguments.required(
+                                candidate.typeParameters(),
+                                parameter -> parameter.defaultType().isPresent())
+                        && explicitTypes.size() <= candidate.typeParameters().size())
             .toList();
     if (arityMatches.isEmpty()) {
       if (candidates.size() == 1)
@@ -429,12 +425,9 @@ final class CallResolver {
                     parameter -> parameter.type().identity(), TypeParameterInfo::name));
     List<InferenceConflict> conflicts =
         inferred.conflicts().stream()
-            .map(
-                conflict ->
-                    new InferenceConflict(
-                        parameterNames.get(conflict.variable()),
-                        conflict.first(),
-                        conflict.second()))
+            .map(conflict ->
+                new InferenceConflict(
+                    parameterNames.get(conflict.variable()), conflict.first(), conflict.second()))
             .toList();
     List<ParameterInfo> parameters =
         patterns.stream().map(parameter -> parameter.substitute(substitutions)).toList();
@@ -602,17 +595,16 @@ final class CallResolver {
       Map<String, SemanticType> declared = typeResolver.aggregateTypeParameters(declaration);
       candidates =
           declaration.constructors().stream()
-              .map(
-                  constructor ->
-                      new CallableTarget<>(
-                          model.declarationSymbols().get(constructor),
-                          declaration.name(),
-                          typeParameters,
-                          model.symbolOf(constructor).parameters().stream()
-                              .map(parameter -> parameter.substitute(substitutions))
-                              .toList(),
-                          constructedType,
-                          Map.<String, SemanticType>of()))
+              .map(constructor ->
+                  new CallableTarget<>(
+                      model.declarationSymbols().get(constructor),
+                      declaration.name(),
+                      typeParameters,
+                      model.symbolOf(constructor).parameters().stream()
+                          .map(parameter -> parameter.substitute(substitutions))
+                          .toList(),
+                      constructedType,
+                      Map.<String, SemanticType>of()))
               .toList();
     }
     return candidates;

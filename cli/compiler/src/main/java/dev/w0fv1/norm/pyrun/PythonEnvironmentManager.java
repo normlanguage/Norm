@@ -75,11 +75,10 @@ public final class PythonEnvironmentManager {
     try (var lines = process.inputReader()) {
       lines
           .lines()
-          .forEach(
-              line -> {
-                output.append(line).append(System.lineSeparator());
-                progress.accept(line);
-              });
+          .forEach(line -> {
+            output.append(line).append(System.lineSeparator());
+            progress.accept(line);
+          });
     }
     try {
       int exit = process.waitFor();

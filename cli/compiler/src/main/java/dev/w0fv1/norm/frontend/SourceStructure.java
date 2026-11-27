@@ -25,10 +25,9 @@ public record SourceStructure(
         ? source
         : inspect(source)
             .moduleConfiguration()
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "source does not contain a module declaration: " + source.path()));
+            .orElseThrow(() ->
+                new IllegalArgumentException(
+                    "source does not contain a module declaration: " + source.path()));
   }
 
   public static SourceStructure inspect(SourceFile source) {

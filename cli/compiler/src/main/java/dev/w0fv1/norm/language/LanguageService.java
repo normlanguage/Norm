@@ -157,13 +157,12 @@ public final class LanguageService implements AutoCloseable {
         .map(test -> semantics.symbol(test.symbol()).orElseThrow())
         .filter(
             symbol -> symbol.declaration().orElseThrow().document().equals(document.source().id()))
-        .map(
-            symbol ->
-                new TestDeclaration(
-                    document.syntax().packageName().isEmpty()
-                        ? symbol.name()
-                        : document.syntax().packageName() + "." + symbol.name(),
-                    symbol.declaration().orElseThrow()))
+        .map(symbol ->
+            new TestDeclaration(
+                document.syntax().packageName().isEmpty()
+                    ? symbol.name()
+                    : document.syntax().packageName() + "." + symbol.name(),
+                symbol.declaration().orElseThrow()))
         .toList();
   }
 

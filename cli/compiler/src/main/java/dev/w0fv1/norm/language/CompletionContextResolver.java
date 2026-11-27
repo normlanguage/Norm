@@ -114,11 +114,10 @@ public final class CompletionContextResolver {
       return Optional.empty();
     return model
         .callEndingAt(before.span().endOffset())
-        .map(
-            receiver ->
-                new CompletionContext.Member(
-                    new MemberAccessSite(
-                        receiver, name, MemberAccessSite.Form.BLOCK_CONTINUATION, opening)));
+        .map(receiver ->
+            new CompletionContext.Member(
+                new MemberAccessSite(
+                    receiver, name, MemberAccessSite.Form.BLOCK_CONTINUATION, opening)));
   }
 
   private static boolean insideTypeArguments(List<Token> tokens) {

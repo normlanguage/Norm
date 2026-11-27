@@ -1368,24 +1368,23 @@ final class RuntimeValues {
 
     FieldPlan project(List<CoreType> parentArguments) {
       var projected =
-          initializer.map(
-              target ->
-                  (CallTarget)
-                      new com.oracle.truffle.api.nodes.RootNode(null) {
-                        @Override
-                        public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
-                          var incoming = frame.getArguments();
-                          var outgoing = new Object[parentArguments.size() + 2];
-                          outgoing[0] = incoming[0];
-                          outgoing[1] = incoming[1];
-                          for (int index = 0; index < parentArguments.size(); index++)
-                            outgoing[index + 2] =
-                                parentArguments
-                                    .get(index)
-                                    .substitute(parameter -> (CoreType) incoming[parameter + 2]);
-                          return target.call(outgoing);
-                        }
-                      }.getCallTarget());
+          initializer.map(target ->
+              (CallTarget)
+                  new com.oracle.truffle.api.nodes.RootNode(null) {
+                    @Override
+                    public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
+                      var incoming = frame.getArguments();
+                      var outgoing = new Object[parentArguments.size() + 2];
+                      outgoing[0] = incoming[0];
+                      outgoing[1] = incoming[1];
+                      for (int index = 0; index < parentArguments.size(); index++)
+                        outgoing[index + 2] =
+                            parentArguments
+                                .get(index)
+                                .substitute(parameter -> (CoreType) incoming[parameter + 2]);
+                      return target.call(outgoing);
+                    }
+                  }.getCallTarget());
       return new FieldPlan(
           owner,
           name,
@@ -1555,11 +1554,10 @@ final class RuntimeValues {
     Map<FieldKey, Object> configurationFor(AggregateInfo view) {
       var values = new LinkedHashMap<FieldKey, Object>();
       storage(configuration)
-          .forEach(
-              (key, value) -> {
-                if (state.sameFieldType((AggregateInfo) objectInfo, view, type(), key))
-                  values.put(key, value);
-              });
+          .forEach((key, value) -> {
+            if (state.sameFieldType((AggregateInfo) objectInfo, view, type(), key))
+              values.put(key, value);
+          });
       return values;
     }
 
@@ -1607,12 +1605,11 @@ final class RuntimeValues {
 
     void fieldChanged(FieldKey field, Object previous, AggregateInfo view) {
       if (observations != null) {
-        afterStateCommit(
-            () -> {
-              observations.bind(field, view);
-              Object current = rawField(field, view);
-              if (!equal(previous, current)) observations.changed(field, view, previous, current);
-            });
+        afterStateCommit(() -> {
+          observations.bind(field, view);
+          Object current = rawField(field, view);
+          if (!equal(previous, current)) observations.changed(field, view, previous, current);
+        });
       }
     }
 

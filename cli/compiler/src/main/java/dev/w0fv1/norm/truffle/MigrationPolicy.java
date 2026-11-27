@@ -20,9 +20,8 @@ final class MigrationPolicy {
         object.info(execution).fields().stream()
             .filter(field -> field.name().equals(CoreStateMigrationProtocol.CONVERTER_FIELD))
             .findFirst()
-            .orElseThrow(
-                () ->
-                    new RuntimeValues.StateMigrationFailure("State migration converter is absent"));
+            .orElseThrow(() ->
+                new RuntimeValues.StateMigrationFailure("State migration converter is absent"));
     if (!(object.rawField(converterField.key()) instanceof RuntimeValues.Closure converter))
       throw new RuntimeValues.StateMigrationFailure(
           "State migration converter is not a Norm function");

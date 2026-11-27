@@ -62,15 +62,13 @@ public record Symbol(
 
   public Optional<Symbol> specialize(List<SemanticType> arguments) {
     return TypeArguments.complete(typeParameters, arguments)
-        .map(
-            completed -> {
-              Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-              for (int index = 0; index < typeParameters.size(); index++) {
-                substitutions.put(
-                    typeParameters.get(index).type().identity(), completed.get(index));
-              }
-              return substitute(substitutions);
-            });
+        .map(completed -> {
+          Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+          for (int index = 0; index < typeParameters.size(); index++) {
+            substitutions.put(typeParameters.get(index).type().identity(), completed.get(index));
+          }
+          return substitute(substitutions);
+        });
   }
 
   public Symbol withDocumentation(String description) {
@@ -91,13 +89,12 @@ public record Symbol(
     if (substitutions.isEmpty()) return this;
     List<TypeParameterInfo> specialized =
         typeParameters.stream()
-            .map(
-                parameter ->
-                    new TypeParameterInfo(
-                        parameter.name(),
-                        parameter.type().substitute(substitutions),
-                        parameter.upperBound().map(bound -> bound.substitute(substitutions)),
-                        parameter.defaultType().map(value -> value.substitute(substitutions))))
+            .map(parameter ->
+                new TypeParameterInfo(
+                    parameter.name(),
+                    parameter.type().substitute(substitutions),
+                    parameter.upperBound().map(bound -> bound.substitute(substitutions)),
+                    parameter.defaultType().map(value -> value.substitute(substitutions))))
             .toList();
     SemanticType result = type.substitute(substitutions);
     if (kind == SymbolKind.TYPE || kind == SymbolKind.INTERFACE) {

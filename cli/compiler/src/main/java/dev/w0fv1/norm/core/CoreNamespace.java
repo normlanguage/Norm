@@ -19,14 +19,13 @@ public final class CoreNamespace {
   public static CoreNamespace create(List<CoreBinding> bindings) {
     List<CoreBinding> sorted =
         bindings.stream()
-            .sorted(
-                (left, right) -> {
-                  int canonicalOrder =
-                      Arrays.compareUnsigned(canonicalBinding(left), canonicalBinding(right));
-                  return canonicalOrder != 0
-                      ? canonicalOrder
-                      : left.occurrence().compareTo(right.occurrence());
-                })
+            .sorted((left, right) -> {
+              int canonicalOrder =
+                  Arrays.compareUnsigned(canonicalBinding(left), canonicalBinding(right));
+              return canonicalOrder != 0
+                  ? canonicalOrder
+                  : left.occurrence().compareTo(right.occurrence());
+            })
             .toList();
     byte[] canonical = encodeNamespace(sorted);
     return new CoreNamespace(
@@ -103,29 +102,25 @@ public final class CoreNamespace {
         writer.writeInt(declared.fields().size());
         declared
             .fields()
-            .forEach(
-                field -> {
-                  writer.writeString(field.name()).writeTag(field.visibility().name());
-                  CoreCodec.writeType(writer, field.type());
-                });
+            .forEach(field -> {
+              writer.writeString(field.name()).writeTag(field.visibility().name());
+              CoreCodec.writeType(writer, field.type());
+            });
         writer.writeInt(declared.constructors().size());
         declared.constructors().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(
-                        constructorBytes(left, linkage), constructorBytes(right, linkage)))
-            .forEach(
-                constructor -> {
-                  writer.writeInt(constructor.parameters().size());
-                  constructor
-                      .parameters()
-                      .forEach(parameter -> writeParameter(writer, parameter, linkage));
-                });
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(
+                    constructorBytes(left, linkage), constructorBytes(right, linkage)))
+            .forEach(constructor -> {
+              writer.writeInt(constructor.parameters().size());
+              constructor
+                  .parameters()
+                  .forEach(parameter -> writeParameter(writer, parameter, linkage));
+            });
         writer.writeInt(declared.conformances().size());
         declared.conformances().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
             .forEach(conformance -> CoreCodec.writeType(writer, conformance));
       }
       case CoreBindingShape.Enum declared -> {
@@ -133,19 +128,17 @@ public final class CoreNamespace {
         writer.writeInt(declared.variants().size());
         declared
             .variants()
-            .forEach(
-                variant -> {
-                  writer.writeString(variant.name()).writeInt(variant.fields().size());
-                  variant.fields().forEach(field -> writeParameter(writer, field, linkage));
-                });
+            .forEach(variant -> {
+              writer.writeString(variant.name()).writeInt(variant.fields().size());
+              variant.fields().forEach(field -> writeParameter(writer, field, linkage));
+            });
       }
       case CoreBindingShape.Interface declared -> {
         writeTypeParameters(writer, declared.typeParameters());
         writer.writeInt(declared.directParents().size());
         declared.directParents().stream()
-            .sorted(
-                (left, right) ->
-                    java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
+            .sorted((left, right) ->
+                java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
             .forEach(parent -> CoreCodec.writeType(writer, parent));
       }
       case CoreBindingShape.MethodSignature method -> {
@@ -178,13 +171,12 @@ public final class CoreNamespace {
   private static void writeTypeParameters(
       CanonicalWriter writer, List<CoreTypeParameter> parameters) {
     writer.writeInt(parameters.size());
-    parameters.forEach(
-        parameter -> {
-          writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
-          parameter.upperBound().ifPresent(bound -> CoreCodec.writeType(writer, bound));
-          writer.writeBoolean(parameter.defaultType().isPresent());
-          parameter.defaultType().ifPresent(type -> CoreCodec.writeType(writer, type));
-        });
+    parameters.forEach(parameter -> {
+      writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
+      parameter.upperBound().ifPresent(bound -> CoreCodec.writeType(writer, bound));
+      writer.writeBoolean(parameter.defaultType().isPresent());
+      parameter.defaultType().ifPresent(type -> CoreCodec.writeType(writer, type));
+    });
   }
 
   private static byte[] typeBytes(CoreType type) {

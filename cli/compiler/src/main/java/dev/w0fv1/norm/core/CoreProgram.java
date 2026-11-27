@@ -91,12 +91,8 @@ public final class CoreProgram implements DefinitionResolver {
 
   private <T extends CoreDefinition> List<T> definitions(java.lang.Class<T> type) {
     List<T> result = new ArrayList<>();
-    groups.forEach(
-        group ->
-            group.definitions().stream()
-                .filter(type::isInstance)
-                .map(type::cast)
-                .forEach(result::add));
+    groups.forEach(group ->
+        group.definitions().stream().filter(type::isInstance).map(type::cast).forEach(result::add));
     return List.copyOf(result);
   }
 }

@@ -151,14 +151,12 @@ public final class JvmJarBindingRuntime
     if (!callables.keySet().equals(directCalls.keySet()))
       throw new IllegalArgumentException("direct Java calls must match the linked call set");
     var prepared = new LinkedHashMap<String, LinkedCall>();
-    callables.forEach(
-        (id, callable) ->
-            prepared.put(
-                id,
-                prepareCall(
-                    callable,
-                    java.util.Objects.requireNonNull(
-                        directCalls.get(id), "direct Java call " + id))));
+    callables.forEach((id, callable) ->
+        prepared.put(
+            id,
+            prepareCall(
+                callable,
+                java.util.Objects.requireNonNull(directCalls.get(id), "direct Java call " + id))));
     return new LinkedCalls(prepared);
   }
 
@@ -182,9 +180,8 @@ public final class JvmJarBindingRuntime
         () -> {
           var prepared = new LinkedHashMap<String, LinkedCall>();
           LinkedJarBinding.linkCalls(bindings)
-              .forEach(
-                  (id, callable) ->
-                      prepared.put(id, prepareCall(callable, bind(applicationLoader, callable))));
+              .forEach((id, callable) ->
+                  prepared.put(id, prepareCall(callable, bind(applicationLoader, callable))));
           return new LinkedCalls(prepared);
         },
         applicationLoader,
@@ -786,9 +783,8 @@ public final class JvmJarBindingRuntime
       var indexedClasses = linkedClasses.classes();
       classes = new LinkedHashMap<>(indexedClasses);
       Map<Class<?>, List<JarBindingClassReference>> indexedReferences = new LinkedHashMap<>();
-      indexedClasses.forEach(
-          (reference, type) ->
-              indexedReferences.computeIfAbsent(type, ignored -> new ArrayList<>()).add(reference));
+      indexedClasses.forEach((reference, type) ->
+          indexedReferences.computeIfAbsent(type, ignored -> new ArrayList<>()).add(reference));
       Map<Class<?>, List<JarBindingClassReference>> stableReferences = new LinkedHashMap<>();
       indexedReferences.forEach((type, values) -> stableReferences.put(type, List.copyOf(values)));
       references = new LinkedHashMap<>(stableReferences);
@@ -907,13 +903,12 @@ public final class JvmJarBindingRuntime
               .filter(entry -> entry.getValue().equals(value.name()))
               .map(Map.Entry::getKey)
               .findFirst()
-              .orElseThrow(
-                  () ->
-                      new JarBindingRuntimeException(
-                          "Java enum constant has no Norm variant: "
-                              + value.getDeclaringClass().getTypeName()
-                              + "."
-                              + value.name()));
+              .orElseThrow(() ->
+                  new JarBindingRuntimeException(
+                      "Java enum constant has no Norm variant: "
+                          + value.getDeclaringClass().getTypeName()
+                          + "."
+                          + value.name()));
       return new JarBindingEnumValue(type, variant);
     }
   }

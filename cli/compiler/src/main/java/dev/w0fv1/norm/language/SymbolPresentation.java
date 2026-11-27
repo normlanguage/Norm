@@ -32,10 +32,9 @@ final class SymbolPresentation {
     if (!symbol.type().isFunction()) return symbol;
     List<ParameterInfo> parameters =
         java.util.stream.IntStream.range(0, symbol.type().functionParameterTypes().size())
-            .mapToObj(
-                index ->
-                    new ParameterInfo(
-                        "argument" + index, symbol.type().functionParameterTypes().get(index)))
+            .mapToObj(index ->
+                new ParameterInfo(
+                    "argument" + index, symbol.type().functionParameterTypes().get(index)))
             .toList();
     return new Symbol(
         symbol.id(),
@@ -53,21 +52,20 @@ final class SymbolPresentation {
     return model
         .annotations()
         .schema(symbol.id())
-        .map(
-            schema ->
-                new Symbol(
-                    symbol.id(),
-                    symbol.name(),
-                    symbol.kind(),
-                    symbol.type(),
-                    symbol.declaration(),
-                    symbol.owner(),
-                    symbol.typeParameters(),
-                    schema.parameters().stream()
-                        .map(parameter -> new ParameterInfo(parameter.name(), parameter.type()))
-                        .toList(),
-                    symbol.documentation(),
-                    symbol.accessor()))
+        .map(schema ->
+            new Symbol(
+                symbol.id(),
+                symbol.name(),
+                symbol.kind(),
+                symbol.type(),
+                symbol.declaration(),
+                symbol.owner(),
+                symbol.typeParameters(),
+                schema.parameters().stream()
+                    .map(parameter -> new ParameterInfo(parameter.name(), parameter.type()))
+                    .toList(),
+                symbol.documentation(),
+                symbol.accessor()))
         .orElse(symbol);
   }
 
@@ -77,21 +75,20 @@ final class SymbolPresentation {
             ? ""
             : "<"
                 + symbol.typeParameters().stream()
-                    .map(
-                        parameter -> {
-                          if (parameter.type().kind() != SemanticType.Kind.TYPE_PARAMETER) {
-                            return parameter.type().displayName();
-                          }
-                          return parameter.name()
-                              + parameter
-                                  .upperBound()
-                                  .map(bound -> " extends " + bound.displayName())
-                                  .orElse("")
-                              + parameter
-                                  .defaultType()
-                                  .map(type -> " = " + type.displayName())
-                                  .orElse("");
-                        })
+                    .map(parameter -> {
+                      if (parameter.type().kind() != SemanticType.Kind.TYPE_PARAMETER) {
+                        return parameter.type().displayName();
+                      }
+                      return parameter.name()
+                          + parameter
+                              .upperBound()
+                              .map(bound -> " extends " + bound.displayName())
+                              .orElse("")
+                          + parameter
+                              .defaultType()
+                              .map(type -> " = " + type.displayName())
+                              .orElse("");
+                    })
                     .collect(java.util.stream.Collectors.joining(", "))
                 + ">";
     if (symbol.kind() == SymbolKind.FUNCTION

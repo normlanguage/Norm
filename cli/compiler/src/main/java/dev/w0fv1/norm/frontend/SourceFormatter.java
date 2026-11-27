@@ -165,38 +165,34 @@ public final class SourceFormatter {
     members.sort(Comparator.comparingInt(value -> value.span().startOffset()));
     List<Doc> formatted =
         members.stream()
-            .map(
-                member -> {
-                  if (member instanceof Syntax.FunctionDecl getter
-                      && getter.kind() == Syntax.FunctionKind.GETTER) {
-                    List<Doc> accessors = new ArrayList<>();
-                    accessors.add(Docs.concat(Docs.text("get "), block(getter.body())));
-                    declaration.methods().stream()
-                        .filter(
-                            method ->
-                                method.kind() == Syntax.FunctionKind.SETTER
-                                    && method.name().equals(getter.name()))
-                        .forEach(
-                            setter ->
-                                accessors.add(
-                                    Docs.concat(
-                                        setter.visibility() != getter.visibility()
-                                            ? visibility(setter.visibility())
-                                            : Docs.empty(),
-                                        Docs.text(
-                                            "set(" + setter.parameters().getFirst().name() + ") "),
-                                        block(setter.body()))));
-                    return annotated(
-                        getter.annotations(),
-                        Docs.concat(
-                            visibility(getter.visibility()),
-                            type(getter.returnType().orElseThrow()),
-                            Docs.text(" " + getter.name() + " "),
-                            blockDocs(accessors)),
-                        false);
-                  }
-                  return aggregateMember(member);
-                })
+            .map(member -> {
+              if (member instanceof Syntax.FunctionDecl getter
+                  && getter.kind() == Syntax.FunctionKind.GETTER) {
+                List<Doc> accessors = new ArrayList<>();
+                accessors.add(Docs.concat(Docs.text("get "), block(getter.body())));
+                declaration.methods().stream()
+                    .filter(method ->
+                        method.kind() == Syntax.FunctionKind.SETTER
+                            && method.name().equals(getter.name()))
+                    .forEach(setter ->
+                        accessors.add(
+                            Docs.concat(
+                                setter.visibility() != getter.visibility()
+                                    ? visibility(setter.visibility())
+                                    : Docs.empty(),
+                                Docs.text("set(" + setter.parameters().getFirst().name() + ") "),
+                                block(setter.body()))));
+                return annotated(
+                    getter.annotations(),
+                    Docs.concat(
+                        visibility(getter.visibility()),
+                        type(getter.returnType().orElseThrow()),
+                        Docs.text(" " + getter.name() + " "),
+                        blockDocs(accessors)),
+                    false);
+              }
+              return aggregateMember(member);
+            })
             .toList();
     return annotated(
         declaration.annotations(), Docs.concat(header, declarationBody(formatted)), false);
@@ -226,13 +222,11 @@ public final class SourceFormatter {
     List<Doc> body = new ArrayList<>();
     declaration
         .superCall()
-        .ifPresent(
-            call ->
-                body.add(
-                    Docs.concat(
-                        Docs.text("super"),
-                        delimited(
-                            "(", ")", call.arguments().stream().map(this::argument).toList()))));
+        .ifPresent(call ->
+            body.add(
+                Docs.concat(
+                    Docs.text("super"),
+                    delimited("(", ")", call.arguments().stream().map(this::argument).toList()))));
     body.addAll(declaration.body().stream().map(this::statement).toList());
     return annotated(
         declaration.annotations(),
@@ -284,18 +278,17 @@ public final class SourceFormatter {
         "<",
         ">",
         parameters.stream()
-            .map(
-                parameter ->
-                    Docs.concat(
-                        Docs.text(parameter.name()),
-                        parameter
-                            .upperBound()
-                            .map(bound -> Docs.concat(Docs.text(" extends "), type(bound)))
-                            .orElse(Docs.empty()),
-                        parameter
-                            .defaultType()
-                            .map(value -> Docs.concat(Docs.text(" = "), type(value)))
-                            .orElse(Docs.empty())))
+            .map(parameter ->
+                Docs.concat(
+                    Docs.text(parameter.name()),
+                    parameter
+                        .upperBound()
+                        .map(bound -> Docs.concat(Docs.text(" extends "), type(bound)))
+                        .orElse(Docs.empty()),
+                    parameter
+                        .defaultType()
+                        .map(value -> Docs.concat(Docs.text(" = "), type(value)))
+                        .orElse(Docs.empty())))
             .toList());
   }
 
@@ -719,12 +712,11 @@ public final class SourceFormatter {
                   Docs.nest(2, Docs.concat(Docs.line(), collectionElement(value.thenElement()))),
                   value
                       .elseElement()
-                      .map(
-                          other ->
-                              Docs.concat(
-                                  Docs.line(),
-                                  Docs.text("else"),
-                                  Docs.nest(2, Docs.concat(Docs.line(), collectionElement(other)))))
+                      .map(other ->
+                          Docs.concat(
+                              Docs.line(),
+                              Docs.text("else"),
+                              Docs.nest(2, Docs.concat(Docs.line(), collectionElement(other)))))
                       .orElse(Docs.empty())));
       case CollectionElement.Repeated value ->
           Docs.concat(

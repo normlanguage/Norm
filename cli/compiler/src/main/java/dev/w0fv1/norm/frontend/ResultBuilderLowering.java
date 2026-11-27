@@ -98,20 +98,18 @@ public final class ResultBuilderLowering {
                 new Syntax.TryStatement(
                     statements(tried.body()),
                     tried.catches().stream()
-                        .map(
-                            clause ->
-                                new Syntax.CatchClause(
-                                    clause.type(),
-                                    clause.name(),
-                                    clause.nameSpan(),
-                                    statements(clause.body()),
-                                    clause.span()))
+                        .map(clause ->
+                            new Syntax.CatchClause(
+                                clause.type(),
+                                clause.name(),
+                                clause.nameSpan(),
+                                statements(clause.body()),
+                                clause.span()))
                         .toList(),
                     tried
                         .finallyClause()
-                        .map(
-                            clause ->
-                                new Syntax.FinallyClause(statements(clause.body()), clause.span())),
+                        .map(clause ->
+                            new Syntax.FinallyClause(statements(clause.body()), clause.span())),
                     tried.span());
             case Syntax.ReturnStatement returned -> throw new InvalidControl(returned.span());
             case Syntax.BreakStatement broken when broken.value() != null ->

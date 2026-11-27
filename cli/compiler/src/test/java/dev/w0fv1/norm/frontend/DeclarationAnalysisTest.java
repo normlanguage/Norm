@@ -18,10 +18,10 @@ final class DeclarationAnalysisTest {
     var analyzer =
         analyzer(
             """
-        interface Value {}
-        class Empty implements Value {}
-        T? value<T extends Value = Empty>(T? input = null) { missing() }
-        """);
+            interface Value {}
+            class Empty implements Value {}
+            T? value<T extends Value = Empty>(T? input = null) { missing() }
+            """);
     var declared = analyzer.declarations();
     assertTrue(declared.diagnostics().isEmpty(), declared.diagnostics().toString());
     var value =
@@ -80,9 +80,8 @@ final class DeclarationAnalysisTest {
             .anyMatch(symbol -> symbol.kind() == SymbolKind.LOCAL_VARIABLE));
     assertTrue(
         analyzed.analysis().semanticModel().symbols().stream()
-            .anyMatch(
-                symbol ->
-                    symbol.name().equals("local") && symbol.type().equals(SemanticType.INTEGER)));
+            .anyMatch(symbol ->
+                symbol.name().equals("local") && symbol.type().equals(SemanticType.INTEGER)));
     assertThrows(UnsupportedOperationException.class, () -> declared.symbols().clear());
   }
 

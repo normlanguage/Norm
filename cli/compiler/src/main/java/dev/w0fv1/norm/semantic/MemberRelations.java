@@ -12,12 +12,8 @@ final class MemberRelations {
   private record PropertyIdentity(SymbolId owner, String name) {}
 
   private static final Comparator<Symbol> ORDER =
-      Comparator.comparing(
-              (Symbol symbol) ->
-                  symbol
-                      .declaration()
-                      .map(location -> location.document().uri().toString())
-                      .orElse(""))
+      Comparator.comparing((Symbol symbol) ->
+              symbol.declaration().map(location -> location.document().uri().toString()).orElse(""))
           .thenComparingInt(
               symbol -> symbol.declaration().map(location -> location.startOffset()).orElse(-1));
   private final Map<SymbolId, Symbol> symbols;
@@ -30,26 +26,21 @@ final class MemberRelations {
       Map<SymbolId, SymbolId> overrides) {
     this.symbols = symbols;
     var directed = new LinkedHashMap<SymbolId, Set<SymbolId>>();
-    overrides.forEach(
-        (member, parent) ->
-            directed.computeIfAbsent(member, ignored -> new LinkedHashSet<>()).add(parent));
+    overrides.forEach((member, parent) ->
+        directed.computeIfAbsent(member, ignored -> new LinkedHashSet<>()).add(parent));
     witnesses
         .values()
-        .forEach(
-            table ->
-                table.forEach(
-                    (requirement, implementation) ->
-                        directed
-                            .computeIfAbsent(implementation, ignored -> new LinkedHashSet<>())
-                            .add(requirement)));
+        .forEach(table ->
+            table.forEach((requirement, implementation) ->
+                directed
+                    .computeIfAbsent(implementation, ignored -> new LinkedHashSet<>())
+                    .add(requirement)));
     var connected = new LinkedHashMap<SymbolId, Set<SymbolId>>();
-    directed.forEach(
-        (member, targets) ->
-            targets.forEach(
-                target -> {
-                  connected.computeIfAbsent(member, ignored -> new LinkedHashSet<>()).add(target);
-                  connected.computeIfAbsent(target, ignored -> new LinkedHashSet<>()).add(member);
-                }));
+    directed.forEach((member, targets) ->
+        targets.forEach(target -> {
+          connected.computeIfAbsent(member, ignored -> new LinkedHashSet<>()).add(target);
+          connected.computeIfAbsent(target, ignored -> new LinkedHashSet<>()).add(member);
+        }));
     var properties = new LinkedHashMap<PropertyIdentity, Set<SymbolId>>();
     for (Symbol symbol : symbols.values()) {
       if (symbol.accessor() == Symbol.Accessor.NONE) continue;
@@ -58,13 +49,11 @@ final class MemberRelations {
     }
     properties
         .values()
-        .forEach(
-            accessors ->
-                accessors.forEach(
-                    accessor ->
-                        connected
-                            .computeIfAbsent(accessor, ignored -> new LinkedHashSet<>())
-                            .addAll(accessors)));
+        .forEach(accessors ->
+            accessors.forEach(accessor ->
+                connected
+                    .computeIfAbsent(accessor, ignored -> new LinkedHashSet<>())
+                    .addAll(accessors)));
     parents =
         directed.entrySet().stream()
             .collect(

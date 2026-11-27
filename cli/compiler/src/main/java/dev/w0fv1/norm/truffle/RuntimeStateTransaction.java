@@ -547,11 +547,9 @@ final class RuntimeStateTransaction implements AutoCloseable {
       CallTarget initializer =
           field
               .initializer()
-              .orElseThrow(
-                  () ->
-                      new StateMigrationFailure(
-                          "New field requires an explicit initializer or migration: "
-                              + field.key()));
+              .orElseThrow(() ->
+                  new StateMigrationFailure(
+                      "New field requires an explicit initializer or migration: " + field.key()));
       var arguments = new ArrayList<Object>();
       arguments.add(execution);
       arguments.add(object);
@@ -572,23 +570,20 @@ final class RuntimeStateTransaction implements AutoCloseable {
     if (transition != null) include(transition.roots());
     for (int index = 0; index < roots.size(); index++) visit(roots.get(index));
     transitions.forEach(RuntimeObjectState.MigrationContext::validateCoverage);
-    staged.forEach(
-        (cells, values) -> {
-          if (!((JournalMap) values).dirty) return;
-          Map<FieldKey, Object> target = parent == null ? cells : parent.storage(cells);
-          target.clear();
-          target.putAll(values);
-        });
-    cells.forEach(
-        (cell, value) -> {
-          if (parent == null) cell.value = value;
-          else parent.cells.put(cell, value);
-        });
-    containers.forEach(
-        (storage, value) -> {
-          if (parent == null) storage.commit(value);
-          else parent.containers.put(storage, value);
-        });
+    staged.forEach((cells, values) -> {
+      if (!((JournalMap) values).dirty) return;
+      Map<FieldKey, Object> target = parent == null ? cells : parent.storage(cells);
+      target.clear();
+      target.putAll(values);
+    });
+    cells.forEach((cell, value) -> {
+      if (parent == null) cell.value = value;
+      else parent.cells.put(cell, value);
+    });
+    containers.forEach((storage, value) -> {
+      if (parent == null) storage.commit(value);
+      else parent.containers.put(storage, value);
+    });
     if (parent == null) {
       objects.forEach((state, context) -> state.publish(context.target()));
       if (transition != null) transition.commit();

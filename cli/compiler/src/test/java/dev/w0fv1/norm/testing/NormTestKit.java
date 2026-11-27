@@ -91,11 +91,10 @@ public final class NormTestKit {
               .toList();
     }
     return cases.stream()
-        .map(
-            path ->
-                DynamicTest.dynamicTest(
-                    directory.relativize(path).toString().replace('\\', '/'),
-                    () -> assertSelfContainedTest(path)));
+        .map(path ->
+            DynamicTest.dynamicTest(
+                directory.relativize(path).toString().replace('\\', '/'),
+                () -> assertSelfContainedTest(path)));
   }
 
   public static Stream<DynamicTest> projectSuite(String resource) throws Exception {
@@ -161,14 +160,13 @@ public final class NormTestKit {
               .toList();
     }
     return cases.stream()
-        .map(
-            path -> {
-              String name = path.getFileName().toString();
-              Path output = path.resolveSibling(name.substring(0, name.length() - 5) + ".out");
-              return DynamicTest.dynamicTest(
-                  directory.relativize(path).toString().replace('\\', '/'),
-                  () -> assertGoldenOutput(path, output));
-            });
+        .map(path -> {
+          String name = path.getFileName().toString();
+          Path output = path.resolveSibling(name.substring(0, name.length() - 5) + ".out");
+          return DynamicTest.dynamicTest(
+              directory.relativize(path).toString().replace('\\', '/'),
+              () -> assertGoldenOutput(path, output));
+        });
   }
 
   private static Path resourceDirectory(String resource) throws Exception {

@@ -62,14 +62,10 @@ final class NativeToolchainClasspath {
                       Path.of(storage.get("target").getAsString()),
                       storage.get("automatic").getAsBoolean(),
                       storage.getAsJsonArray("moduleRequires").asList().stream()
-                          .map(
-                              requirement ->
-                                  new ModuleRequirement(
-                                      requirement.getAsJsonObject().get("name").getAsString(),
-                                      requirement
-                                          .getAsJsonObject()
-                                          .get("transitive")
-                                          .getAsBoolean()))
+                          .map(requirement ->
+                              new ModuleRequirement(
+                                  requirement.getAsJsonObject().get("name").getAsString(),
+                                  requirement.getAsJsonObject().get("transitive").getAsBoolean()))
                           .toList());
               default -> throw new IOException("Invalid toolchain storage: " + name);
             };
@@ -132,18 +128,14 @@ final class NativeToolchainClasspath {
           ModuleDescriptor descriptor = modules.iterator().next().descriptor();
           List<ModuleRequirement> requires =
               descriptor.requires().stream()
-                  .filter(
-                      requirement ->
-                          !requirement
+                  .filter(requirement ->
+                      !requirement.modifiers().contains(ModuleDescriptor.Requires.Modifier.STATIC))
+                  .map(requirement ->
+                      new ModuleRequirement(
+                          requirement.name(),
+                          requirement
                               .modifiers()
-                              .contains(ModuleDescriptor.Requires.Modifier.STATIC))
-                  .map(
-                      requirement ->
-                          new ModuleRequirement(
-                              requirement.name(),
-                              requirement
-                                  .modifiers()
-                                  .contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE)))
+                              .contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE)))
                   .sorted(java.util.Comparator.comparing(ModuleRequirement::name))
                   .toList();
           if (!descriptor.name().equals(path.getFileName().toString().replaceFirst("\\.jar$", ""))

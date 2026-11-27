@@ -141,14 +141,13 @@ public final class NormPackageResolver implements AutoCloseable {
         repository.moduleNames(client).stream()
             .filter(candidate -> path.startsWith(candidate + "."))
             .max(java.util.Comparator.comparingInt(String::length))
-            .orElseThrow(
-                () ->
-                    new IOException(
-                        "no registered module owns reference '"
-                            + path
-                            + "' in repository '"
-                            + repositoryId.value()
-                            + "'"));
+            .orElseThrow(() ->
+                new IOException(
+                    "no registered module owns reference '"
+                        + path
+                        + "' in repository '"
+                        + repositoryId.value()
+                        + "'"));
     return new ModuleRequirement(repositoryId.value(), name, version, false);
   }
 

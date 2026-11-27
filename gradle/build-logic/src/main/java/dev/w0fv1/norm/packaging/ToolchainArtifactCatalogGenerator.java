@@ -44,49 +44,44 @@ public final class ToolchainArtifactCatalogGenerator {
     List<Artifact> artifacts = new ArrayList<>();
     source
         .getAsJsonArray("artifacts")
-        .forEach(
-            value -> {
-              var item = value.getAsJsonObject();
-              artifacts.add(
-                  new Artifact(
-                      Path.of(item.get("path").getAsString()),
-                      item.get("coordinate").getAsString()));
-            });
+        .forEach(value -> {
+          var item = value.getAsJsonObject();
+          artifacts.add(
+              new Artifact(
+                  Path.of(item.get("path").getAsString()), item.get("coordinate").getAsString()));
+        });
     List<String> roots =
         source.getAsJsonArray("roots").asList().stream().map(value -> value.getAsString()).toList();
     Map<String, List<String>> dependencies = new TreeMap<>();
     source
         .getAsJsonObject("dependencies")
         .entrySet()
-        .forEach(
-            entry ->
-                dependencies.put(
-                    entry.getKey(),
-                    entry.getValue().getAsJsonArray().asList().stream()
-                        .map(value -> value.getAsString())
-                        .toList()));
+        .forEach(entry ->
+            dependencies.put(
+                entry.getKey(),
+                entry.getValue().getAsJsonArray().asList().stream()
+                    .map(value -> value.getAsString())
+                    .toList()));
     Map<String, List<String>> purposes = new TreeMap<>();
     source
         .getAsJsonObject("purposes")
         .entrySet()
-        .forEach(
-            entry ->
-                purposes.put(
-                    entry.getKey(),
-                    entry.getValue().getAsJsonArray().asList().stream()
-                        .map(value -> value.getAsString())
-                        .toList()));
+        .forEach(entry ->
+            purposes.put(
+                entry.getKey(),
+                entry.getValue().getAsJsonArray().asList().stream()
+                    .map(value -> value.getAsString())
+                    .toList()));
     Map<String, List<String>> mergedModules = new TreeMap<>();
     source
         .getAsJsonObject("mergedModules")
         .entrySet()
-        .forEach(
-            entry ->
-                mergedModules.put(
-                    entry.getKey(),
-                    entry.getValue().getAsJsonArray().asList().stream()
-                        .map(value -> value.getAsString())
-                        .toList()));
+        .forEach(entry ->
+            mergedModules.put(
+                entry.getKey(),
+                entry.getValue().getAsJsonArray().asList().stream()
+                    .map(value -> value.getAsString())
+                    .toList()));
     generate(
         new Input(artifacts, roots, dependencies, purposes, mergedModules), Path.of(arguments[1]));
   }
@@ -166,21 +161,17 @@ public final class ToolchainArtifactCatalogGenerator {
         storage.addProperty("automatic", descriptor.isAutomatic());
         JsonArray moduleRequires = new JsonArray();
         descriptor.requires().stream()
-            .filter(
-                requirement ->
-                    !requirement.modifiers().contains(ModuleDescriptor.Requires.Modifier.STATIC))
+            .filter(requirement ->
+                !requirement.modifiers().contains(ModuleDescriptor.Requires.Modifier.STATIC))
             .sorted(java.util.Comparator.comparing(ModuleDescriptor.Requires::name))
-            .forEach(
-                requirement -> {
-                  JsonObject requirementEntry = new JsonObject();
-                  requirementEntry.addProperty("name", requirement.name());
-                  requirementEntry.addProperty(
-                      "transitive",
-                      requirement
-                          .modifiers()
-                          .contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE));
-                  moduleRequires.add(requirementEntry);
-                });
+            .forEach(requirement -> {
+              JsonObject requirementEntry = new JsonObject();
+              requirementEntry.addProperty("name", requirement.name());
+              requirementEntry.addProperty(
+                  "transitive",
+                  requirement.modifiers().contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE));
+              moduleRequires.add(requirementEntry);
+            });
         storage.add("moduleRequires", moduleRequires);
       } else {
         MessageDigest digest;
@@ -206,12 +197,11 @@ public final class ToolchainArtifactCatalogGenerator {
     catalog.add("roots", roots);
     JsonObject dependencies = new JsonObject();
     new TreeMap<>(input.dependencies())
-        .forEach(
-            (coordinate, edges) -> {
-              JsonArray values = new JsonArray();
-              edges.forEach(values::add);
-              dependencies.add(coordinate, values);
-            });
+        .forEach((coordinate, edges) -> {
+          JsonArray values = new JsonArray();
+          edges.forEach(values::add);
+          dependencies.add(coordinate, values);
+        });
     catalog.add("dependencies", dependencies);
     JsonObject purposes = new JsonObject();
     for (String purpose : List.of("execution", "hosted", "tooling")) {

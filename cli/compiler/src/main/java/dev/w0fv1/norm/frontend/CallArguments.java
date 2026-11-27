@@ -93,10 +93,9 @@ final class CallArguments {
     if (index == 0
         && parameters.size() > 1
         && java.util.stream.IntStream.range(1, parameters.size())
-            .allMatch(
-                candidate ->
-                    candidate == trailingParameter
-                        || parameters.get(candidate).policy().hasDefault())) {
+            .allMatch(candidate ->
+                candidate == trailingParameter
+                    || parameters.get(candidate).policy().hasDefault())) {
       return index;
     }
     if (index < parameters.size()

@@ -31,20 +31,18 @@ public final class CoreLiveSchema {
           occurrence
               .origin()
               .declarationIdentity()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Live execution requires a declaration identity: "
-                              + occurrence.origin().definitionName()));
+              .orElseThrow(() ->
+                  new IllegalArgumentException(
+                      "Live execution requires a declaration identity: "
+                          + occurrence.origin().definitionName()));
       indexedKeys.put(occurrence.id(), key);
       var layout = new CoreExecutionLayout(callable, occurrence.origin());
       indexedLayouts.put(occurrence.id(), layout);
       var localTypes = new HashMap<String, CoreType>();
       callable
           .locals()
-          .forEach(
-              local ->
-                  localTypes.put(layout.local(local.index()), identity.type(owner, local.type())));
+          .forEach(local ->
+              localTypes.put(layout.local(local.index()), identity.type(owner, local.type())));
       if (indexedContracts.putIfAbsent(
               key,
               new Contract(

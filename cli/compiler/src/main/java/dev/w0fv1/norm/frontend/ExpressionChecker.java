@@ -262,9 +262,8 @@ final class ExpressionChecker implements ExpressionTyping {
     return SemanticType.function(
         typeResolver.functionReturnType(declaration, parameters),
         declaration.parameters().stream()
-            .map(
-                parameter ->
-                    typeResolver.resolveDeclarationType(parameter.type(), declaration, parameters))
+            .map(parameter ->
+                typeResolver.resolveDeclarationType(parameter.type(), declaration, parameters))
             .toList());
   }
 
@@ -662,20 +661,19 @@ final class ExpressionChecker implements ExpressionTyping {
     }
     List<ParameterInfo> parameters =
         java.util.stream.IntStream.range(0, function.functionParameterTypes().size())
-            .mapToObj(
-                index ->
-                    new ParameterInfo(
-                        !declaredParameters.isEmpty()
-                            ? declaredParameters.get(index).name()
-                            : "argument" + index,
-                        function.functionParameterTypes().get(index),
-                        false,
-                        !declaredParameters.isEmpty()
-                            ? declaredParameters.get(index).policy().callbackParameterNames()
-                            : List.of(),
-                        !declaredParameters.isEmpty()
-                            ? declaredParameters.get(index).policy().labelPolicy()
-                            : dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.POSITIONAL_ONLY))
+            .mapToObj(index ->
+                new ParameterInfo(
+                    !declaredParameters.isEmpty()
+                        ? declaredParameters.get(index).name()
+                        : "argument" + index,
+                    function.functionParameterTypes().get(index),
+                    false,
+                    !declaredParameters.isEmpty()
+                        ? declaredParameters.get(index).policy().callbackParameterNames()
+                        : List.of(),
+                    !declaredParameters.isEmpty()
+                        ? declaredParameters.get(index).policy().labelPolicy()
+                        : dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.POSITIONAL_ONLY))
             .toList();
     return calls.recordCall(
         call,
@@ -1300,9 +1298,8 @@ final class ExpressionChecker implements ExpressionTyping {
       List<SemanticType> signature = new ArrayList<>();
       signature.add(view.type());
       method.parameters().stream()
-          .map(
-              parameter ->
-                  typeResolver.resolveDeclarationType(parameter.type(), method, parameters))
+          .map(parameter ->
+              typeResolver.resolveDeclarationType(parameter.type(), method, parameters))
           .map(type -> type.substitute(substitutions))
           .forEach(signature::add);
       SemanticType result =
@@ -1330,10 +1327,8 @@ final class ExpressionChecker implements ExpressionTyping {
                   typeResolver.readResult(
                       typeResolver.functionReturnType(method, parameters), substitutions),
                   method.parameters().stream()
-                      .map(
-                          parameter ->
-                              typeResolver.resolveDeclarationType(
-                                  parameter.type(), method, parameters))
+                      .map(parameter ->
+                          typeResolver.resolveDeclarationType(parameter.type(), method, parameters))
                       .toList())
               .substitute(substitutions);
       candidates.add(new FunctionPattern(method, pattern));
@@ -1358,9 +1353,8 @@ final class ExpressionChecker implements ExpressionTyping {
       Map<String, SemanticType> substitutions = new java.util.LinkedHashMap<>();
       symbol
           .typeParameters()
-          .forEach(
-              parameter ->
-                  substitutions.put(parameter.type().identity(), SemanticType.EXISTENTIAL));
+          .forEach(parameter ->
+              substitutions.put(parameter.type().identity(), SemanticType.EXISTENTIAL));
       return List.of(
           new FunctionReferenceResolution(
               candidate.declaration(),
@@ -1369,9 +1363,8 @@ final class ExpressionChecker implements ExpressionTyping {
     }
     if (!expected.isFunction()) return List.of();
     return candidates.stream()
-        .map(
-            candidate ->
-                resolveFunctionReference(candidate.declaration(), candidate.type(), expected))
+        .map(candidate ->
+            resolveFunctionReference(candidate.declaration(), candidate.type(), expected))
         .flatMap(Optional::stream)
         .toList();
   }

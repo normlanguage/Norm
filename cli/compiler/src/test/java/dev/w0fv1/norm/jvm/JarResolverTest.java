@@ -129,9 +129,9 @@ final class JarResolverTest {
         String dependencies =
             name.equals("root")
                 ? """
-            <dependencies><dependency><groupId>test</groupId><artifactId>child</artifactId><version>1</version></dependency></dependencies>
-            <repositories><repository><id>inherited</id><url>http://127.0.0.1:%d/</url></repository></repositories>
-            """
+                <dependencies><dependency><groupId>test</groupId><artifactId>child</artifactId><version>1</version></dependency></dependencies>
+                <repositories><repository><id>inherited</id><url>http://127.0.0.1:%d/</url></repository></repositories>
+                """
                     .formatted(server.getAddress().getPort())
                 : "";
         Files.writeString(
@@ -158,9 +158,8 @@ final class JarResolverTest {
           assertTrue(requests.contains("/test/child/1/child-1.jar"));
           assertTrue(
               progress.stream()
-                  .anyMatch(
-                      message ->
-                          message.startsWith("Downloading ") && message.endsWith("child-1.jar")));
+                  .anyMatch(message ->
+                      message.startsWith("Downloading ") && message.endsWith("child-1.jar")));
           assertTrue(
               progress.stream()
                   .anyMatch(message -> message.startsWith("Downloaded test/child/1/child-1.jar")));

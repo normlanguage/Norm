@@ -59,12 +59,10 @@ record ProjectCompilationSources(
       dependencies.put(descriptor.coordinate(), readable);
       module
           .sources()
-          .forEach(
-              (path, source) -> {
-                sources.add(source);
-                coordinates.put(
-                    source.id(), new ModuleSourceCoordinate(descriptor.coordinate(), path));
-              });
+          .forEach((path, source) -> {
+            sources.add(source);
+            coordinates.put(source.id(), new ModuleSourceCoordinate(descriptor.coordinate(), path));
+          });
       exports.addAll(module.exportedSources());
       bindings.addAll(module.bindingSources());
       tests.addAll(module.testSources());

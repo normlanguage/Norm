@@ -146,11 +146,10 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
       var reference = references.get(name);
       if (reference == null || !selected.add(name)) continue;
       reference.descriptor().requires().stream()
-          .filter(
-              requirement ->
-                  !requirement
-                      .modifiers()
-                      .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC))
+          .filter(requirement ->
+              !requirement
+                  .modifiers()
+                  .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC))
           .map(java.lang.module.ModuleDescriptor.Requires::name)
           .forEach(pending::addLast);
     }

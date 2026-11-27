@@ -168,14 +168,13 @@ public final class NormCompilerPlugin implements Plugin<Project> {
     project
         .getTasks()
         .named(main.getProcessResourcesTaskName(), ProcessResources.class)
-        .configure(
-            task ->
-                task.from(
-                    project.getRootProject().file("norm/stdlib"),
-                    library -> {
-                      library.into("stdlib");
-                      library.exclude("std/tests/**");
-                    }));
+        .configure(task ->
+            task.from(
+                project.getRootProject().file("norm/stdlib"),
+                library -> {
+                  library.into("stdlib");
+                  library.exclude("std/tests/**");
+                }));
     test.getResources().srcDir(project.getRootProject().file("norm/tests"));
     project
         .getTasks()
@@ -214,11 +213,9 @@ public final class NormCompilerPlugin implements Plugin<Project> {
             .getConfigurations()
             .getByName("runtimeClasspath")
             .getIncoming()
-            .artifactView(
-                view ->
-                    view.attributes(
-                        attributes ->
-                            attributes.attribute(Attribute.of("javaModule", Boolean.class), false)))
+            .artifactView(view ->
+                view.attributes(attributes ->
+                    attributes.attribute(Attribute.of("javaModule", Boolean.class), false)))
             .getArtifacts();
     var catalog =
         project
@@ -230,40 +227,33 @@ public final class NormCompilerPlugin implements Plugin<Project> {
                   task.getResolvedArtifacts().from(rawArtifacts.getArtifactFiles());
                   task.getResolutionIdentity()
                       .set(
-                          project.provider(
-                              () ->
-                                  GenerateToolchainCatalog.resolvedGraph(
-                                          project.getConfigurations().getByName("runtimeClasspath"))
-                                      .toString()));
+                          project.provider(() ->
+                              GenerateToolchainCatalog.resolvedGraph(
+                                      project.getConfigurations().getByName("runtimeClasspath"))
+                                  .toString()));
                   task.getPurposeIdentity()
                       .set(
-                          project.provider(
-                              () ->
-                                  List.of(
-                                          "nativeExecution",
-                                          "nativeExecutionRuntime",
-                                          "nativeHosted")
-                                      .stream()
-                                      .map(
-                                          name ->
-                                              name
-                                                  + ":"
-                                                  + project
-                                                      .getConfigurations()
-                                                      .getByName(name)
-                                                      .getDependencies()
-                                                      .stream()
-                                                      .map(
-                                                          dependency ->
-                                                              dependency.getGroup()
-                                                                  + ":"
-                                                                  + dependency.getName()
-                                                                  + ":"
-                                                                  + dependency.getVersion())
-                                                      .sorted()
-                                                      .toList())
-                                      .toList()
-                                      .toString()));
+                          project.provider(() ->
+                              List.of("nativeExecution", "nativeExecutionRuntime", "nativeHosted")
+                                  .stream()
+                                  .map(name ->
+                                      name
+                                          + ":"
+                                          + project
+                                              .getConfigurations()
+                                              .getByName(name)
+                                              .getDependencies()
+                                              .stream()
+                                              .map(dependency ->
+                                                  dependency.getGroup()
+                                                      + ":"
+                                                      + dependency.getName()
+                                                      + ":"
+                                                      + dependency.getVersion())
+                                              .sorted()
+                                              .toList())
+                                  .toList()
+                                  .toString()));
                   task.getStorage()
                       .set(
                           project
@@ -652,9 +642,8 @@ public final class NormCompilerPlugin implements Plugin<Project> {
             "polyglot",
             "objenesis",
             "collections")
-        .forEach(
-            value ->
-                dependencies.add("nativeExecution", libs.findLibrary(value).orElseThrow().get()));
+        .forEach(value ->
+            dependencies.add("nativeExecution", libs.findLibrary(value).orElseThrow().get()));
     List.of("nativeimage", "asm", "asm-commons", "asm-tree", "kryo")
         .forEach(
             value -> dependencies.add("nativeHosted", libs.findLibrary(value).orElseThrow().get()));
@@ -664,9 +653,7 @@ public final class NormCompilerPlugin implements Plugin<Project> {
     dependencies.add(
         "annotationProcessor", libs.findLibrary("truffle-processor").orElseThrow().get());
     List.of("junit-jupiter", "archunit", "websocket")
-        .forEach(
-            value ->
-                dependencies.add(
-                    "testImplementation", libs.findLibrary(value).orElseThrow().get()));
+        .forEach(value ->
+            dependencies.add("testImplementation", libs.findLibrary(value).orElseThrow().get()));
   }
 }

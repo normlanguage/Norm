@@ -26,11 +26,10 @@ final class AnalysisJournal {
     if (active != null) {
       boolean present = target.containsKey(key);
       V previous = target.get(key);
-      changes.add(
-          () -> {
-            if (present) target.put(key, previous);
-            else target.remove(key);
-          });
+      changes.add(() -> {
+        if (present) target.put(key, previous);
+        else target.remove(key);
+      });
     }
     target.put(key, value);
   }

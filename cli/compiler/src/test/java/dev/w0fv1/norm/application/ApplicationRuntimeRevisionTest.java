@@ -181,28 +181,27 @@ class ApplicationRuntimeRevisionTest {
     var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
     var creator =
         Thread.ofVirtual()
-            .start(
-                () -> {
-                  try {
-                    var revision =
-                        ApplicationRuntimeRevision.prepared(
-                            content,
-                            assets,
-                            ExecutionContext.builder().build(),
-                            new JvmJarBindingRuntime.Realm());
-                    var runtime = (JvmJarBindingRuntime) revision.context().jarBindingRuntime();
-                    var type = runtime.applicationClassLoader().loadClass("DynamicDependency");
-                    Object value = type.getDeclaredConstructor().newInstance();
-                    type.getField("owner").set(value, revision);
-                    type.getField("keep").set(null, value);
-                    revision.retain(value);
-                    revision.close();
-                    assertNotNull(assets.path());
-                    valueReference.set(new java.lang.ref.WeakReference<>(value));
-                  } catch (Throwable exception) {
-                    failure.set(exception);
-                  }
-                });
+            .start(() -> {
+              try {
+                var revision =
+                    ApplicationRuntimeRevision.prepared(
+                        content,
+                        assets,
+                        ExecutionContext.builder().build(),
+                        new JvmJarBindingRuntime.Realm());
+                var runtime = (JvmJarBindingRuntime) revision.context().jarBindingRuntime();
+                var type = runtime.applicationClassLoader().loadClass("DynamicDependency");
+                Object value = type.getDeclaredConstructor().newInstance();
+                type.getField("owner").set(value, revision);
+                type.getField("keep").set(null, value);
+                revision.retain(value);
+                revision.close();
+                assertNotNull(assets.path());
+                valueReference.set(new java.lang.ref.WeakReference<>(value));
+              } catch (Throwable exception) {
+                failure.set(exception);
+              }
+            });
     creator.join();
     if (failure.get() != null) throw new AssertionError(failure.get());
     assertTimeoutPreemptively(

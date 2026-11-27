@@ -41,14 +41,13 @@ final class JUnitPlatformTestRunner {
     List<ProjectTestFailure> failures = new ArrayList<>();
     summary
         .getFailures()
-        .forEach(
-            failure -> {
-              Throwable exception = failure.getException();
-              String message = exception.getMessage();
-              if (message == null || message.isBlank()) message = exception.getClass().getName();
-              failures.add(
-                  new ProjectTestFailure(failure.getTestIdentifier().getDisplayName(), message));
-            });
+        .forEach(failure -> {
+          Throwable exception = failure.getException();
+          String message = exception.getMessage();
+          if (message == null || message.isBlank()) message = exception.getClass().getName();
+          failures.add(
+              new ProjectTestFailure(failure.getTestIdentifier().getDisplayName(), message));
+        });
     return new ProjectTestReport(
         summary.getTestsFoundCount(),
         summary.getTestsSucceededCount(),

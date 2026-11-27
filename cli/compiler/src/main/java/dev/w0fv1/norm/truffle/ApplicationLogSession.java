@@ -63,14 +63,13 @@ final class ApplicationLogSession {
         String text = message;
         state
             .callbacks()
-            .invoke(
-                () ->
-                    RuntimeInvocation.invoke(
-                        state,
-                        output,
-                        state.values().enumValue(levelType, variant, java.util.List.of()),
-                        source,
-                        text));
+            .invoke(() ->
+                RuntimeInvocation.invoke(
+                    state,
+                    output,
+                    state.values().enumValue(levelType, variant, java.util.List.of()),
+                    source,
+                    text));
       }
     };
   }

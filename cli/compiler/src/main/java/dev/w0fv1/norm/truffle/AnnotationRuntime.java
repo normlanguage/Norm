@@ -163,11 +163,10 @@ final class AnnotationRuntime {
     this.declarationTargets = Map.copyOf(declarationTargets);
     var targets = new LinkedHashMap<DefinitionId, CallTarget>();
     var ambiguous = new java.util.HashSet<DefinitionId>();
-    declarationTargets.forEach(
-        (occurrence, target) -> {
-          var id = occurrence.representative();
-          if (targets.putIfAbsent(id, target) != null) ambiguous.add(id);
-        });
+    declarationTargets.forEach((occurrence, target) -> {
+      var id = occurrence.representative();
+      if (targets.putIfAbsent(id, target) != null) ambiguous.add(id);
+    });
     ambiguous.forEach(targets::remove);
     this.callableTargets = Map.copyOf(targets);
   }
@@ -326,16 +325,15 @@ final class AnnotationRuntime {
     CoreType fieldRuntimeType = list.arguments().getFirst();
     List<Object> fields =
         info.fields().stream()
-            .map(
-                field ->
-                    new RuntimeValues.FieldValue(
-                        fieldRuntimeType,
-                        reflectedType,
-                        field.owner(),
-                        field.name(),
-                        field.index(),
-                        reflectedFieldType(field, reflected),
-                        this))
+            .map(field ->
+                new RuntimeValues.FieldValue(
+                    fieldRuntimeType,
+                    reflectedType,
+                    field.owner(),
+                    field.name(),
+                    field.index(),
+                    reflectedFieldType(field, reflected),
+                    this))
             .map(Object.class::cast)
             .toList();
     return new RuntimeValues.ListValue(listType, fields);
@@ -413,24 +411,23 @@ final class AnnotationRuntime {
         aggregate.dispatch().stream()
             .map(dispatch -> resolve(aggregateId, dispatch.slot()))
             .distinct()
-            .map(
-                slot -> {
-                  RuntimeValues.DispatchTarget target = info.dispatch().get(identity.slot(slot));
-                  if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) {
-                    throw new IllegalStateException("reflected function target is absent");
-                  }
-                  return (Object)
-                      new RuntimeValues.Closure(
-                          callable.target(),
-                          occurrence(slot),
-                          identity.slot(slot),
-                          true,
-                          null,
-                          new Object[0],
-                          reflected.arguments().toArray(),
-                          new Object[0],
-                          this);
-                })
+            .map(slot -> {
+              RuntimeValues.DispatchTarget target = info.dispatch().get(identity.slot(slot));
+              if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) {
+                throw new IllegalStateException("reflected function target is absent");
+              }
+              return (Object)
+                  new RuntimeValues.Closure(
+                      callable.target(),
+                      occurrence(slot),
+                      identity.slot(slot),
+                      true,
+                      null,
+                      new Object[0],
+                      reflected.arguments().toArray(),
+                      new Object[0],
+                      this);
+            })
             .toList();
     return new RuntimeValues.ListValue(listType, functions);
   }
@@ -444,11 +441,10 @@ final class AnnotationRuntime {
     List<Object> constructors =
         aggregate.constructors().stream()
             .map(link -> resolve(aggregateId, link))
-            .map(
-                constructor ->
-                    (Object)
-                        new RuntimeValues.ConstructorValue(
-                            descriptorType, reflectedType, occurrence(constructor), this))
+            .map(constructor ->
+                (Object)
+                    new RuntimeValues.ConstructorValue(
+                        descriptorType, reflectedType, occurrence(constructor), this))
             .toList();
     return new RuntimeValues.ListValue(listType, constructors);
   }
@@ -467,13 +463,12 @@ final class AnnotationRuntime {
                 callable.receiverType().orElseThrow(),
                 function.declaration().representative(),
                 program)
-            .substitute(
-                index -> {
-                  if (index >= function.receiverTypeArguments().length) {
-                    return new CoreType.Parameter(index, CoreNullability.NON_NULL);
-                  }
-                  return (CoreType) function.receiverTypeArguments()[index];
-                });
+            .substitute(index -> {
+              if (index >= function.receiverTypeArguments().length) {
+                return new CoreType.Parameter(index, CoreNullability.NON_NULL);
+              }
+              return (CoreType) function.receiverTypeArguments()[index];
+            });
     return new RuntimeValues.ClassValue(classType, owner, this);
   }
 
@@ -1114,11 +1109,10 @@ final class AnnotationRuntime {
     if (ownerView == null) {
       throw new IllegalArgumentException("reflected field owner is not an ancestor");
     }
-    return absolute.substitute(
-        index ->
-            index < ownerView.arguments().size()
-                ? ownerView.arguments().get(index)
-                : new CoreType.Parameter(index, CoreNullability.NON_NULL));
+    return absolute.substitute(index ->
+        index < ownerView.arguments().size()
+            ? ownerView.arguments().get(index)
+            : new CoreType.Parameter(index, CoreNullability.NON_NULL));
   }
 
   private CoreType.Declared aggregateView(CoreType type, DefinitionId target) {
@@ -1312,23 +1306,22 @@ final class AnnotationRuntime {
     var references = new LinkedHashMap<CoreAnnotationPath, String>();
     authoring
         .annotationReferences()
-        .forEach(
-            (candidate, target) -> {
-              if (candidate.owner().equals(site.owner())
-                  && candidate.path().steps().size() >= site.path().steps().size()
-                  && candidate
-                      .path()
-                      .steps()
-                      .subList(0, site.path().steps().size())
-                      .equals(site.path().steps()))
-                references.put(
-                    new CoreAnnotationPath(
-                        candidate
-                            .path()
-                            .steps()
-                            .subList(site.path().steps().size(), candidate.path().steps().size())),
-                    identity.key(target));
-            });
+        .forEach((candidate, target) -> {
+          if (candidate.owner().equals(site.owner())
+              && candidate.path().steps().size() >= site.path().steps().size()
+              && candidate
+                  .path()
+                  .steps()
+                  .subList(0, site.path().steps().size())
+                  .equals(site.path().steps()))
+            references.put(
+                new CoreAnnotationPath(
+                    candidate
+                        .path()
+                        .steps()
+                        .subList(site.path().steps().size(), candidate.path().steps().size())),
+                identity.key(target));
+        });
     return new ConfiguredValue(value, site, Map.copyOf(references));
   }
 
@@ -1370,11 +1363,10 @@ final class AnnotationRuntime {
         throw new IllegalStateException("Published annotation configuration is unavailable");
       var configuration = runtime.configuration(key, configured);
       var overlay = new LinkedHashMap<RuntimeValues.FieldKey, Object>();
-      configuration.forEach(
-          (field, value) -> {
-            if (!value.equals(baseline.get(field)))
-              overlay.put(field, runtime.runtimeValue(value.value(), value.site()));
-          });
+      configuration.forEach((field, value) -> {
+        if (!value.equals(baseline.get(field)))
+          overlay.put(field, runtime.runtimeValue(value.value(), value.site()));
+      });
       var info = runtime.aggregateInfo(key.annotation());
       configurations.put(info, configuration);
       CoreType type =

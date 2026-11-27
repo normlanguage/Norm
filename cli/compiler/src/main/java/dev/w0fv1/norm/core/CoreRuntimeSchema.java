@@ -64,10 +64,9 @@ public final class CoreRuntimeSchema {
               Map<String, FieldContract> fields = new LinkedHashMap<>();
               aggregate
                   .fields()
-                  .forEach(
-                      field ->
-                          fields.put(
-                              field.name(), new FieldContract(field.visibility(), field.type())));
+                  .forEach(field ->
+                      fields.put(
+                          field.name(), new FieldContract(field.visibility(), field.type())));
               yield new TypeContract(
                   switch (aggregate.kind()) {
                     case CLASS -> TypeKind.CLASS;
@@ -76,9 +75,8 @@ public final class CoreRuntimeSchema {
                   },
                   aggregate.valueCategory(),
                   aggregate.typeParameters().stream()
-                      .map(
-                          parameter ->
-                              new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                      .map(parameter ->
+                          new CoreTypeParameter(parameter.index(), parameter.upperBound()))
                       .toList(),
                   aggregate.parentType().stream().toList(),
                   Map.copyOf(fields),
@@ -93,43 +91,38 @@ public final class CoreRuntimeSchema {
                     TypeKind.INTERFACE,
                     CoreValueCategory.POLYMORPHIC,
                     declared.typeParameters().stream()
-                        .map(
-                            parameter ->
-                                new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                        .map(parameter ->
+                            new CoreTypeParameter(parameter.index(), parameter.upperBound()))
                         .toList(),
                     declared.directParents(),
                     Map.of(),
                     Map.of(),
                     Set.of(),
                     declared.declaredMethods().stream()
-                        .map(
-                            link -> {
-                              var definition =
-                                  definitions.get(
-                                      ((DefinitionReference.External) link).definition());
-                              if (definition instanceof CoreDefinition.MethodSignature method)
-                                return new MethodContract(
-                                    method.name(),
-                                    method.typeParameters().stream()
-                                        .map(
-                                            parameter ->
-                                                new CoreTypeParameter(
-                                                    parameter.index(), parameter.upperBound()))
-                                        .toList(),
-                                    method.parameterTypes(),
-                                    method.returnType());
-                              throw new IllegalStateException(
-                                  "Interface member has no method signature");
-                            })
+                        .map(link -> {
+                          var definition =
+                              definitions.get(((DefinitionReference.External) link).definition());
+                          if (definition instanceof CoreDefinition.MethodSignature method)
+                            return new MethodContract(
+                                method.name(),
+                                method.typeParameters().stream()
+                                    .map(parameter ->
+                                        new CoreTypeParameter(
+                                            parameter.index(), parameter.upperBound()))
+                                    .toList(),
+                                method.parameterTypes(),
+                                method.returnType());
+                          throw new IllegalStateException(
+                              "Interface member has no method signature");
+                        })
                         .collect(java.util.stream.Collectors.toSet()));
             case CoreDefinition.Enum declared ->
                 new TypeContract(
                     TypeKind.ENUM,
                     CoreValueCategory.VALUE,
                     declared.typeParameters().stream()
-                        .map(
-                            parameter ->
-                                new CoreTypeParameter(parameter.index(), parameter.upperBound()))
+                        .map(parameter ->
+                            new CoreTypeParameter(parameter.index(), parameter.upperBound()))
                         .toList(),
                     List.of(),
                     Map.of(),
@@ -165,51 +158,46 @@ public final class CoreRuntimeSchema {
   public void requireCompatible(CoreRuntimeSchema candidate, Set<DefinitionId> migrations) {
     Objects.requireNonNull(candidate);
     Objects.requireNonNull(migrations);
-    types.forEach(
-        (id, before) -> {
-          TypeContract after = candidate.types.get(id);
-          if (after == null) return;
-          if (!before.kind().equals(after.kind()) || before.category() != after.category())
-            throw new IllegalArgumentException("Runtime nominal kind cannot change: " + id);
-          if (!migrations.contains(id)
-              && (requiresTypeParameterMigration(before.parameters(), after.parameters())
-                  || !after.parents().containsAll(before.parents())
-                  || !after.conformances().containsAll(before.conformances())))
-            throw new IllegalArgumentException(
-                "Runtime type contract requires an explicit migration: " + id);
-          if (!migrations.contains(id))
-            before
-                .fields()
-                .forEach(
-                    (name, field) -> {
-                      if (!field.equals(after.fields().get(name))
-                          && !(after.fields().get(name) != null
-                              && field.visibility() == after.fields().get(name).visibility()
-                              && migratableFieldType(
-                                  field.type(), after.fields().get(name).type())))
-                        throw new IllegalArgumentException(
-                            "Runtime field requires an explicit migration: " + name);
-                    });
-          if (!migrations.contains(id))
-            before
-                .variants()
-                .forEach(
-                    (name, variant) -> {
-                      if (!variant.equals(after.variants().get(name)))
-                        throw new IllegalArgumentException(
-                            "Runtime enum variant requires an explicit migration: " + name);
-                    });
-        });
+    types.forEach((id, before) -> {
+      TypeContract after = candidate.types.get(id);
+      if (after == null) return;
+      if (!before.kind().equals(after.kind()) || before.category() != after.category())
+        throw new IllegalArgumentException("Runtime nominal kind cannot change: " + id);
+      if (!migrations.contains(id)
+          && (requiresTypeParameterMigration(before.parameters(), after.parameters())
+              || !after.parents().containsAll(before.parents())
+              || !after.conformances().containsAll(before.conformances())))
+        throw new IllegalArgumentException(
+            "Runtime type contract requires an explicit migration: " + id);
+      if (!migrations.contains(id))
+        before
+            .fields()
+            .forEach((name, field) -> {
+              if (!field.equals(after.fields().get(name))
+                  && !(after.fields().get(name) != null
+                      && field.visibility() == after.fields().get(name).visibility()
+                      && migratableFieldType(field.type(), after.fields().get(name).type())))
+                throw new IllegalArgumentException(
+                    "Runtime field requires an explicit migration: " + name);
+            });
+      if (!migrations.contains(id))
+        before
+            .variants()
+            .forEach((name, variant) -> {
+              if (!variant.equals(after.variants().get(name)))
+                throw new IllegalArgumentException(
+                    "Runtime enum variant requires an explicit migration: " + name);
+            });
+    });
   }
 
   public static boolean requiresTypeParameterMigration(
       List<CoreTypeParameter> source, List<CoreTypeParameter> target) {
     return source.size() != target.size()
         || java.util.stream.IntStream.range(0, source.size())
-            .anyMatch(
-                index ->
-                    target.get(index).upperBound().isPresent()
-                        && !source.get(index).upperBound().equals(target.get(index).upperBound()));
+            .anyMatch(index ->
+                target.get(index).upperBound().isPresent()
+                    && !source.get(index).upperBound().equals(target.get(index).upperBound()));
   }
 
   public static boolean migratableFieldType(CoreType source, CoreType target) {
@@ -233,10 +221,8 @@ public final class CoreRuntimeSchema {
             .contains(name)
         && before.arguments().size() == after.arguments().size()
         && java.util.stream.IntStream.range(0, before.arguments().size())
-            .allMatch(
-                index ->
-                    migratableFieldType(
-                        before.arguments().get(index), after.arguments().get(index)));
+            .allMatch(index ->
+                migratableFieldType(before.arguments().get(index), after.arguments().get(index)));
   }
 
   public TypeFingerprint typeFingerprint(CoreType type) {
@@ -265,14 +251,13 @@ public final class CoreRuntimeSchema {
                 .forEach(fields -> fields.forEach(field -> pending.add(field.type())));
             contract
                 .methods()
-                .forEach(
-                    method -> {
-                      method
-                          .parameters()
-                          .forEach(parameter -> parameter.upperBound().ifPresent(pending::add));
-                      pending.addAll(method.arguments());
-                      pending.add(method.result());
-                    });
+                .forEach(method -> {
+                  method
+                      .parameters()
+                      .forEach(parameter -> parameter.upperBound().ifPresent(pending::add));
+                  pending.addAll(method.arguments());
+                  pending.add(method.result());
+                });
           }
         }
         case CoreType.Function function -> {

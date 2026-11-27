@@ -1376,22 +1376,21 @@ final class JarBindingSourceGeneratorTest {
             new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
     List<JavaApiType> children =
         java.util.stream.Stream.of("sample.FirstValue", "sample.SecondValue")
-            .map(
-                binaryName ->
-                    new JavaApiType(
-                        binaryName,
-                        JavaApiTypeKind.CLASS,
-                        Opcodes.ACC_PUBLIC,
-                        new JavaClassSignature(List.of(), Optional.of(stringValue), List.of()),
-                        List.of(),
-                        List.of(),
-                        Optional.empty(),
-                        List.of(),
-                        List.of(),
-                        List.of(),
-                        List.of(),
-                        List.of(apiMethod(inherited)),
-                        JavaApiDisposition.BINDABLE))
+            .map(binaryName ->
+                new JavaApiType(
+                    binaryName,
+                    JavaApiTypeKind.CLASS,
+                    Opcodes.ACC_PUBLIC,
+                    new JavaClassSignature(List.of(), Optional.of(stringValue), List.of()),
+                    List.of(),
+                    List.of(),
+                    Optional.empty(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(apiMethod(inherited)),
+                    JavaApiDisposition.BINDABLE))
             .toList();
 
     GeneratedJarBinding generated =
@@ -1541,18 +1540,17 @@ final class JarBindingSourceGeneratorTest {
     JavaReferenceType type = new JavaReferenceType(owner, JavaReferenceKind.ENUM);
     List<JavaApiField> fields =
         java.util.Arrays.stream(constants)
-            .map(
-                constant -> {
-                  JavaBindingCallable binding =
-                      new JavaBindingCallable(
-                          owner,
-                          constant,
-                          "L" + owner.replace('.', '/') + ";",
-                          JavaCallableKind.STATIC_FIELD_GET,
-                          List.of(),
-                          type);
-                  return enumField(owner, constant, binding);
-                })
+            .map(constant -> {
+              JavaBindingCallable binding =
+                  new JavaBindingCallable(
+                      owner,
+                      constant,
+                      "L" + owner.replace('.', '/') + ";",
+                      JavaCallableKind.STATIC_FIELD_GET,
+                      List.of(),
+                      type);
+              return enumField(owner, constant, binding);
+            })
             .toList();
     return new JavaApiType(
         owner,

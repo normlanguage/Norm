@@ -23,18 +23,18 @@ final class NativeBuildPlannerTest {
         Files.writeString(
             root.resolve("app.norm"),
             """
-        import std.serialization.Serializable
-        import std.json.fromJson
-        import std.json.JsonException
-        @Serializable() value Header { String name String value }
-        Void main() {
-          var rejected = false
-          try { fromJson<Header>(value: "[]") }
-          catch JsonException error { rejected = true }
-          require(condition: rejected, message: "invalid header")
-          printLine("recovered")
-        }
-        """);
+            import std.serialization.Serializable
+            import std.json.fromJson
+            import std.json.JsonException
+            @Serializable() value Header { String name String value }
+            Void main() {
+              var rejected = false
+              try { fromJson<Header>(value: "[]") }
+              catch JsonException error { rejected = true }
+              require(condition: rejected, message: "invalid header")
+              printLine("recovered")
+            }
+            """);
     var backend = new NormRuntime();
     try (var runner = ApplicationRunner.open(ProjectEnvironment.bootstrap(backend));
         var compilation = runner.compileApplication(source)) {

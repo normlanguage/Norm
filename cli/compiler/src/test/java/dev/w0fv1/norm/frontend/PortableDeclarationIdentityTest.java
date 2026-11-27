@@ -139,10 +139,9 @@ final class PortableDeclarationIdentityTest {
 
   private static Map<SymbolId, Symbol> declarations(CompilationSnapshot snapshot) {
     return snapshot.semanticModel().symbols().stream()
-        .filter(
-            symbol ->
-                symbol.id().value().startsWith("authored/")
-                    || symbol.id().value().startsWith("source/"))
+        .filter(symbol ->
+            symbol.id().value().startsWith("authored/")
+                || symbol.id().value().startsWith("source/"))
         .collect(
             Collectors.toMap(
                 Symbol::id,

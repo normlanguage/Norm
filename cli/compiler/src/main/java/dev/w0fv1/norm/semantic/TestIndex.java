@@ -11,30 +11,28 @@ public record TestIndex(List<Test> tests) {
   public static TestIndex from(SemanticModel semantics) {
     return new TestIndex(
         semantics.annotations().applications().stream()
-            .filter(
-                application ->
-                    semantics
-                        .symbol(application.annotation())
-                        .orElseThrow()
-                        .type()
-                        .identity()
-                        .equals(TestAbi.IDENTITY))
+            .filter(application ->
+                semantics
+                    .symbol(application.annotation())
+                    .orElseThrow()
+                    .type()
+                    .identity()
+                    .equals(TestAbi.IDENTITY))
             .filter(application -> application.target() instanceof AnnotationSite.Symbol)
-            .map(
-                application ->
-                    new Test(
-                        ((AnnotationSite.Symbol) application.target()).symbol(),
-                        application.values().stream()
-                            .map(AnnotationValue::value)
-                            .filter(AnnotationValue.ListValue.class::isInstance)
-                            .map(AnnotationValue.ListValue.class::cast)
-                            .flatMap(list -> list.values().stream())
-                            .map(AnnotationValue::value)
-                            .filter(AnnotationDeclarationReference.class::isInstance)
-                            .map(AnnotationDeclarationReference.class::cast)
-                            .map(AnnotationDeclarationReference::target)
-                            .distinct()
-                            .toList()))
+            .map(application ->
+                new Test(
+                    ((AnnotationSite.Symbol) application.target()).symbol(),
+                    application.values().stream()
+                        .map(AnnotationValue::value)
+                        .filter(AnnotationValue.ListValue.class::isInstance)
+                        .map(AnnotationValue.ListValue.class::cast)
+                        .flatMap(list -> list.values().stream())
+                        .map(AnnotationValue::value)
+                        .filter(AnnotationDeclarationReference.class::isInstance)
+                        .map(AnnotationDeclarationReference.class::cast)
+                        .map(AnnotationDeclarationReference::target)
+                        .distinct()
+                        .toList()))
             .toList());
   }
 

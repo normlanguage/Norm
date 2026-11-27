@@ -80,11 +80,10 @@ final class CoreBuilder {
     Map<Integer, String> identities = new java.util.HashMap<>();
     converted
         .declarationIndices()
-        .forEach(
-            (key, index) -> {
-              if (key instanceof CoreBuildHistory.Key.Named named)
-                identities.put(index, named.identity());
-            });
+        .forEach((key, index) -> {
+          if (key instanceof CoreBuildHistory.Key.Named named)
+            identities.put(index, named.identity());
+        });
     for (int declaration = 0; declaration < converted.declarations().size(); declaration++) {
       guard.checkpoint();
       BoundCoreConverter.Declaration value = converted.declarations().get(declaration);
@@ -139,13 +138,12 @@ final class CoreBuilder {
           new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Definition(
               allocation.occurrenceIds().get(declaration.getValue()));
       dev.w0fv1.norm.core.CoreAnnotationSites.references(source)
-          .forEach(
-              (path, link) -> {
-                var pending = (PendingDefinitionReference) link;
-                annotationReferences.put(
-                    new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
-                    allocation.occurrenceIds().get(pending.declarationIndex()));
-              });
+          .forEach((path, link) -> {
+            var pending = (PendingDefinitionReference) link;
+            annotationReferences.put(
+                new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
+                allocation.occurrenceIds().get(pending.declarationIndex()));
+          });
     }
     for (var annotation : converted.annotations()) {
       var owner = new dev.w0fv1.norm.core.CoreAnnotationReferenceSite.Metadata(annotation.id());
@@ -154,13 +152,12 @@ final class CoreBuilder {
               owner, dev.w0fv1.norm.core.CoreAnnotationPath.ROOT),
           allocation.occurrenceIds().get(annotation.annotationDeclaration()));
       dev.w0fv1.norm.core.CoreAnnotationSites.references(annotation.values())
-          .forEach(
-              (path, link) -> {
-                var pending = (PendingDefinitionReference) link;
-                annotationReferences.put(
-                    new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
-                    allocation.occurrenceIds().get(pending.declarationIndex()));
-              });
+          .forEach((path, link) -> {
+            var pending = (PendingDefinitionReference) link;
+            annotationReferences.put(
+                new dev.w0fv1.norm.core.CoreAnnotationReferenceSite(owner, path),
+                allocation.occurrenceIds().get(pending.declarationIndex()));
+          });
     }
     CoreArtifact artifact =
         new CoreArtifact(
@@ -169,10 +166,8 @@ final class CoreBuilder {
             allocation.authoring().withAnnotationReferences(annotationReferences),
             new CoreMetadata(
                 converted.annotations().stream()
-                    .map(
-                        annotation ->
-                            annotation.resolve(
-                                canonical.definitionIds(), allocation.occurrenceIds()))
+                    .map(annotation ->
+                        annotation.resolve(canonical.definitionIds(), allocation.occurrenceIds()))
                     .toList()));
     var output =
         new CompilationOutput(

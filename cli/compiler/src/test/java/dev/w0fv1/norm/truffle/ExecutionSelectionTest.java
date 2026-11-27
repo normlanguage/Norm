@@ -28,10 +28,9 @@ final class ExecutionSelectionTest {
     var executable = new TruffleExecutionBackend().compile(null, artifact);
     var record =
         artifact.program().definitions().stream()
-            .filter(
-                candidate ->
-                    candidate.definition() instanceof CoreDefinition.Aggregate aggregate
-                        && aggregate.nominalType().name().equals("Item"))
+            .filter(candidate ->
+                candidate.definition() instanceof CoreDefinition.Aggregate aggregate
+                    && aggregate.nominalType().name().equals("Item"))
             .findFirst()
             .orElseThrow();
     var aggregate = (CoreDefinition.Aggregate) record.definition();
@@ -50,20 +49,19 @@ final class ExecutionSelectionTest {
     var compiled =
         NormTestKit.compile(
             """
-        class Dormant {
-          Dormant() { printLine("unexpected construction") }
-        }
-        Void main() { Dormant? item = null printLine("ready") }
-        """);
+            class Dormant {
+              Dormant() { printLine("unexpected construction") }
+            }
+            Void main() { Dormant? item = null printLine("ready") }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var identity = CoreRuntimeIdentity.create(artifact);
     var record =
         artifact.program().definitions().stream()
-            .filter(
-                candidate ->
-                    candidate.definition() instanceof CoreDefinition.Aggregate aggregate
-                        && aggregate.nominalType().name().equals("Dormant"))
+            .filter(candidate ->
+                candidate.definition() instanceof CoreDefinition.Aggregate aggregate
+                    && aggregate.nominalType().name().equals("Dormant"))
             .findFirst()
             .orElseThrow();
     var aggregate = (CoreDefinition.Aggregate) record.definition();
@@ -84,12 +82,12 @@ final class ExecutionSelectionTest {
     var compiled =
         NormTestKit.compile(
             """
-        class Item {
-          String used() { return "ready" }
-          String dormant() { return "dormant" }
-        }
-        Void main() { Item item = Item() printLine(item.used()) }
-        """);
+            class Item {
+              String used() { return "ready" }
+              String dormant() { return "dormant" }
+            }
+            Void main() { Item item = Item() printLine(item.used()) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var identity = CoreRuntimeIdentity.create(artifact);
@@ -125,10 +123,10 @@ final class ExecutionSelectionTest {
     var compiled =
         NormTestKit.compile(
             """
-        String dormant() { return "dormant" }
-        String used() { return "ready" }
-        Void main() { printLine(used()) }
-        """);
+            String dormant() { return "dormant" }
+            String used() { return "ready" }
+            Void main() { printLine(used()) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var identity = CoreRuntimeIdentity.create(artifact);

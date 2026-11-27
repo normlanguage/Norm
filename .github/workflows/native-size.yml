@@ -33,7 +33,8 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: oracle
-          java-version: 25.0.2
+          java-version: '25'
+          check-latest: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v7

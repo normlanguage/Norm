@@ -85,20 +85,18 @@ final class FileArtifactCacheTest {
     var key = Sha256Digest.compute(payload);
     try (var workers = Executors.newFixedThreadPool(2)) {
       var writer =
-          workers.submit(
-              () -> {
-                for (int index = 0; index < 20; index++) first.write(key, payload);
-                return null;
-              });
+          workers.submit(() -> {
+            for (int index = 0; index < 20; index++) first.write(key, payload);
+            return null;
+          });
       var reader =
-          workers.submit(
-              () -> {
-                for (int index = 0; index < 20; index++) {
-                  var value = second.read(key);
-                  if (value.isPresent()) assertArrayEquals(payload, value.orElseThrow());
-                }
-                return null;
-              });
+          workers.submit(() -> {
+            for (int index = 0; index < 20; index++) {
+              var value = second.read(key);
+              if (value.isPresent()) assertArrayEquals(payload, value.orElseThrow());
+            }
+            return null;
+          });
       writer.get();
       reader.get();
     }

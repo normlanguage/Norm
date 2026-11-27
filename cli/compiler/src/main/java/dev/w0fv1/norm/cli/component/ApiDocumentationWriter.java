@@ -263,29 +263,26 @@ public final class ApiDocumentationWriter {
       JsonArray values = new JsonArray();
       directories.values().stream()
           .sorted(Comparator.comparing(value -> value.name))
-          .forEach(
-              directory -> {
-                JsonObject value = new JsonObject();
-                value.addProperty("kind", "directory");
-                value.addProperty("name", directory.name);
-                value.add("children", directory.children());
-                values.add(value);
-              });
+          .forEach(directory -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("kind", "directory");
+            value.addProperty("name", directory.name);
+            value.add("children", directory.children());
+            values.add(value);
+          });
       files.stream()
           .sorted(Comparator.comparing(ModuleDocumentation.File::documentPath))
-          .forEach(
-              file -> {
-                JsonObject value = new JsonObject();
-                value.addProperty("kind", "file");
-                String filename = Path.of(file.sourcePath()).getFileName().toString();
-                value.addProperty(
-                    "name", filename.substring(0, filename.length() - ".norm".length()));
-                value.addProperty("source", file.sourcePath());
-                value.addProperty("document", file.documentPath());
-                value.addProperty("package", file.packageName());
-                value.addProperty("exported", file.exported());
-                values.add(value);
-              });
+          .forEach(file -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("kind", "file");
+            String filename = Path.of(file.sourcePath()).getFileName().toString();
+            value.addProperty("name", filename.substring(0, filename.length() - ".norm".length()));
+            value.addProperty("source", file.sourcePath());
+            value.addProperty("document", file.documentPath());
+            value.addProperty("package", file.packageName());
+            value.addProperty("exported", file.exported());
+            values.add(value);
+          });
       return values;
     }
   }

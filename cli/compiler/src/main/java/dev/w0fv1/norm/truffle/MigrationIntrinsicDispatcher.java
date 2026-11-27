@@ -32,10 +32,9 @@ final class MigrationIntrinsicDispatcher {
           var field =
               migration
                   .sourceField((String) arguments[1])
-                  .orElseThrow(
-                      () ->
-                          new RuntimeValues.StateMigrationFailure(
-                              "Migration source field is absent: " + arguments[1]));
+                  .orElseThrow(() ->
+                      new RuntimeValues.StateMigrationFailure(
+                          "Migration source field is absent: " + arguments[1]));
           yield migration.read(field.key(), type);
         }
         case STATE_MIGRATION_WRITE -> {
@@ -47,17 +46,15 @@ final class MigrationIntrinsicDispatcher {
           var source =
               migration
                   .sourceField((String) arguments[1])
-                  .orElseThrow(
-                      () ->
-                          new RuntimeValues.StateMigrationFailure(
-                              "Migration source field is absent: " + arguments[1]));
+                  .orElseThrow(() ->
+                      new RuntimeValues.StateMigrationFailure(
+                          "Migration source field is absent: " + arguments[1]));
           var target =
               migration
                   .targetField((String) arguments[2])
-                  .orElseThrow(
-                      () ->
-                          new RuntimeValues.StateMigrationFailure(
-                              "Migration target field is absent: " + arguments[2]));
+                  .orElseThrow(() ->
+                      new RuntimeValues.StateMigrationFailure(
+                          "Migration target field is absent: " + arguments[2]));
           migration.write(target.key(), target.type(), migration.read(source.key(), source.type()));
           yield null;
         }
@@ -65,10 +62,9 @@ final class MigrationIntrinsicDispatcher {
           var field =
               migration
                   .sourceField((String) arguments[1])
-                  .orElseThrow(
-                      () ->
-                          new RuntimeValues.StateMigrationFailure(
-                              "Migration source field is absent: " + arguments[1]));
+                  .orElseThrow(() ->
+                      new RuntimeValues.StateMigrationFailure(
+                          "Migration source field is absent: " + arguments[1]));
           migration.remove(field.key());
           yield null;
         }

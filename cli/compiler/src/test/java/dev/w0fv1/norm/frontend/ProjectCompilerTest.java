@@ -149,12 +149,11 @@ final class ProjectCompilerTest {
     var generic =
         model.symbols().stream()
             .filter(symbol -> symbol.name().equals("choose"))
-            .filter(
-                symbol ->
-                    symbol.typeParameters().stream()
-                        .map(TypeParameterInfo::name)
-                        .toList()
-                        .equals(List.of("T")))
+            .filter(symbol ->
+                symbol.typeParameters().stream()
+                    .map(TypeParameterInfo::name)
+                    .toList()
+                    .equals(List.of("T")))
             .findFirst()
             .orElseThrow();
     int callOffset = entry.text().indexOf("select<Integer>");

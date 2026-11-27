@@ -110,10 +110,9 @@ final class SyntaxAuthoringIndexTest {
     var lambda =
         (Syntax.Lambda)
             parsed.syntax().functions().getFirst().body().stream()
-                .filter(
-                    statement ->
-                        statement instanceof Syntax.VariableDecl variable
-                            && variable.name().equals(name))
+                .filter(statement ->
+                    statement instanceof Syntax.VariableDecl variable
+                        && variable.name().equals(name))
                 .map(statement -> ((Syntax.VariableDecl) statement).initializer())
                 .findFirst()
                 .orElseThrow();

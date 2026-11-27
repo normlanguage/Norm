@@ -286,16 +286,15 @@ public final class ApplicationRunner implements AutoCloseable {
             application
                 .context(context)
                 .withJarBindingRuntime(runtime)
-                .withJavaApplicationEntrypoint(
-                    loader ->
-                        report.set(
-                            new JUnitPlatformTestRunner()
-                                .run(
-                                    loader,
-                                    application.annotations().stubs().stream()
-                                        .map(JavaAnnotationStub::binaryName)
-                                        .toList(),
-                                    new NormTestEngine(application, backend, context, filter))));
+                .withJavaApplicationEntrypoint(loader ->
+                    report.set(
+                        new JUnitPlatformTestRunner()
+                            .run(
+                                loader,
+                                application.annotations().stubs().stream()
+                                    .map(JavaAnnotationStub::binaryName)
+                                    .toList(),
+                                new NormTestEngine(application, backend, context, filter))));
         backend.execute(
             compilation.result().output().orElseThrow().artifact(),
             application.executionPlan(),

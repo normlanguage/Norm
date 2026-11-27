@@ -14,11 +14,10 @@ public final class JavaScalarConformances {
 
   public static List<String> canonicalTypes() {
     return JavaPlatformTypes.classDescriptors().values().stream()
-        .map(
-            descriptor ->
-                descriptor.startsWith("L")
-                    ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.')
-                    : JavaBoxedType.binaryNameForDescriptor(descriptor))
+        .map(descriptor ->
+            descriptor.startsWith("L")
+                ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.')
+                : JavaBoxedType.binaryNameForDescriptor(descriptor))
         .sorted()
         .toList();
   }
@@ -30,32 +29,28 @@ public final class JavaScalarConformances {
     var projector = JavaTypeProjector.forSchema(types);
     var result = new ArrayList<BuiltinTypeConformance>();
     JavaPlatformTypes.classDescriptors()
-        .forEach(
-            (reference, descriptor) -> {
-              String binaryName =
-                  descriptor.startsWith("L")
-                      ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.')
-                      : JavaBoxedType.binaryNameForDescriptor(descriptor);
-              var declaration = types.get(binaryName);
-              if (declaration == null) return;
-              String identity = ((JarBindingClassReference.Builtin) reference).typeId();
-              var concrete = scalarType(identity);
-              declaration
-                  .signature()
-                  .interfaces()
-                  .forEach(
-                      signature -> {
-                        var projected =
-                            projector
-                                .project(signature, Map.of(), JavaTypeProjector.Position.VALUE)
-                                .orElseThrow(
-                                    () ->
-                                        new IllegalArgumentException(
-                                            "cannot project scalar Java interface " + signature));
-                        result.add(
-                            new BuiltinTypeConformance(concrete, semanticType(projected, owners)));
-                      });
-            });
+        .forEach((reference, descriptor) -> {
+          String binaryName =
+              descriptor.startsWith("L")
+                  ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.')
+                  : JavaBoxedType.binaryNameForDescriptor(descriptor);
+          var declaration = types.get(binaryName);
+          if (declaration == null) return;
+          String identity = ((JarBindingClassReference.Builtin) reference).typeId();
+          var concrete = scalarType(identity);
+          declaration
+              .signature()
+              .interfaces()
+              .forEach(signature -> {
+                var projected =
+                    projector
+                        .project(signature, Map.of(), JavaTypeProjector.Position.VALUE)
+                        .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                "cannot project scalar Java interface " + signature));
+                result.add(new BuiltinTypeConformance(concrete, semanticType(projected, owners)));
+              });
+        });
     return result.stream()
         .distinct()
         .sorted(
@@ -96,11 +91,10 @@ public final class JavaScalarConformances {
           owner.packageName() + "." + owner.name(),
           owner.name(),
           reference.arguments().stream()
-              .map(
-                  argument ->
-                      argument.variance() == JavaTypeVariance.UNBOUNDED
-                          ? SemanticType.EXISTENTIAL
-                          : semanticType(argument.type().orElseThrow(), owners))
+              .map(argument ->
+                  argument.variance() == JavaTypeVariance.UNBOUNDED
+                      ? SemanticType.EXISTENTIAL
+                      : semanticType(argument.type().orElseThrow(), owners))
               .toList(),
           ValueCategory.POLYMORPHIC);
     }

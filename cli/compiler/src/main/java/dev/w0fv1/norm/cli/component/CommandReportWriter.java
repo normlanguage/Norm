@@ -14,11 +14,10 @@ import java.util.Locale;
 
 public final class CommandReportWriter {
   public static void writeDiagnostics(Iterable<Diagnostic> diagnostics, PrintWriter err) {
-    diagnostics.forEach(
-        diagnostic -> {
-          CommandJournal.record("diagnostic", () -> diagnostic(diagnostic));
-          renderDiagnostic(diagnostic, err);
-        });
+    diagnostics.forEach(diagnostic -> {
+      CommandJournal.record("diagnostic", () -> diagnostic(diagnostic));
+      renderDiagnostic(diagnostic, err);
+    });
   }
 
   private static void renderDiagnostic(Diagnostic diagnostic, PrintWriter err) {
@@ -33,33 +32,28 @@ public final class CommandReportWriter {
       report.diagnostics().forEach(diagnostic -> renderDiagnostic(diagnostic, err));
       report
           .failure()
-          .ifPresent(
-              failure -> {
-                err.printf("error[%s]: %s%n", failure.code(), failure.message());
-                failure
-                    .location()
-                    .ifPresent(
-                        location ->
-                            err.printf(
-                                " --> %s:%d:%d%n",
-                                location.uri(), location.line(), location.column()));
-              });
+          .ifPresent(failure -> {
+            err.printf("error[%s]: %s%n", failure.code(), failure.message());
+            failure
+                .location()
+                .ifPresent(location ->
+                    err.printf(
+                        " --> %s:%d:%d%n", location.uri(), location.line(), location.column()));
+          });
       report
           .tests()
-          .ifPresent(
-              tests -> {
-                tests
-                    .failures()
-                    .forEach(
-                        failure ->
-                            err.printf("FAILED %s: %s%n", failure.test(), failure.message()));
-                out.printf(
-                    "Tests: %d found, %d passed, %d failed, %d skipped%n",
-                    tests.testsFound(),
-                    tests.testsSucceeded(),
-                    tests.testsFailed(),
-                    tests.testsSkipped());
-              });
+          .ifPresent(tests -> {
+            tests
+                .failures()
+                .forEach(
+                    failure -> err.printf("FAILED %s: %s%n", failure.test(), failure.message()));
+            out.printf(
+                "Tests: %d found, %d passed, %d failed, %d skipped%n",
+                tests.testsFound(),
+                tests.testsSucceeded(),
+                tests.testsFailed(),
+                tests.testsSkipped());
+          });
     }
     return report.status().exitCode();
   }
@@ -79,49 +73,45 @@ public final class CommandReportWriter {
     result.add("diagnostics", diagnostics);
     report
         .tests()
-        .ifPresent(
-            reportTests -> {
-              JsonObject tests = new JsonObject();
-              tests.addProperty("found", reportTests.testsFound());
-              tests.addProperty("passed", reportTests.testsSucceeded());
-              tests.addProperty("failed", reportTests.testsFailed());
-              tests.addProperty("skipped", reportTests.testsSkipped());
-              tests.addProperty("containersFailed", reportTests.containersFailed());
-              JsonArray failures = new JsonArray();
-              reportTests
-                  .failures()
-                  .forEach(
-                      failure -> {
-                        JsonObject value = new JsonObject();
-                        value.addProperty("test", failure.test());
-                        value.addProperty("message", failure.message());
-                        failures.add(value);
-                      });
-              tests.add("failures", failures);
-              result.add("tests", tests);
-            });
+        .ifPresent(reportTests -> {
+          JsonObject tests = new JsonObject();
+          tests.addProperty("found", reportTests.testsFound());
+          tests.addProperty("passed", reportTests.testsSucceeded());
+          tests.addProperty("failed", reportTests.testsFailed());
+          tests.addProperty("skipped", reportTests.testsSkipped());
+          tests.addProperty("containersFailed", reportTests.containersFailed());
+          JsonArray failures = new JsonArray();
+          reportTests
+              .failures()
+              .forEach(failure -> {
+                JsonObject value = new JsonObject();
+                value.addProperty("test", failure.test());
+                value.addProperty("message", failure.message());
+                failures.add(value);
+              });
+          tests.add("failures", failures);
+          result.add("tests", tests);
+        });
     report
         .failure()
-        .ifPresent(
-            failure -> {
-              JsonObject value = new JsonObject();
-              value.addProperty("code", failure.code());
-              value.addProperty("message", failure.message());
-              failure
-                  .location()
-                  .ifPresent(location -> value.add("location", runtimeLocation(location)));
-              JsonArray stack = new JsonArray();
-              failure
-                  .stack()
-                  .forEach(
-                      frame -> {
-                        JsonObject entry = runtimeLocation(frame);
-                        entry.addProperty("name", frame.name());
-                        stack.add(entry);
-                      });
-              value.add("stack", stack);
-              result.add("failure", value);
-            });
+        .ifPresent(failure -> {
+          JsonObject value = new JsonObject();
+          value.addProperty("code", failure.code());
+          value.addProperty("message", failure.message());
+          failure
+              .location()
+              .ifPresent(location -> value.add("location", runtimeLocation(location)));
+          JsonArray stack = new JsonArray();
+          failure
+              .stack()
+              .forEach(frame -> {
+                JsonObject entry = runtimeLocation(frame);
+                entry.addProperty("name", frame.name());
+                stack.add(entry);
+              });
+          value.add("stack", stack);
+          result.add("failure", value);
+        });
     return result;
   }
 

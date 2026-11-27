@@ -46,11 +46,10 @@ final class JdkModuleArchiveTest {
       var requests = new java.util.ArrayList<java.util.concurrent.Future<JdkModuleArchive>>();
       for (int index = 0; index < 8; index++) {
         requests.add(
-            pool.submit(
-                () -> {
-                  start.await();
-                  return JdkModuleArchive.open(temporaryDirectory, "java.base");
-                }));
+            pool.submit(() -> {
+              start.await();
+              return JdkModuleArchive.open(temporaryDirectory, "java.base");
+            }));
       }
       start.countDown();
       var first = requests.getFirst().get().graph();

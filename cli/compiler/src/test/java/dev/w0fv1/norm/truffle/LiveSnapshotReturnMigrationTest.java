@@ -17,24 +17,24 @@ final class LiveSnapshotReturnMigrationTest {
   void bindsSnapshotResultsToTheInvocationConsumer(boolean reflective) {
     String source =
         """
-      import std.runtime.StateMigration
-      import std.runtime.MigrationState
-      @StateMigration(convert: migrateEvent.function)
-      enum Event { Previous(Integer amount) }
-      Void migrateEvent(MigrationState state) {}
-      Event produce() { return Event.Previous(amount: 7) }
-      Void main() {
-        var frozen = produce.function.snapshot()
-        var tick = 0
-        for tick < 3 {
-          String text = switch frozen() {
-            case Previous(Integer amount) { break amount.toString() }
+        import std.runtime.StateMigration
+        import std.runtime.MigrationState
+        @StateMigration(convert: migrateEvent.function)
+        enum Event { Previous(Integer amount) }
+        Void migrateEvent(MigrationState state) {}
+        Event produce() { return Event.Previous(amount: 7) }
+        Void main() {
+          var frozen = produce.function.snapshot()
+          var tick = 0
+          for tick < 3 {
+            String text = switch frozen() {
+              case Previous(Integer amount) { break amount.toString() }
+            }
+            printLine("old:" + tick.toString() + ":" + text)
+            tick = tick + 1
           }
-          printLine("old:" + tick.toString() + ":" + text)
-          tick = tick + 1
         }
-      }
-      """;
+        """;
     if (reflective) {
       source =
           source

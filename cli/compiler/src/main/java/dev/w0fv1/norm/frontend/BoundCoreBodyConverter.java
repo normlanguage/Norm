@@ -69,23 +69,20 @@ final class BoundCoreBodyConverter {
         .ifPresent(value -> locals.add(value, receiverType.orElseThrow(), CoreLocal.Kind.RECEIVER));
     declaration
         .captures()
-        .forEach(
-            capture -> {
-              locals.add(capture.id(), types.convert(capture.type()), CoreLocal.Kind.CAPTURE);
-              localNames.put(capture.id(), capture.name());
-            });
+        .forEach(capture -> {
+          locals.add(capture.id(), types.convert(capture.type()), CoreLocal.Kind.CAPTURE);
+          localNames.put(capture.id(), capture.name());
+        });
     declaration
         .parameters()
-        .forEach(
-            parameter -> {
-              locals.add(parameter.id(), types.convert(parameter.type()), CoreLocal.Kind.PARAMETER);
-              localNames.put(parameter.id(), parameter.name());
-            });
+        .forEach(parameter -> {
+          locals.add(parameter.id(), types.convert(parameter.type()), CoreLocal.Kind.PARAMETER);
+          localNames.put(parameter.id(), parameter.name());
+        });
     declaration
         .reifiedParameters()
-        .forEach(
-            parameter ->
-                locals.add(parameter.source(), CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE));
+        .forEach(parameter ->
+            locals.add(parameter.source(), CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE));
     scanLocals(declaration.body());
     nodes.add(0, declaration.span());
     CoreBlock body = convert(declaration.body());
@@ -366,10 +363,8 @@ final class BoundCoreBodyConverter {
               node,
               convert(switched.value()),
               switched.cases().stream()
-                  .map(
-                      switchCase ->
-                          new CoreSwitchCase(
-                              convert(switchCase.pattern()), convert(switchCase.body())))
+                  .map(switchCase ->
+                      new CoreSwitchCase(convert(switchCase.pattern()), convert(switchCase.body())))
                   .toList(),
               types.convert(switched.type()));
       case BoundExpression.Index index ->
@@ -523,11 +518,10 @@ final class BoundCoreBodyConverter {
     return new CoreRuntimeType(
         types.convert(type.type()),
         type.reifiedArguments().stream()
-            .map(
-                capture ->
-                    new CoreTypeCapture(
-                        types.parameterIndex(capture.typeParameterIdentity()),
-                        locals.index(capture.source())))
+            .map(capture ->
+                new CoreTypeCapture(
+                    types.parameterIndex(capture.typeParameterIdentity()),
+                    locals.index(capture.source())))
             .toList());
   }
 

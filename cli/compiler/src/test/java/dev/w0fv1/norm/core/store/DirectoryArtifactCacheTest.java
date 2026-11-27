@@ -43,17 +43,16 @@ final class DirectoryArtifactCacheTest {
       var cache = new DirectoryArtifactCache(directory, 1, 1024);
       try {
         var independent =
-            workers.submit(
-                () -> {
-                  try (var lease =
-                      cache.acquire(
-                          Sha256Digest.compute(new byte[] {2}),
-                          root -> true,
-                          root -> Files.writeString(root.resolve("value"), "other"))) {
-                    assertEquals("other", Files.readString(lease.path().resolve("value")));
-                  }
-                  return null;
-                });
+            workers.submit(() -> {
+              try (var lease =
+                  cache.acquire(
+                      Sha256Digest.compute(new byte[] {2}),
+                      root -> true,
+                      root -> Files.writeString(root.resolve("value"), "other"))) {
+                assertEquals("other", Files.readString(lease.path().resolve("value")));
+              }
+              return null;
+            });
         independent.get(3, java.util.concurrent.TimeUnit.SECONDS);
         assertEquals("partial", Files.readString(pending.resolve("value")));
       } finally {
@@ -104,37 +103,35 @@ final class DirectoryArtifactCacheTest {
           };
       try (var workers = Executors.newFixedThreadPool(2)) {
         var slow =
-            workers.submit(
-                () -> {
-                  try (var lease =
-                      cache.acquire(
-                          slowKey,
-                          root -> {
-                            if (validating) waiting.write(root);
-                            return true;
-                          },
-                          root -> {
-                            waiting.write(root);
-                            Files.writeString(root.resolve("value"), "slow");
-                          })) {
-                    assertEquals("slow", Files.readString(lease.path().resolve("value")));
-                  }
-                  return null;
-                });
+            workers.submit(() -> {
+              try (var lease =
+                  cache.acquire(
+                      slowKey,
+                      root -> {
+                        if (validating) waiting.write(root);
+                        return true;
+                      },
+                      root -> {
+                        waiting.write(root);
+                        Files.writeString(root.resolve("value"), "slow");
+                      })) {
+                assertEquals("slow", Files.readString(lease.path().resolve("value")));
+              }
+              return null;
+            });
         try {
           assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
           var fast =
-              workers.submit(
-                  () -> {
-                    try (var lease =
-                        cache.acquire(
-                            Sha256Digest.compute(new byte[] {12}),
-                            root -> true,
-                            root -> Files.writeString(root.resolve("value"), "fast"))) {
-                      assertEquals("fast", Files.readString(lease.path().resolve("value")));
-                    }
-                    return null;
-                  });
+              workers.submit(() -> {
+                try (var lease =
+                    cache.acquire(
+                        Sha256Digest.compute(new byte[] {12}),
+                        root -> true,
+                        root -> Files.writeString(root.resolve("value"), "fast"))) {
+                  assertEquals("fast", Files.readString(lease.path().resolve("value")));
+                }
+                return null;
+              });
           fast.get(2, java.util.concurrent.TimeUnit.SECONDS);
         } finally {
           release.countDown();
@@ -167,14 +164,13 @@ final class DirectoryArtifactCacheTest {
             .start();
     try {
       var pathFuture =
-          java.util.concurrent.CompletableFuture.supplyAsync(
-              () -> {
-                try {
-                  return process.inputReader().readLine();
-                } catch (IOException exception) {
-                  throw new java.io.UncheckedIOException(exception);
-                }
-              });
+          java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+              return process.inputReader().readLine();
+            } catch (IOException exception) {
+              throw new java.io.UncheckedIOException(exception);
+            }
+          });
       Path child = Path.of(pathFuture.get(20, java.util.concurrent.TimeUnit.SECONDS));
       var cache = new DirectoryArtifactCache(directory, 1, 1024);
       try (var newer =
@@ -209,15 +205,14 @@ final class DirectoryArtifactCacheTest {
       first = lease.path();
       try (var workers = Executors.newSingleThreadExecutor()) {
         workers
-            .submit(
-                () -> {
-                  try (var other =
-                      new DirectoryArtifactCache(directory, 1, 1024)
-                          .acquire(key, root -> true, producer)) {
-                    assertEquals(first, other.path());
-                  }
-                  return null;
-                })
+            .submit(() -> {
+              try (var other =
+                  new DirectoryArtifactCache(directory, 1, 1024)
+                      .acquire(key, root -> true, producer)) {
+                assertEquals(first, other.path());
+              }
+              return null;
+            })
             .get();
       }
       try (var other =

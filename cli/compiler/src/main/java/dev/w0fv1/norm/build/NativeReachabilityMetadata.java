@@ -28,11 +28,10 @@ final class NativeReachabilityMetadata {
       extract(repositoryRoot);
       var repository = new FileSystemRepository(repositoryRoot);
       configurations =
-          repository.findConfigurationsFor(
-              query -> {
-                query.forArtifacts(coordinates);
-                query.useLatestConfigWhenVersionIsUntested();
-              });
+          repository.findConfigurationsFor(query -> {
+            query.forArtifacts(coordinates);
+            query.useLatestConfigWhenVersionIsUntested();
+          });
     }
     Path classpath = destination.resolve("classpath");
     Files.createDirectories(classpath);
@@ -65,10 +64,9 @@ final class NativeReachabilityMetadata {
       boolean tested =
           declarations.asList().stream()
               .map(com.google.gson.JsonElement::getAsJsonObject)
-              .filter(
-                  value ->
-                      value.has("metadata-version")
-                          && value.get("metadata-version").getAsString().equals(metadataVersion))
+              .filter(value ->
+                  value.has("metadata-version")
+                      && value.get("metadata-version").getAsString().equals(metadataVersion))
               .filter(value -> value.has("tested-versions"))
               .flatMap(value -> value.getAsJsonArray("tested-versions").asList().stream())
               .anyMatch(version -> version.getAsString().equals(configuration.getVersion()));

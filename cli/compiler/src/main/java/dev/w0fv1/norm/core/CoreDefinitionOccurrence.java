@@ -26,13 +26,12 @@ public record CoreDefinitionOccurrence(
     Map<Integer, DefinitionOccurrenceId> stableReferences = new LinkedHashMap<>();
     Objects.requireNonNull(references, "references").entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
-        .forEach(
-            entry -> {
-              if (entry.getKey() < 0) {
-                throw new IllegalArgumentException("reference node index must not be negative");
-              }
-              stableReferences.put(entry.getKey(), Objects.requireNonNull(entry.getValue()));
-            });
+        .forEach(entry -> {
+          if (entry.getKey() < 0) {
+            throw new IllegalArgumentException("reference node index must not be negative");
+          }
+          stableReferences.put(entry.getKey(), Objects.requireNonNull(entry.getValue()));
+        });
     references = Map.copyOf(stableReferences);
   }
 }

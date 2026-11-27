@@ -52,10 +52,10 @@ final class ProjectLoadFailureInputsTest {
         Files.writeString(
             provider.resolve("module.norm"),
             """
-        Module module() { return module(name: "provider", version: 1,
-          binding: jarBinding(target: localJar(path: "provider.jar", integrity: sha256("%s")),
-            api: [jarType(name: "other.Box", members: [])])) }
-        """
+            Module module() { return module(name: "provider", version: 1,
+              binding: jarBinding(target: localJar(path: "provider.jar", integrity: sha256("%s")),
+                api: [jarType(name: "other.Box", members: [])])) }
+            """
                 .formatted(Sha256Digest.compute(providerJar).value()));
     Path root = Files.createDirectories(temporaryDirectory.resolve("sample"));
     var child = new ClassWriter(0);
@@ -73,11 +73,11 @@ final class ProjectLoadFailureInputsTest {
         Files.writeString(
             root.resolve("module.norm"),
             """
-        Module module() { return module(name: "sample", version: 1,
-          dependencies: [dependency(repository: "github", name: "provider", version: 1)],
-          binding: jarBinding(target: localJar(path: "child.jar", integrity: sha256("%s")),
-            api: [jarType(name: "Box", members: [])])) }
-        """
+            Module module() { return module(name: "sample", version: 1,
+              dependencies: [dependency(repository: "github", name: "provider", version: 1)],
+              binding: jarBinding(target: localJar(path: "child.jar", integrity: sha256("%s")),
+                api: [jarType(name: "Box", members: [])])) }
+            """
                 .formatted(Sha256Digest.compute(childJar).value()));
     Path entry = Files.writeString(root.resolve("Main.norm"), "package sample Void main() {}");
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());

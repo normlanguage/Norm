@@ -55,10 +55,9 @@ final class LanguageServerLauncherTest {
         var input = new PipedInputStream(client);
         var callers = Executors.newSingleThreadExecutor()) {
       var result =
-          callers.submit(
-              () ->
-                  LanguageServerLauncher.run(
-                      new Workspace(environment), input, new ByteArrayOutputStream()));
+          callers.submit(() ->
+              LanguageServerLauncher.run(
+                  new Workspace(environment), input, new ByteArrayOutputStream()));
       write(client, "{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}");
       assertEquals(1, result.get(20, TimeUnit.SECONDS));
     }

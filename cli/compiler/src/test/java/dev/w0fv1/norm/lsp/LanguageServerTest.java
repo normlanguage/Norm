@@ -105,10 +105,9 @@ final class LanguageServerTest {
     ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(
         client.messages.stream()
-            .anyMatch(
-                message ->
-                    message.getType() == org.eclipse.lsp4j.MessageType.Error
-                        && message.getMessage().contains("Unable to watch project inputs")));
+            .anyMatch(message ->
+                message.getType() == org.eclipse.lsp4j.MessageType.Error
+                    && message.getMessage().contains("Unable to watch project inputs")));
     server
         .getTextDocumentService()
         .didChange(
@@ -125,10 +124,9 @@ final class LanguageServerTest {
     assertTrue(
         options.getWatchers().stream()
             .map(watch -> watch.getGlobPattern().getRight())
-            .anyMatch(
-                pattern ->
-                    pattern.getBaseUri().getRight().equals(provider.toUri().toString())
-                        && pattern.getPattern().equals("external.jar")));
+            .anyMatch(pattern ->
+                pattern.getBaseUri().getRight().equals(provider.toUri().toString())
+                    && pattern.getPattern().equals("external.jar")));
     server
         .getTextDocumentService()
         .didClose(
@@ -795,23 +793,20 @@ final class LanguageServerTest {
     server.connect(new RecordingClient());
 
     CompletableFuture<Void> entry =
-        CompletableFuture.runAsync(
-            () ->
-                server
-                    .getTextDocumentService()
-                    .didOpen(
-                        new DidOpenTextDocumentParams(
-                            new TextDocumentItem(
-                                fixture.entryUri(), "norm", 1, fixture.entryText()))));
+        CompletableFuture.runAsync(() ->
+            server
+                .getTextDocumentService()
+                .didOpen(
+                    new DidOpenTextDocumentParams(
+                        new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText()))));
     CompletableFuture<Void> library =
-        CompletableFuture.runAsync(
-            () ->
-                server
-                    .getTextDocumentService()
-                    .didOpen(
-                        new DidOpenTextDocumentParams(
-                            new TextDocumentItem(
-                                fixture.libraryUri(), "norm", 1, fixture.libraryText()))));
+        CompletableFuture.runAsync(() ->
+            server
+                .getTextDocumentService()
+                .didOpen(
+                    new DidOpenTextDocumentParams(
+                        new TextDocumentItem(
+                            fixture.libraryUri(), "norm", 1, fixture.libraryText()))));
     CompletableFuture.allOf(entry, library).get();
 
     assertEquals(fixture.libraryUri(), definition(server, fixture).getFirst().getUri());

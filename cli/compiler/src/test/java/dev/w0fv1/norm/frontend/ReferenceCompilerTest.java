@@ -224,11 +224,10 @@ final class ReferenceCompilerTest {
     assertFalse(result.isSuccess());
     assertTrue(
         result.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic
-                        .message()
-                        .equals("reference cannot outlive the addressed storage location")),
+            .anyMatch(diagnostic ->
+                diagnostic
+                    .message()
+                    .equals("reference cannot outlive the addressed storage location")),
         () -> result.diagnostics().toString());
     assertTrue(
         result.diagnostics().stream()

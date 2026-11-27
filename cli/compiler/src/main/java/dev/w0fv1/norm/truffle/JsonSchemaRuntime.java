@@ -1,14 +1,14 @@
 package dev.w0fv1.norm.truffle;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import dev.w0fv1.norm.core.CoreType;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
 final class JsonSchemaRuntime {
   private final Map<CoreType, String> names = new LinkedHashMap<>();
@@ -90,11 +90,11 @@ final class JsonSchemaRuntime {
     return result;
   }
 
-  private static void write(JsonGenerator writer, Object value) throws IOException {
+  private static void write(JsonGenerator writer, Object value) {
     if (value instanceof Map<?, ?> fields) {
       writer.writeStartObject();
       for (var field : fields.entrySet()) {
-        writer.writeFieldName((String) field.getKey());
+        writer.writeName((String) field.getKey());
         write(writer, field.getValue());
       }
       writer.writeEndObject();
@@ -113,7 +113,7 @@ final class JsonSchemaRuntime {
     var text = new StringWriter();
     try (var writer = new JsonFactory().createGenerator(text)) {
       write(writer, root);
-    } catch (IOException failure) {
+    } catch (JacksonException failure) {
       throw new IllegalStateException(failure);
     }
     return text.toString();

@@ -17,22 +17,22 @@ final class LiveEnumMigrationTest {
   void retainsReifiedEnumsAcrossDefaultChangesAndBoundRelaxation(String parameter) {
     String source =
         """
-      interface Marker {}
-      class Item implements Marker {}
-      class Other implements Marker {}
-      enum Event<T extends Marker = Item> { Value(T payload) }
-      String label(Event<Item> event) {
-        return switch event { case Value(Item payload) { break "value" } }
-      }
-      Void main() {
-        var retained = Event<Item>.Value(payload: Item())
-        var tick = 0
-        for tick < 3 {
-          printLine("old:" + tick.toString() + ":" + label(event: retained))
-          tick = tick + 1
+        interface Marker {}
+        class Item implements Marker {}
+        class Other implements Marker {}
+        enum Event<T extends Marker = Item> { Value(T payload) }
+        String label(Event<Item> event) {
+          return switch event { case Value(Item payload) { break "value" } }
         }
-      }
-      """;
+        Void main() {
+          var retained = Event<Item>.Value(payload: Item())
+          var tick = 0
+          for tick < 3 {
+            printLine("old:" + tick.toString() + ":" + label(event: retained))
+            tick = tick + 1
+          }
+        }
+        """;
     var before = NormTestKit.compile(source);
     var after =
         NormTestKit.compile(
@@ -78,28 +78,28 @@ final class LiveEnumMigrationTest {
   void convertsARemovedVariantAndChangedPayloadWithoutRestartingTheLoop(boolean nullablePayload) {
     String source =
         """
-      import std.runtime.StateMigration
-      import std.runtime.MigrationState
-      @StateMigration(convert: migrateEvent.function)
-      enum Event { Previous(Integer amount), Empty }
-      class Holder { Event event }
-      Void migrateEvent(MigrationState state) {}
-      String label(Event event) {
-        return switch event {
-          case Previous(Integer amount) { break amount.toString() }
-          case Empty { break "empty" }
+        import std.runtime.StateMigration
+        import std.runtime.MigrationState
+        @StateMigration(convert: migrateEvent.function)
+        enum Event { Previous(Integer amount), Empty }
+        class Holder { Event event }
+        Void migrateEvent(MigrationState state) {}
+        String label(Event event) {
+          return switch event {
+            case Previous(Integer amount) { break amount.toString() }
+            case Empty { break "empty" }
+          }
         }
-      }
-      Void main() {
-        var retained = Event.Previous(amount: 7)
-        var holder = Holder(event: retained)
-        var tick = 0
-        for tick < 3 {
-          printLine("old:" + tick.toString() + ":" + label(event: holder.event))
-          tick = tick + 1
+        Void main() {
+          var retained = Event.Previous(amount: 7)
+          var holder = Holder(event: retained)
+          var tick = 0
+          for tick < 3 {
+            printLine("old:" + tick.toString() + ":" + label(event: holder.event))
+            tick = tick + 1
+          }
         }
-      }
-      """;
+        """;
     var before = NormTestKit.compile(source);
     String candidate =
         source
@@ -111,12 +111,12 @@ final class LiveEnumMigrationTest {
             .replace(
                 "Void migrateEvent(MigrationState state) {}",
                 """
-          Void migrateEvent(MigrationState state) {
-            require(condition: state.variant() == "Previous", message: "previous variant")
-            require(condition: state.type().name() == "Event", message: "previous type")
-            state.replace(value: Event.Current(text: state.read<Integer>(index: 0).toString()))
-          }
-          """)
+                Void migrateEvent(MigrationState state) {
+                  require(condition: state.variant() == "Previous", message: "previous variant")
+                  require(condition: state.type().name() == "Event", message: "previous type")
+                  state.replace(value: Event.Current(text: state.read<Integer>(index: 0).toString()))
+                }
+                """)
             .replace(
                 "case Previous(Integer amount) { break amount.toString() }",
                 nullablePayload

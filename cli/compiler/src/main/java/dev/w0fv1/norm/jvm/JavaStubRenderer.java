@@ -96,20 +96,19 @@ final class JavaStubRenderer {
     for (var callable : type.callables())
       appendCallable(source, type, callable, callable.parameters().size(), true);
     type.allocationDefinitionLiteral()
-        .ifPresent(
-            definition -> {
-              source.append("  public ").append(type.name()).append("() {");
-              if (type.generatedParent()) {
-                source.append(
-                    " super(dev.w0fv1.norm.bridge.JavaApplicationBridge.SuperCall.INSTANCE);");
-              }
-              source
-                  .append(" dev.w0fv1.norm.bridge.JavaApplicationBridge.allocate(")
-                  .append(type.name())
-                  .append(".class, this, ")
-                  .append(definition)
-                  .append("); }\n");
-            });
+        .ifPresent(definition -> {
+          source.append("  public ").append(type.name()).append("() {");
+          if (type.generatedParent()) {
+            source.append(
+                " super(dev.w0fv1.norm.bridge.JavaApplicationBridge.SuperCall.INSTANCE);");
+          }
+          source
+              .append(" dev.w0fv1.norm.bridge.JavaApplicationBridge.allocate(")
+              .append(type.name())
+              .append(".class, this, ")
+              .append(definition)
+              .append("); }\n");
+        });
     return source.append("}\n").toString();
   }
 

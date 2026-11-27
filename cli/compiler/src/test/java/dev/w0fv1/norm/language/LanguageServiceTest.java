@@ -498,10 +498,9 @@ final class LanguageServiceTest {
     assertEquals("interface ${1:Name} {\n  ${2}\n}", declaration.insertText());
     assertTrue(
         service.complete(conformanceAnalysis, offset).stream()
-            .anyMatch(
-                completion ->
-                    completion.label().equals("Named")
-                        && completion.kind() == CompletionKind.INTERFACE));
+            .anyMatch(completion ->
+                completion.label().equals("Named")
+                    && completion.kind() == CompletionKind.INTERFACE));
 
     SourceFile library =
         SourceFile.of(
@@ -596,10 +595,9 @@ final class LanguageServiceTest {
             .document());
     assertTrue(
         service.references(requirementAnalysis, requirementName, false).stream()
-            .anyMatch(
-                location ->
-                    location.document().equals(implementation.id())
-                        && location.startOffset() == implementationName));
+            .anyMatch(location ->
+                location.document().equals(implementation.id())
+                    && location.startOffset() == implementationName));
     RenameEdit rename =
         service.rename(requirementAnalysis, requirementName, "displayName").orElseThrow();
     assertTrue(

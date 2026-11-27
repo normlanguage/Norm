@@ -204,42 +204,38 @@ public final class ModulePackager {
       JsonObject publicTypes = new JsonObject();
       binding.orElseThrow().generated().exportedClasses(descriptor.exports()).entrySet().stream()
           .sorted(java.util.Map.Entry.comparingByKey())
-          .forEach(
-              entry ->
-                  publicTypes.addProperty(
-                      entry.getKey(),
-                      entry.getValue().packageName() + "." + entry.getValue().name()));
+          .forEach(entry ->
+              publicTypes.addProperty(
+                  entry.getKey(), entry.getValue().packageName() + "." + entry.getValue().name()));
       jar.add("publicTypes", publicTypes);
       JsonArray api = new JsonArray();
       descriptor
           .binding()
           .orElseThrow()
           .api()
-          .forEach(
-              type -> {
-                JsonObject value = new JsonObject();
-                value.addProperty("name", type.name());
-                type.alias().ifPresent(alias -> value.addProperty("alias", alias));
-                JsonArray members = new JsonArray();
-                type.members().forEach(members::add);
-                value.add("members", members);
-                JsonArray borrowed = new JsonArray();
-                type.borrowed().forEach(borrowed::add);
-                value.add("borrowed", borrowed);
-                JsonArray overloads = new JsonArray();
-                type.overloads()
-                    .forEach(
-                        overload -> {
-                          JsonObject overloadValue = new JsonObject();
-                          overloadValue.addProperty("name", overload.name());
-                          JsonArray parameterTypes = new JsonArray();
-                          overload.parameterTypes().forEach(parameterTypes::add);
-                          overloadValue.add("parameterTypes", parameterTypes);
-                          overloads.add(overloadValue);
-                        });
-                value.add("overloads", overloads);
-                api.add(value);
-              });
+          .forEach(type -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("name", type.name());
+            type.alias().ifPresent(alias -> value.addProperty("alias", alias));
+            JsonArray members = new JsonArray();
+            type.members().forEach(members::add);
+            value.add("members", members);
+            JsonArray borrowed = new JsonArray();
+            type.borrowed().forEach(borrowed::add);
+            value.add("borrowed", borrowed);
+            JsonArray overloads = new JsonArray();
+            type.overloads()
+                .forEach(overload -> {
+                  JsonObject overloadValue = new JsonObject();
+                  overloadValue.addProperty("name", overload.name());
+                  JsonArray parameterTypes = new JsonArray();
+                  overload.parameterTypes().forEach(parameterTypes::add);
+                  overloadValue.add("parameterTypes", parameterTypes);
+                  overloads.add(overloadValue);
+                });
+            value.add("overloads", overloads);
+            api.add(value);
+          });
       jar.add("api", api);
       root.add("jar", jar);
     }
@@ -251,14 +247,13 @@ public final class ModulePackager {
       ModuleRepositoryCoordinate coordinate,
       Optional<MavenJarTarget> target) {
     StringBuilder dependencies = new StringBuilder();
-    target.ifPresent(
-        value ->
-            appendDependency(
-                dependencies,
-                value.coordinate().group(),
-                value.coordinate().artifact(),
-                value.coordinate().version(),
-                DependencyType.JAR));
+    target.ifPresent(value ->
+        appendDependency(
+            dependencies,
+            value.coordinate().group(),
+            value.coordinate().artifact(),
+            value.coordinate().version(),
+            DependencyType.JAR));
     for (ModuleRequirement dependency : descriptor.dependencies()) {
       ModuleRepositoryCoordinate dependencyCoordinate =
           ModuleRepositoryCoordinate.from(dependency.coordinate());
@@ -270,17 +265,17 @@ public final class ModulePackager {
           DependencyType.NAR);
     }
     return """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <project xmlns="http://maven.apache.org/POM/4.0.0">
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>%s</groupId>
-          <artifactId>%s</artifactId>
-          <version>%s</version>
-          <packaging>%s</packaging>
-          <dependencies>
-        %s  </dependencies>
-        </project>
-        """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0">
+      <modelVersion>4.0.0</modelVersion>
+      <groupId>%s</groupId>
+      <artifactId>%s</artifactId>
+      <version>%s</version>
+      <packaging>%s</packaging>
+      <dependencies>
+    %s  </dependencies>
+    </project>
+    """
         .formatted(
             xml(coordinate.group()),
             xml(coordinate.artifact()),
