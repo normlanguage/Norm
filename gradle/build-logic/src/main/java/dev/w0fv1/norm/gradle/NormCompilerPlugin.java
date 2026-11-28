@@ -106,6 +106,7 @@ public final class NormCompilerPlugin implements Plugin<Project> {
           List.of(
               "--add-modules=java.se",
               "--sun-misc-unsafe-memory-access=allow",
+              "--add-exports=org.codehaus.plexus.interpolation/org.codehaus.plexus.interpolation.util=org.apache.maven.v3.resolver.provider",
               "--enable-native-access=org.graalvm.truffle"));
       Files.copy(
           getProject().getRootProject().file("LICENSE").toPath(),
