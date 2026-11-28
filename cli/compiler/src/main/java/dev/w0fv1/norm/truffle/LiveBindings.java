@@ -387,9 +387,8 @@ final class LiveBindings implements AutoCloseable {
     revisions.removeIf(reference -> reference.get() == null);
     revisions.add(new WeakReference<>(candidate));
     pending.values().forEach(Set::clear);
+    candidate.generation = ++generation;
     version = candidate;
-    generation++;
-    candidate.generation = generation;
   }
 
   synchronized void beginExecution(ExecutionState state) {
@@ -703,7 +702,8 @@ final class LiveBindings implements AutoCloseable {
       Object result;
       try {
         Object[] arguments = frame.getArguments();
-        if (arguments.length > 1
+        if (bindings.version.generation > 1
+            && arguments.length > 1
             && java.util.Arrays.stream(arguments)
                 .noneMatch(ConstructionArguments.class::isInstance)) {
           var types = new ArrayList<dev.w0fv1.norm.core.CoreType>();

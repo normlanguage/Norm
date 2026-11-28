@@ -13,6 +13,32 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 @Timeout(60)
 final class LiveCallableArgumentMigrationTest {
+  @org.junit.jupiter.api.Test
+  void acceptsDeepArgumentsWithoutWalkingThemBeforeAnyUpdate() {
+    var program =
+        NormTestKit.compile(
+            """
+            class Link { Link? previous }
+            Boolean present(Link? head) { head != null }
+            Void main() {
+              Link? head = null
+              var count = 0
+              for count < 10000 {
+                head = Link(previous: head)
+                count = count + 1
+              }
+              printLine(present(head))
+            }
+            """);
+    assertTrue(program.isSuccess(), program.diagnostics().toString());
+    try (var live =
+        new TruffleExecutionBackend().prepareLive(program.output().orElseThrow().artifact())) {
+      var output = new java.io.StringWriter();
+      live.execute(ExecutionContext.of(new PrintWriter(output)));
+      assertEquals("true", output.toString().strip());
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void adaptsAnOldEnumProducedByRetainedCallableBeforeCandidateConsumption(boolean direct) {
